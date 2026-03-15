@@ -20,7 +20,7 @@ tokenize :: String -> Either String [Token]
 tokenize [] = Right [TokenEOF]
 tokenize input@(c:cs)
     | c `elem` [' ', '\r', '\t'] = tokenize cs
-    | c `elem` ['(', ')', '+', ':', '='] = do
+    | c `elem` ['(', ')', '+', '='] = do
         rest <- tokenize cs
         return $ TokenChar c : rest
     | isAlpha c = do
@@ -64,7 +64,7 @@ functionDeclaration = do
     char '('
     inputName <- symbol
     char ')'
-    char ':'
+    char '='
     exp <- expression
     return (Assignment name (Function inputName exp))
 
