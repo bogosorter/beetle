@@ -5,7 +5,7 @@ import Data.Map
 import Control.Monad.State
 import Prelude hiding (lookup)
 
-execute :: Program -> State Environment ()
+execute :: [Assignment] -> State Environment ()
 execute [] = return ()
 execute (assignment:program) = do
     environment <- get

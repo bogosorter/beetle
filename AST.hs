@@ -3,7 +3,7 @@ module AST (Program, Environment, Symbol(..), Assignment(..), Expression(..)) wh
 import Data.Map
 import Control.Monad.State
 
-type Program = [Assignment]
+type Program = ([Assignment], Expression)
 type Environment = Map Symbol Expression
 
 newtype Symbol = Symbol String deriving (Eq, Ord)

@@ -1,69 +1,79 @@
 {- HLINT ignore "Use <$>" -}
 
-module Parser where
+module Parser (parseProgram) where
 
 import AST
-import Text.Parsec hiding (spaces)
-import Text.Parsec.String (Parser)
+import Text.Parsec hiding (eof, char, newline)
 import Prelude hiding (sum)
+import Data.Char (isAlpha, isDigit)
 
--- parse :: String -> Maybe Program
+type Parser = Parsec [Token] ()
 
-spaces :: Parser ()
-spaces = skipMany (oneOf " \t")
+data Token = TokenSymbol String
+           | TokenLiteral Int
+           | TokenChar Char
+           | TokenNewline
+           | TokenEOF
+    deriving Show
 
-number :: Parser Expression
-number = do
-    string <- many1 digit
-    let n = read string
-    return (Literal n)
+tokenize :: String -> Either String [Token]
+tokenize [] = Right [TokenEOF]
+tokenize input@(c:cs)
+    | c `elem` [' ', '\r', '\t'] = tokenize cs
+    | c `elem` ['(', ')', '+', ':', '='] = do
+        rest <- tokenize cs
+        return $ TokenChar c : rest
+    | isAlpha c = do
+        rest <- tokenize (dropWhile isAlpha input)
+        return $ TokenSymbol (takeWhile isAlpha input) : rest
+    | isDigit c = do
+        rest <- tokenize (dropWhile isDigit input)
+        return $ TokenLiteral (read (takeWhile isDigit input)) : rest
+    | c == '\n' = do
+        rest <- tokenize cs
+        return $ TokenNewline : rest
+    | otherwise = Left $ "Unexpected character: " ++ [c]
 
-symbol :: Parser Symbol
-symbol = do
-    name <- many1 letter
-    return (Symbol name)
+parseProgram :: String -> Either String Program
+parseProgram input = do
+    tokens <- tokenize input
+    case parse program "" tokens of
+        Left err -> Left (show err)
+        Right p -> Right p
 
-variable :: Parser Expression
-variable = do
-    name <- symbol
-    return (Variable name)
+program :: Parser Program
+program = do
+    assignments <- many assignment
+    exp <- expression
+    newline
+    eof
+    return (assignments, exp)
 
-term :: Parser Expression
-term = number <|> variable
-
-sum :: Parser Expression
-sum = do
-    left <- term
-    spaces
-    char '+'
-    spaces
-    right <- term
-    return (Application (Application (Variable (Symbol "+")) left) right)
+assignment :: Parser Assignment
+assignment = do
+    a <- try functionDeclaration <|> try variableDeclaration
+    newline
+    return a
 
 expression :: Parser Expression
-expression = try functionApplication <|> try sum <|> try number <|> variable
-
-variableAssignment :: Parser Assignment
-variableAssignment = do
-    name <- symbol
-    spaces
-    char '='
-    spaces
-    exp <- expression
-    return (Assignment name exp)
+expression = try functionApplication <|> try sum <|> try number <|> try variableUsage
 
 functionDeclaration :: Parser Assignment
 functionDeclaration = do
     name <- symbol
     char '('
     inputName <- symbol
-    string "):"
-    spaces
+    char ')'
+    char ':'
     exp <- expression
     return (Assignment name (Function inputName exp))
 
-assignment :: Parser Assignment
-assignment = try functionDeclaration <|> variableAssignment
+variableDeclaration :: Parser Assignment
+variableDeclaration = do
+    name <- symbol
+    char '='
+    exp <- expression
+    return (Assignment name exp)
 
 functionApplication :: Parser Expression
 functionApplication = do
@@ -73,12 +83,45 @@ functionApplication = do
     char ')'
     return (Application (Variable name) exp)
 
-parseProgram :: Parser (Program, Expression)
-parseProgram = do
-    assignments <- endBy (try assignment) newline
-    exp <- expression
-    newline
-    return (assignments, exp)
+sum :: Parser Expression
+sum = do
+    left <- term
+    char '+'
+    right <- term
+    return (Application (Application (Variable (Symbol "+")) left) right)
 
-parser :: String -> Either ParseError (Program, Expression)
-parser = parse parseProgram ""
+variableUsage :: Parser Expression
+variableUsage = do
+    name <- symbol
+    return (Variable name)
+
+term :: Parser Expression
+term = number <|> variableUsage
+
+
+advance pos _ _ = incSourceColumn pos 1
+
+symbol :: Parser Symbol
+symbol = tokenPrim show advance $ \t -> case t of
+    TokenSymbol s -> Just (Symbol s)
+    _             -> Nothing
+
+number :: Parser Expression
+number = tokenPrim show advance $ \t -> case t of
+    TokenLiteral n -> Just (Literal n)
+    _              -> Nothing
+
+char :: Char -> Parser ()
+char c = tokenPrim show advance $ \t -> case t of
+    TokenChar ch | ch == c -> Just ()
+    _                      -> Nothing
+
+newline :: Parser ()
+newline = tokenPrim show advance $ \t -> case t of
+    TokenNewline -> Just ()
+    _            -> Nothing
+
+eof :: Parser ()
+eof = tokenPrim show advance $ \t -> case t of
+    TokenEOF -> Just ()
+    _        -> Nothing
