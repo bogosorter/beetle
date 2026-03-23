@@ -8,7 +8,13 @@ type Environment = Map Symbol Expression
 
 newtype Symbol = Symbol String deriving (Eq, Ord)
 data Assignment = Assignment Symbol Expression deriving Show
-data Expression = Literal Int | Variable Symbol | Function Symbol Expression | Application Expression Expression
+data Expression
+    = BooleanLiteral Bool
+    | IntegerLiteral Int
+    | Variable Symbol
+    | If Expression Expression Expression
+    | Function Symbol Expression
+    | Application Expression Expression
     deriving Show
 
 instance Show Symbol where

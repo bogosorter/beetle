@@ -10,8 +10,13 @@ import Data.Char (isAlpha, isDigit)
 type Parser = Parsec [Token] ()
 
 data Token = TokenSymbol String
-           | TokenLiteral Int
+           | TokenIntegerLiteral Int
+           | TokenBooleanLiteral Bool
            | TokenChar Char
+           | TokenIf
+           | TokenThen
+           | TokenElse
+           | TokenParser
            | TokenNewline
            | TokenEOF
     deriving Show
@@ -23,12 +28,27 @@ tokenize input@(c:cs)
     | c `elem` ['(', ')', '+', '='] = do
         rest <- tokenize cs
         return $ TokenChar c : rest
+    | take 2 input == "if" = do
+        rest <- tokenize (drop 2 input)
+        return $ TokenIf : rest
+    | take 4 input == "then" = do
+        rest <- tokenize (drop 4 input)
+        return $ TokenThen : rest
+    | take 4 input == "else" = do
+        rest <- tokenize (drop 4 input)
+        return $ TokenElse : rest
+    | take 4 input == "true" = do
+        rest <- tokenize (drop 4 input)
+        return $ TokenBooleanLiteral True : rest
+    | take 5 input == "false" = do
+        rest <- tokenize (drop 5 input)
+        return $ TokenBooleanLiteral False : rest
     | isAlpha c = do
         rest <- tokenize (dropWhile isAlpha input)
         return $ TokenSymbol (takeWhile isAlpha input) : rest
     | isDigit c = do
         rest <- tokenize (dropWhile isDigit input)
-        return $ TokenLiteral (read (takeWhile isDigit input)) : rest
+        return $ TokenIntegerLiteral (read (takeWhile isDigit input)) : rest
     | c == '\n' = do
         rest <- tokenize cs
         return $ TokenNewline : rest
@@ -56,7 +76,17 @@ assignment = do
     return a
 
 expression :: Parser Expression
-expression = try functionApplication <|> try sum <|> try number <|> try variableUsage
+expression = ifExpression <|> try functionApplication <|> try sum <|> try number <|> try boolean <|> try variableUsage
+
+ifExpression :: Parser Expression
+ifExpression = do
+    ifToken
+    condition <- expression
+    thenToken
+    a <- expression
+    elseToken
+    b <- expression
+    return (If condition a b)
 
 functionDeclaration :: Parser Assignment
 functionDeclaration = do
@@ -108,13 +138,33 @@ symbol = tokenPrim show advance $ \t -> case t of
 
 number :: Parser Expression
 number = tokenPrim show advance $ \t -> case t of
-    TokenLiteral n -> Just (Literal n)
+    TokenIntegerLiteral n -> Just (IntegerLiteral n)
     _              -> Nothing
+
+boolean :: Parser Expression
+boolean = tokenPrim show advance $ \t -> case t of
+    TokenBooleanLiteral b -> Just (BooleanLiteral b)
+    _                    -> Nothing
 
 char :: Char -> Parser ()
 char c = tokenPrim show advance $ \t -> case t of
     TokenChar ch | ch == c -> Just ()
     _                      -> Nothing
+
+ifToken :: Parser ()
+ifToken = tokenPrim show advance $ \t -> case t of
+    TokenIf -> Just ()
+    _       -> Nothing
+
+thenToken :: Parser ()
+thenToken = tokenPrim show advance $ \t -> case t of
+    TokenThen -> Just ()
+    _         -> Nothing
+
+elseToken :: Parser ()
+elseToken = tokenPrim show advance $ \t -> case t of
+    TokenElse -> Just ()
+    _         -> Nothing
 
 newline :: Parser ()
 newline = tokenPrim show advance $ \t -> case t of

@@ -21,11 +21,19 @@ assign (Assignment variable expression) = do
     put result
 
 evaluate :: Environment -> Expression -> Expression
-evaluate env (Literal n) = Literal n
+evaluate env (BooleanLiteral b) = BooleanLiteral b
+evaluate env (IntegerLiteral n) = IntegerLiteral n
+evaluate env (Variable s) = case lookup s env of
+    Just n -> n
+    Nothing -> error ("variable " ++ show s ++ "was not declared")
 -- Hardcoded "+" implementation
+evaluate env (If condition a b) = case evaluate env condition of
+    BooleanLiteral True -> evaluate env a
+    BooleanLiteral False -> evaluate env b
+    _ -> error "only boolean expressions can be used in if statements"
 evaluate env (Application (Application (Variable (Symbol "+")) a) b) = case evaluate env a of
-    (Literal x) -> case evaluate env b of
-        (Literal y) -> Literal (x + y)
+    (IntegerLiteral x) -> case evaluate env b of
+        (IntegerLiteral y) -> IntegerLiteral (x + y)
         _ -> error "could not evaluate sum right hand-side"
     _ -> error "could not evaluate sum left hand-side"
 evaluate env (Application (Variable name) expression) = case lookup name env of
@@ -38,6 +46,3 @@ evaluate env (Application (Variable name) expression) = case lookup name env of
     Nothing -> error ("variable " ++ show name ++ "was not declared")
 evaluate env (Application _ _) = error "can only perform applications on functions"
 evaluate env (Function input output) = Function input output
-evaluate env (Variable s) = case lookup s env of
-    Just n -> n
-    Nothing -> error ("variable " ++ show s ++ "was not declared")
