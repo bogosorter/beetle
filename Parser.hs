@@ -13,6 +13,7 @@ data Token = TokenSymbol String
            | TokenIntegerLiteral Int
            | TokenBooleanLiteral Bool
            | TokenChar Char
+           | TokenEquality
            | TokenIf
            | TokenThen
            | TokenElse
@@ -24,10 +25,9 @@ data Token = TokenSymbol String
 tokenize :: String -> Either String [Token]
 tokenize [] = Right [TokenEOF]
 tokenize input@(c:cs)
-    | c `elem` [' ', '\r', '\t'] = tokenize cs
-    | c `elem` ['(', ')', '+', '-', '='] = do
-        rest <- tokenize cs
-        return $ TokenChar c : rest
+    | take 2 input == "==" = do
+        rest <- tokenize (drop 2 input)
+        return $ TokenEquality : rest
     | take 2 input == "if" = do
         rest <- tokenize (drop 2 input)
         return $ TokenIf : rest
@@ -43,6 +43,10 @@ tokenize input@(c:cs)
     | take 5 input == "false" = do
         rest <- tokenize (drop 5 input)
         return $ TokenBooleanLiteral False : rest
+    | c `elem` [' ', '\r', '\t'] = tokenize cs
+    | c `elem` ['(', ')', '+', '-', '='] = do
+        rest <- tokenize cs
+        return $ TokenChar c : rest
     | isAlpha c = do
         rest <- tokenize (dropWhile isAlpha input)
         return $ TokenSymbol (takeWhile isAlpha input) : rest
@@ -76,7 +80,7 @@ assignment = do
     return a
 
 expression :: Parser Expression
-expression = ifExpression <|> try functionApplication <|> try sum <|> try subtraction <|> try number <|> try boolean <|> try variableUsage
+expression = ifExpression <|> try functionApplication <|> try sum <|> try subtraction <|> try equality <|> try number <|> try boolean <|> try variableUsage
 
 ifExpression :: Parser Expression
 ifExpression = do
@@ -127,13 +131,20 @@ subtraction = do
     right <- term
     return (Application (Application (Variable (Symbol "-")) left) right)
 
+equality :: Parser Expression
+equality = do
+    left <- term
+    equalityToken
+    right <- term
+    return (Application (Application (Variable (Symbol "==")) left) right)
+
 variableUsage :: Parser Expression
 variableUsage = do
     name <- symbol
     return (Variable name)
 
 term :: Parser Expression
-term = number <|> variableUsage
+term = number <|> variableUsage <|> boolean
 
 
 advance pos _ _ = incSourceColumn pos 1
@@ -171,6 +182,11 @@ thenToken = tokenPrim show advance $ \t -> case t of
 elseToken :: Parser ()
 elseToken = tokenPrim show advance $ \t -> case t of
     TokenElse -> Just ()
+    _         -> Nothing
+
+equalityToken :: Parser()
+equalityToken = tokenPrim show advance $ \t -> case t of
+    TokenEquality -> Just ()
     _         -> Nothing
 
 newline :: Parser ()

@@ -42,6 +42,15 @@ evaluate env (Application (Application (Variable (Symbol "-")) a) b) = case eval
         (IntegerLiteral y) -> IntegerLiteral (x - y)
         _ -> error "could not evaluate subtraction right hand-side"
     _ -> error "could not evaluate subtraction left hand-side"
+-- Hardcoded "==" implementation
+evaluate env (Application (Application (Variable (Symbol "==")) a) b) = case evaluate env a of
+    (IntegerLiteral x) -> case evaluate env b of
+        (IntegerLiteral y) -> BooleanLiteral (x == y)
+        _ -> error "could not evaluate equality right hand-side or evaluated to wrong type"
+    (BooleanLiteral x) -> case evaluate env b of
+        (BooleanLiteral y) -> BooleanLiteral (x == y)
+        _ -> error "could not evaluate equality right hand-side or evaluated to wrong type"
+    _ -> error "could not evaluate equality left hand-side"
 evaluate env (Application (Variable name) expression) = case lookup name env of
     Just definition -> case definition of
         (Function input output) ->
