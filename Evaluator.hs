@@ -26,16 +26,22 @@ evaluate env (IntegerLiteral n) = IntegerLiteral n
 evaluate env (Variable s) = case lookup s env of
     Just n -> n
     Nothing -> error ("variable " ++ show s ++ "was not declared")
--- Hardcoded "+" implementation
 evaluate env (If condition a b) = case evaluate env condition of
     BooleanLiteral True -> evaluate env a
     BooleanLiteral False -> evaluate env b
     _ -> error "only boolean expressions can be used in if statements"
+-- Hardcoded "+" implementation
 evaluate env (Application (Application (Variable (Symbol "+")) a) b) = case evaluate env a of
     (IntegerLiteral x) -> case evaluate env b of
         (IntegerLiteral y) -> IntegerLiteral (x + y)
         _ -> error "could not evaluate sum right hand-side"
     _ -> error "could not evaluate sum left hand-side"
+-- Hardcoded "+" implementation
+evaluate env (Application (Application (Variable (Symbol "-")) a) b) = case evaluate env a of
+    (IntegerLiteral x) -> case evaluate env b of
+        (IntegerLiteral y) -> IntegerLiteral (x - y)
+        _ -> error "could not evaluate subtraction right hand-side"
+    _ -> error "could not evaluate subtraction left hand-side"
 evaluate env (Application (Variable name) expression) = case lookup name env of
     Just definition -> case definition of
         (Function input output) ->

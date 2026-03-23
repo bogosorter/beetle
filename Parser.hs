@@ -25,7 +25,7 @@ tokenize :: String -> Either String [Token]
 tokenize [] = Right [TokenEOF]
 tokenize input@(c:cs)
     | c `elem` [' ', '\r', '\t'] = tokenize cs
-    | c `elem` ['(', ')', '+', '='] = do
+    | c `elem` ['(', ')', '+', '-', '='] = do
         rest <- tokenize cs
         return $ TokenChar c : rest
     | take 2 input == "if" = do
@@ -76,7 +76,7 @@ assignment = do
     return a
 
 expression :: Parser Expression
-expression = ifExpression <|> try functionApplication <|> try sum <|> try number <|> try boolean <|> try variableUsage
+expression = ifExpression <|> try functionApplication <|> try sum <|> try subtraction <|> try number <|> try boolean <|> try variableUsage
 
 ifExpression :: Parser Expression
 ifExpression = do
@@ -119,6 +119,13 @@ sum = do
     char '+'
     right <- term
     return (Application (Application (Variable (Symbol "+")) left) right)
+
+subtraction :: Parser Expression
+subtraction = do
+    left <- term
+    char '-'
+    right <- term
+    return (Application (Application (Variable (Symbol "-")) left) right)
 
 variableUsage :: Parser Expression
 variableUsage = do
