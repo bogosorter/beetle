@@ -9,8 +9,8 @@ type Environment = Map Symbol Expression
 newtype Symbol = Symbol String deriving (Eq, Ord)
 data Assignment = Assignment Symbol Expression deriving Show
 data Expression
-    = BooleanLiteral Bool
-    | IntegerLiteral Int
+    = Boolean Bool
+    | Integer Int
     | Variable Symbol
     | If Expression Expression Expression
     | Function Symbol Expression

@@ -21,34 +21,34 @@ assign (Assignment variable expression) = do
     put result
 
 evaluate :: Environment -> Expression -> Expression
-evaluate env (BooleanLiteral b) = BooleanLiteral b
-evaluate env (IntegerLiteral n) = IntegerLiteral n
+evaluate env (Boolean b) = Boolean b
+evaluate env (Integer n) = Integer n
 evaluate env (Variable s) = case lookup s env of
     Just n -> n
     Nothing -> error ("variable " ++ show s ++ "was not declared")
 evaluate env (If condition a b) = case evaluate env condition of
-    BooleanLiteral True -> evaluate env a
-    BooleanLiteral False -> evaluate env b
+    Boolean True -> evaluate env a
+    Boolean False -> evaluate env b
     _ -> error "only boolean expressions can be used in if statements"
 -- Hardcoded "+" implementation
 evaluate env (Application (Application (Variable (Symbol "+")) a) b) = case evaluate env a of
-    (IntegerLiteral x) -> case evaluate env b of
-        (IntegerLiteral y) -> IntegerLiteral (x + y)
+    (Integer x) -> case evaluate env b of
+        (Integer y) -> Integer (x + y)
         _ -> error "could not evaluate sum right hand-side"
     _ -> error "could not evaluate sum left hand-side"
 -- Hardcoded "+" implementation
 evaluate env (Application (Application (Variable (Symbol "-")) a) b) = case evaluate env a of
-    (IntegerLiteral x) -> case evaluate env b of
-        (IntegerLiteral y) -> IntegerLiteral (x - y)
+    (Integer x) -> case evaluate env b of
+        (Integer y) -> Integer (x - y)
         _ -> error "could not evaluate subtraction right hand-side"
     _ -> error "could not evaluate subtraction left hand-side"
 -- Hardcoded "==" implementation
 evaluate env (Application (Application (Variable (Symbol "==")) a) b) = case evaluate env a of
-    (IntegerLiteral x) -> case evaluate env b of
-        (IntegerLiteral y) -> BooleanLiteral (x == y)
+    (Integer x) -> case evaluate env b of
+        (Integer y) -> Boolean (x == y)
         _ -> error "could not evaluate equality right hand-side or evaluated to wrong type"
-    (BooleanLiteral x) -> case evaluate env b of
-        (BooleanLiteral y) -> BooleanLiteral (x == y)
+    (Boolean x) -> case evaluate env b of
+        (Boolean y) -> Boolean (x == y)
         _ -> error "could not evaluate equality right hand-side or evaluated to wrong type"
     _ -> error "could not evaluate equality left hand-side"
 evaluate env (Application (Variable name) expression) = case lookup name env of

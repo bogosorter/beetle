@@ -1,4 +1,6 @@
-x = 1 + 2
-s(x) = x + 1
-z = if x == 4 then x + 1 else x - 1
-z
+fib(n) =
+    if n == 0 then 1
+    else if n == 1 then 1
+    else fib(n - 1) + fib(n - 2);
+
+> fib(5);

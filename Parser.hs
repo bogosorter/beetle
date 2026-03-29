@@ -1,33 +1,70 @@
 {- HLINT ignore "Use <$>" -}
+{- HLINT ignore "Eta reduce" -}
+{- HLINT ignore "Avoid lambda" -}
 
 module Parser (parseProgram) where
 
 import AST
-import Text.Parsec hiding (eof, char, newline)
+import Text.Parsec hiding (eof, char, newline, satisfy)
 import Prelude hiding (sum)
 import Data.Char (isAlpha, isDigit)
+import Data.Time.Calendar.Easter (gregorianEaster)
+import Distribution.SPDX (simpleLicenseExpression)
+import Language.Haskell.TH (equalityT)
+import Data.Type.Equality (TestEquality)
+import Distribution.TestSuite (OptionType(optionStringMultiline))
 
 type Parser = Parsec [Token] ()
 
-data Token = TokenSymbol String
-           | TokenIntegerLiteral Int
+data Token = TokenIntegerLiteral Int
            | TokenBooleanLiteral Bool
-           | TokenChar Char
+           | TokenSymbol String
+           | TokenLeftParenthesis
+           | TokenRightParenthesis
+           | TokenComma
+           | TokenSemicolon
            | TokenEquality
+           | TokenAssign
+           | TokenGreater
+           | TokenPlus
+           | TokenMinus
            | TokenIf
            | TokenThen
            | TokenElse
-           | TokenParser
-           | TokenNewline
            | TokenEOF
-    deriving Show
+    deriving (Show, Eq)
 
 tokenize :: String -> Either String [Token]
 tokenize [] = Right [TokenEOF]
 tokenize input@(c:cs)
+    | c `elem` [' ', '\t', '\n', '\r'] = tokenize cs
+    | c == '(' = do
+        rest <- tokenize cs
+        return $ TokenLeftParenthesis : rest
+    | c == ')' = do
+        rest <- tokenize cs
+        return $ TokenRightParenthesis : rest
+    | c == ',' = do
+        rest <- tokenize cs
+        return $ TokenComma : rest
+    | c == ';' = do
+        rest <- tokenize cs
+        return $ TokenSemicolon : rest
     | take 2 input == "==" = do
         rest <- tokenize (drop 2 input)
         return $ TokenEquality : rest
+    | c == '=' = do
+        rest <- tokenize cs
+        return $ TokenAssign : rest
+    | c == '>' = do
+        rest <- tokenize cs
+        return $ TokenGreater : rest
+    | c == '+' = do
+        rest <- tokenize cs
+        return $ TokenPlus : rest
+    | c == '-' = do
+        rest <- tokenize cs
+        return $ TokenMinus : rest
     | take 2 input == "if" = do
         rest <- tokenize (drop 2 input)
         return $ TokenIf : rest
@@ -43,20 +80,15 @@ tokenize input@(c:cs)
     | take 5 input == "false" = do
         rest <- tokenize (drop 5 input)
         return $ TokenBooleanLiteral False : rest
-    | c `elem` [' ', '\r', '\t'] = tokenize cs
-    | c `elem` ['(', ')', '+', '-', '='] = do
-        rest <- tokenize cs
-        return $ TokenChar c : rest
-    | isAlpha c = do
-        rest <- tokenize (dropWhile isAlpha input)
-        return $ TokenSymbol (takeWhile isAlpha input) : rest
     | isDigit c = do
+        let number = read (takeWhile isDigit input)
         rest <- tokenize (dropWhile isDigit input)
-        return $ TokenIntegerLiteral (read (takeWhile isDigit input)) : rest
-    | c == '\n' = do
-        rest <- tokenize cs
-        return $ TokenNewline : rest
-    | otherwise = Left $ "Unexpected character: " ++ [c]
+        return $ TokenIntegerLiteral number : rest
+    | isAlpha c = do
+        let name = takeWhile isAlpha input
+        rest <- tokenize (dropWhile isAlpha input)
+        return $ TokenSymbol name : rest
+    | otherwise = Left ("Unexpected character " ++ [c] ++ "found during tokenizing")
 
 parseProgram :: String -> Either String Program
 parseProgram input = do
@@ -68,133 +100,114 @@ parseProgram input = do
 program :: Parser Program
 program = do
     assignments <- many assignment
-    exp <- expression
-    newline
-    eof
-    return (assignments, exp)
+    out <- output
+    match TokenEOF
+    return (assignments, out)
 
 assignment :: Parser Assignment
 assignment = do
-    a <- try functionDeclaration <|> try variableDeclaration
-    newline
-    return a
+    name <- symbol
+    content <- variableAssignment name <|> functionAssignment name
+    match TokenSemicolon
+    return content
+
+output :: Parser Expression
+output = do
+    match TokenGreater
+    exp <- expression
+    match TokenSemicolon
+    return exp
+
+variableAssignment :: Symbol -> Parser Assignment
+variableAssignment name = do
+    match TokenAssign
+    body <- expression
+    return $ Assignment name body
+
+functionAssignment :: Symbol -> Parser Assignment
+functionAssignment name = do
+    match TokenLeftParenthesis
+    argument <- symbol
+    match TokenRightParenthesis
+    match TokenAssign
+    body <- expression
+    return $ Assignment name (Function argument body)
 
 expression :: Parser Expression
-expression = ifExpression <|> try functionApplication <|> try sum <|> try subtraction <|> try equality <|> try number <|> try boolean <|> try variableUsage
+expression = ifExpression <|> equality
 
 ifExpression :: Parser Expression
 ifExpression = do
-    ifToken
+    match TokenIf
     condition <- expression
-    thenToken
-    a <- expression
-    elseToken
-    b <- expression
-    return (If condition a b)
-
-functionDeclaration :: Parser Assignment
-functionDeclaration = do
-    name <- symbol
-    char '('
-    inputName <- symbol
-    char ')'
-    char '='
-    exp <- expression
-    return (Assignment name (Function inputName exp))
-
-variableDeclaration :: Parser Assignment
-variableDeclaration = do
-    name <- symbol
-    char '='
-    exp <- expression
-    return (Assignment name exp)
-
-functionApplication :: Parser Expression
-functionApplication = do
-    name <- symbol
-    char '('
-    exp <- expression
-    char ')'
-    return (Application (Variable name) exp)
-
-sum :: Parser Expression
-sum = do
-    left <- term
-    char '+'
-    right <- term
-    return (Application (Application (Variable (Symbol "+")) left) right)
-
-subtraction :: Parser Expression
-subtraction = do
-    left <- term
-    char '-'
-    right <- term
-    return (Application (Application (Variable (Symbol "-")) left) right)
+    match TokenThen
+    thenAtom <- expression
+    match TokenElse
+    elseAtom <- expression
+    return (If condition thenAtom elseAtom)
 
 equality :: Parser Expression
 equality = do
-    left <- term
-    equalityToken
-    right <- term
-    return (Application (Application (Variable (Symbol "==")) left) right)
+    left <- additive
+    rightMaybe <- optionMaybe (do
+        match TokenEquality
+        additive)
+    return (case rightMaybe of
+        Just right -> Application (Application (Variable (Symbol "==")) left) right
+        Nothing -> left)
 
-variableUsage :: Parser Expression
-variableUsage = do
+additive :: Parser Expression
+additive = chainl1 atom additiveOperation
+    where additiveOperation = do
+            token <- match TokenPlus <|> match TokenMinus
+            let operator = case token of
+                    TokenPlus -> Symbol "+"
+                    TokenMinus -> Symbol "-"
+            return (\left right -> Application (Application (Variable operator) left) right)
+
+atom :: Parser Expression
+atom = atomSymbol <|> integer <|> boolean <|> parenthesizedExpression
+
+-- This is used to parse both variable usages and function calls
+atomSymbol :: Parser Expression
+atomSymbol = do
     name <- symbol
-    return (Variable name)
+    functionCall name <|> variableUsage name
 
-term :: Parser Expression
-term = number <|> variableUsage <|> boolean
+functionCall :: Symbol ->  Parser Expression
+functionCall symbol = do
+    match TokenLeftParenthesis
+    argument <- expression
+    match TokenRightParenthesis
+    return (Application (Variable symbol) argument)
 
+variableUsage :: Symbol -> Parser Expression
+variableUsage symbol = return (Variable symbol)
 
-advance pos _ _ = incSourceColumn pos 1
+parenthesizedExpression :: Parser Expression
+parenthesizedExpression = do
+    match TokenLeftParenthesis
+    content <- expression
+    match TokenRightParenthesis
+    return content
 
 symbol :: Parser Symbol
-symbol = tokenPrim show advance $ \t -> case t of
-    TokenSymbol s -> Just (Symbol s)
-    _             -> Nothing
+symbol = satisfy (\t -> case t of
+    TokenSymbol name -> Just (Symbol name)
+    _  -> Nothing)
 
-number :: Parser Expression
-number = tokenPrim show advance $ \t -> case t of
-    TokenIntegerLiteral n -> Just (IntegerLiteral n)
-    _              -> Nothing
+integer :: Parser Expression
+integer = satisfy (\t -> case t of
+    TokenIntegerLiteral value -> Just (Integer value)
+    _  -> Nothing)
 
 boolean :: Parser Expression
-boolean = tokenPrim show advance $ \t -> case t of
-    TokenBooleanLiteral b -> Just (BooleanLiteral b)
-    _                    -> Nothing
+boolean = satisfy (\t -> case t of
+    TokenBooleanLiteral value -> Just (Boolean value)
+    _  -> Nothing)
 
-char :: Char -> Parser ()
-char c = tokenPrim show advance $ \t -> case t of
-    TokenChar ch | ch == c -> Just ()
-    _                      -> Nothing
+match :: Token -> Parser Token
+match t = satisfy (\t' -> if t == t' then Just t else Nothing)
 
-ifToken :: Parser ()
-ifToken = tokenPrim show advance $ \t -> case t of
-    TokenIf -> Just ()
-    _       -> Nothing
-
-thenToken :: Parser ()
-thenToken = tokenPrim show advance $ \t -> case t of
-    TokenThen -> Just ()
-    _         -> Nothing
-
-elseToken :: Parser ()
-elseToken = tokenPrim show advance $ \t -> case t of
-    TokenElse -> Just ()
-    _         -> Nothing
-
-equalityToken :: Parser()
-equalityToken = tokenPrim show advance $ \t -> case t of
-    TokenEquality -> Just ()
-    _         -> Nothing
-
-newline :: Parser ()
-newline = tokenPrim show advance $ \t -> case t of
-    TokenNewline -> Just ()
-    _            -> Nothing
-
-eof :: Parser ()
-eof = tokenPrim show advance $ \t -> case t of
-    TokenEOF -> Just ()
-    _        -> Nothing
+satisfy :: (Token -> Maybe a) -> Parser a
+satisfy f = tokenPrim show (\pos _ _ -> pos) f
