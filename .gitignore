@@ -5,3 +5,6 @@ bsl2.md
 *.s
 *.out
 test.btl
+*.ll
+test
+Main
