@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wincomplete-patterns #-}
 
-module Types (TypedProgram, typeCheck, TypedAssignment(..), TypedExpression(..)) where
+module TypeChecker (TypedProgram, typeCheck, TypedAssignment(..), TypedExpression(..)) where
 
 import AST
 import Data.Map

@@ -3,3 +3,5 @@ bsl2.md
 *.hi
 *.o
 *.s
+*.out
+test.btl

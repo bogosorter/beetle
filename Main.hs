@@ -1,7 +1,7 @@
 import AST
 import Evaluator
 import Parser
-import Types
+import TypeChecker
 import Data.Map (empty)
 import Data.Either (rights)
 import Control.Monad.State (execState)

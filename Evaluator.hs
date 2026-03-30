@@ -1,7 +1,7 @@
 module Evaluator (execute) where
 
 import AST
-import Types
+import TypeChecker
 import Data.Map
 import Control.Monad.State
 import Prelude hiding (lookup)
