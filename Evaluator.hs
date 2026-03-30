@@ -60,11 +60,11 @@ evaluate env (TApplication (TApplication (TVariable (Symbol "==") _) a) b) = cas
     _ -> error "could not evaluate equality left hand-side"
 evaluate env (TApplication (TVariable name _) expression) = case lookup name env of
     Just definition -> case definition of
-        (TFunction input _ body) ->
+        (TFunction input _ body _) ->
             let inputValue = evaluate env expression
                 newEnv = insert input inputValue env
             in evaluate newEnv body
         _ -> error ("variable " ++ show name ++ "is not a function")
     Nothing -> error ("variable " ++ show name ++ "was not declared")
 evaluate env (TApplication _ _) = error "can only perform applications on functions"
-evaluate env (TFunction input output t) = TFunction input output t
+evaluate env (TFunction input inputType body returnType) = TFunction input inputType body returnType

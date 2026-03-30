@@ -16,7 +16,7 @@ data TypedExpression
     | TInteger Int
     | TVariable Symbol Type
     | TIf TypedExpression TypedExpression TypedExpression
-    | TFunction Symbol Type TypedExpression
+    | TFunction Symbol Type TypedExpression Type
     | TApplication TypedExpression TypedExpression
     deriving Show
 
@@ -41,6 +41,11 @@ typeCheckAssignments environment (x:xs) = do
     return (result : remaining, finalEnvironment)
 
 typeCheckAssignment :: TypedEnvironment -> Assignment -> Either String TypedAssignment
+-- When assigning a function, the function itself should be added to the environment to allow recursive calls
+typeCheckAssignment environment (Assignment symbol function@(Function _ argumentType _ returnType)) = do
+    let newEnvironment = insert symbol (FunctionType argumentType returnType) environment
+    result <- typeCheckExpression newEnvironment function
+    return (TypedAssignment symbol result)
 typeCheckAssignment environment (Assignment symbol expression) = do
     result <- typeCheckExpression environment expression
     return (TypedAssignment symbol result)
@@ -69,11 +74,15 @@ typeCheckExpression environment (If condition thenExpression elseExpression) = d
 
     return (TIf typedCondition typedThen typedElse)
 
-typeCheckExpression environment (Function argumentName argumentType body) = do
+typeCheckExpression environment (Function argumentName argumentType body returnType) = do
     let newEnvironment = insert argumentName argumentType environment
     typedBody <- typeCheckExpression newEnvironment body
+    let bodyType = typeOf typedBody
 
-    return (TFunction argumentName argumentType typedBody)
+    unless (bodyType == returnType) $
+        Left $ "return type of function is " ++ show returnType ++ ", but type " ++ show bodyType ++ " was provided"
+
+    return (TFunction argumentName argumentType typedBody returnType)
 
 typeCheckExpression environment (Application function argument) = do
     typedFunction <- typeCheckExpression environment function
@@ -94,7 +103,7 @@ typeOf (TBoolean _) = BooleanType
 typeOf (TInteger _) = IntegerType
 typeOf (TVariable _ t) = t
 typeOf (TIf _ thenBranch _) = typeOf thenBranch
-typeOf (TFunction _ argumentType body) = FunctionType argumentType (typeOf body)
+typeOf (TFunction _ argumentType _ returnType) = FunctionType argumentType returnType
 typeOf (TApplication expression _) = case typeOf expression of
     FunctionType _ returnType -> returnType
     _ -> error ("typeOf called on application to a non-function: " ++ show (typeOf expression))

@@ -142,9 +142,11 @@ functionAssignment name = do
     match TokenColon
     argumentType <- parseType
     match TokenRightParenthesis
+    match TokenColon
+    returnType <- parseType
     match TokenArrow
     body <- expression
-    return $ Assignment name (Function argument argumentType body)
+    return $ Assignment name (Function argument argumentType body returnType)
 
 expression :: Parser Expression
 expression = ifExpression <|> equality

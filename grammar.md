@@ -1,7 +1,7 @@
 ```
 program = (assignment)* output
 
-assignment = symbol '(' symbol ':' type ')' '->' expression ';'
+assignment = symbol '(' symbol ':' type ')' ':' type '->' expression ';'
            | symbol '=' expression ';'
 output = '>' expression ';'
 

@@ -13,7 +13,7 @@ data Expression
     | Integer Int
     | Variable Symbol
     | If Expression Expression Expression
-    | Function Symbol Type Expression
+    | Function Symbol Type Expression Type
     | Application Expression Expression
     deriving Show
 
