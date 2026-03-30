@@ -8,11 +8,6 @@ import AST
 import Text.Parsec hiding (eof, char, newline, satisfy)
 import Prelude hiding (sum)
 import Data.Char (isAlpha, isDigit)
-import Data.Time.Calendar.Easter (gregorianEaster)
-import Distribution.SPDX (simpleLicenseExpression)
-import Language.Haskell.TH (equalityT)
-import Data.Type.Equality (TestEquality)
-import Distribution.TestSuite (OptionType(optionStringMultiline))
 
 type Parser = Parsec [Token] ()
 
@@ -23,14 +18,18 @@ data Token = TokenIntegerLiteral Int
            | TokenRightParenthesis
            | TokenComma
            | TokenSemicolon
+           | TokenColon
            | TokenEquality
            | TokenAssign
+           | TokenArrow
            | TokenGreater
            | TokenPlus
            | TokenMinus
            | TokenIf
            | TokenThen
            | TokenElse
+           | TokenTypeBoolean
+           | TokenTypeInteger
            | TokenEOF
     deriving (Show, Eq)
 
@@ -50,12 +49,18 @@ tokenize input@(c:cs)
     | c == ';' = do
         rest <- tokenize cs
         return $ TokenSemicolon : rest
+    | c == ':' = do
+        rest <- tokenize cs
+        return $ TokenColon : rest
     | take 2 input == "==" = do
         rest <- tokenize (drop 2 input)
         return $ TokenEquality : rest
     | c == '=' = do
         rest <- tokenize cs
         return $ TokenAssign : rest
+    | take 2 input == "->" = do
+        rest <- tokenize (drop 2 input)
+        return $ TokenArrow : rest
     | c == '>' = do
         rest <- tokenize cs
         return $ TokenGreater : rest
@@ -80,6 +85,12 @@ tokenize input@(c:cs)
     | take 5 input == "false" = do
         rest <- tokenize (drop 5 input)
         return $ TokenBooleanLiteral False : rest
+    | take 7 input == "boolean" = do
+        rest <- tokenize (drop 7 input)
+        return $ TokenTypeBoolean : rest
+    | take 7 input == "integer" = do
+        rest <- tokenize (drop 7 input)
+        return $ TokenTypeInteger : rest
     | isDigit c = do
         let number = read (takeWhile isDigit input)
         rest <- tokenize (dropWhile isDigit input)
@@ -128,10 +139,12 @@ functionAssignment :: Symbol -> Parser Assignment
 functionAssignment name = do
     match TokenLeftParenthesis
     argument <- symbol
+    match TokenColon
+    argumentType <- parseType
     match TokenRightParenthesis
-    match TokenAssign
+    match TokenArrow
     body <- expression
-    return $ Assignment name (Function argument body)
+    return $ Assignment name (Function argument argumentType body)
 
 expression :: Parser Expression
 expression = ifExpression <|> equality
@@ -190,6 +203,27 @@ parenthesizedExpression = do
     content <- expression
     match TokenRightParenthesis
     return content
+
+parseType :: Parser Type
+parseType = booleanType <|> integerType <|> functionType
+
+booleanType :: Parser Type
+booleanType = do
+    match TokenTypeBoolean
+    return BooleanType
+
+integerType :: Parser Type
+integerType = do
+    match TokenTypeInteger
+    return IntegerType
+
+functionType :: Parser Type
+functionType = do
+    match TokenLeftParenthesis
+    argumentType <- parseType
+    match TokenRightParenthesis
+    returnType <- parseType
+    return (FunctionType argumentType returnType)
 
 symbol :: Parser Symbol
 symbol = satisfy (\t -> case t of

@@ -1,7 +1,7 @@
 ```
 program = (assignment)* output
 
-assignment = symbol '(' symbol ')' = expression ';'
+assignment = symbol '(' symbol ':' type ')' '->' expression ';'
            | symbol '=' expression ';'
 output = '>' expression ';'
 
@@ -14,6 +14,8 @@ atom = symbol '(' expression ')'
      | integer
      | boolean
      | '(' expression ')'
+
+type = 'integer' | 'boolean' | '(' type ')' '->' type;
 ```
 
 ```

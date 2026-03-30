@@ -1,10 +1,10 @@
-module AST (Program, Environment, Symbol(..), Assignment(..), Expression(..)) where
+module AST (Program, Symbol(..), Assignment(..), Expression(..), Type(..)) where
 
 import Data.Map
 import Control.Monad.State
 
+data Type = BooleanType | IntegerType | FunctionType Type Type deriving (Show, Eq)
 type Program = ([Assignment], Expression)
-type Environment = Map Symbol Expression
 
 newtype Symbol = Symbol String deriving (Eq, Ord)
 data Assignment = Assignment Symbol Expression deriving Show
@@ -13,7 +13,7 @@ data Expression
     | Integer Int
     | Variable Symbol
     | If Expression Expression Expression
-    | Function Symbol Expression
+    | Function Symbol Type Expression
     | Application Expression Expression
     deriving Show
 
