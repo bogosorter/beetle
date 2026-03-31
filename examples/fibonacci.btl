@@ -3,4 +3,4 @@ fibonacci(n: integer): integer ->
     else if n == 1 then 1
     else fibonacci(n - 1) + fibonacci(n - 2);
 
-> fibonacci(5);
+> fibonacci(6);
