@@ -1,150 +1,109 @@
-module LLVM (export) where
+{-# OPTIONS_GHC -Wincomplete-patterns #-}
 
-import AST
-import TypeChecker
-import Control.Monad.State
-import Data.List
+{-
+This module provides a representation and export utilities for LLVM functions.
+It is by no means representative of the whole LLVM IR, only of the subset used
+here. It also doesn't ensure that all representable programs are correct.
 
-export :: TypedProgram -> String
-export program@(assignments, expression) = inBoilerplate declarations main lastRegister
-    where declarations = map exportAssignmentDeclaration assignments
-          (main, lastRegister) = exportMain program
+TODO: Check for boolean format string output
+-}
 
-exportAssignmentDeclaration :: TypedAssignment -> String
-exportAssignmentDeclaration (TypedAssignment symbol (TFunction argumentName argumentType body returnType)) = content
-    where (Symbol nameString) = symbol
-          (Symbol argumentString) = argumentName
-          argumentTypeString = convertType argumentType
-          returnTypeString = convertType returnType
-          (innerExpression, _, n) = evalState (exportExpression body "" (Just argumentString)) 1
-          content = intercalate "\n" (
-                [ "define " ++ returnTypeString ++ " @" ++ nameString ++ "(" ++ argumentTypeString ++ " %" ++ argumentString ++ ") {"
-                ] ++ [innerExpression] ++
-                [ "    ret " ++ returnTypeString ++ " %" ++ show n
-                , "}"
-                ]
-            )
-exportAssignmentDeclaration (TypedAssignment (Symbol name) expression) = content
-    where content = "@" ++ name ++ " = global " ++ convertType variableType ++ " 0"
-          variableType = typeOf expression
+module LLVM where
 
-exportMain :: TypedProgram -> (String, Int)
-exportMain program = (main, lastRegister)
-    where (main, lastRegister) = evalState (exportMainMonad program) 1
+import qualified AST
 
-exportMainMonad :: TypedProgram -> State Int (String, Int)
-exportMainMonad ([], expression) = do
-    (main, _, lastRegister) <- exportExpression expression "" Nothing
-    return (main, lastRegister)
-exportMainMonad (assignment:assignments, expression) = do
-    content <- assignmentExpression assignment
-    (subContent, lastRegister) <- exportMainMonad (assignments, expression)
-    return (content ++ "\n" ++ subContent, lastRegister)
+newtype Program = Program [TopLevelStatement]
+instance Show Program where
+    show (Program lines) = unlines (map show lines)
 
-assignmentExpression :: TypedAssignment -> State Int String
--- Functions have no need of putting code in main
-assignmentExpression (TypedAssignment symbol (TFunction {})) = return ""
-assignmentExpression (TypedAssignment (Symbol name) expression) = do
-    (expressionContent, _, lastRegister) <- exportExpression expression "" Nothing
-    return (expressionContent ++ "\n" ++ "    store " ++ convertType (typeOf expression) ++ " %" ++ show lastRegister ++ ", ptr @" ++ name)
+data TopLevelStatement
+    = TargetTriple
+    | FormatString
+    | PrintfDeclaration
+    | GlobalVariableDeclaration Type GlobalVar
+    | Function Type GlobalVar (Maybe (Type, LocalVar)) [Statement] -- return type, name, argument type, name
+instance Show TopLevelStatement where
+    show TargetTriple = "target triple = \"x86_64-pc-linux-gnu\""
+    show FormatString = "@fmt = private constant [4 x i8] c\"%d\\0A\\00\""
+    show PrintfDeclaration = "declare i32 @printf(i8*, ...)"
+    show (GlobalVariableDeclaration variableType variable) = show variable ++ " = global " ++ show variableType ++ " 0"
+    show (Function returnType function argument body) =
+        "define " ++ show returnType ++ " " ++ show function ++ "(" ++ buildArguments argument ++ ") {\n"
+            ++ unlines (map show body) ++
+        "}"
+        where buildArguments Nothing = ""
+              buildArguments (Just (argumentType, argument)) = show argumentType ++ " " ++ show argument
 
-exportExpression :: TypedExpression -> String -> Maybe String -> State Int (String, String, Int)
-exportExpression (TInteger value) context _ = do
-    n <- get
-    let content = "    %" ++ show n ++ " = add i32 0, " ++ show value
-    put (n + 1)
-    return (content, context, n)
--- Hardcoded "+" implementation
-exportExpression (TIf condition thenBranch elseBranch) context argument = do
-    (conditionContent, _, conditionRegister) <- exportExpression condition context argument
-    (thenContent, thenContext, thenRegister) <- exportExpression thenBranch context argument
-    (elseContent, elseContext, elseRegister) <- exportExpression elseBranch context argument
+data Statement
+    = LocalAssign Type Register Operation Operand Operand
+    | Load Type Register GlobalVar
+    | Store Type Register GlobalVar
+    | Branch LocalVar Label Label
+    | Jump Label
+    | Phi Register Type Operand Label Operand Label
+    | LabelStatement Label
+    | Call Type Register GlobalVar Type LocalVar -- register to store and its type, function, argument type and name
+    | FormatStringPointer
+    | PrintfCall Type LocalVar
+    | Return Type Operand
+instance Show Statement where
+    show (LocalAssign variableType register operation left right) =
+        "    " ++ show register ++ " = " ++ show operation ++ " " ++ show variableType ++ " " ++ show left ++ ", " ++ show right
+    show (Load loadType local global) =
+        "    " ++ show local ++ " = load " ++ show loadType ++ ", ptr " ++ show global
+    show (Store storeType local global) =
+        "    store " ++ show storeType ++ " " ++ show local ++ ", ptr " ++ show global
+    show (Branch variable left right) =
+        "    br i1 " ++ show variable ++ ", label %" ++ show left ++ ", label %" ++ show right
+    show (Jump label) =
+        "    br label %" ++ show label
+    show (Phi register resultType left leftLabel right rightLabel) =
+        "    " ++ show register ++ "= phi " ++ show resultType ++ " [" ++ show left ++ ", %" ++ show leftLabel ++ "], [" ++ show right ++ ", %" ++ show rightLabel ++ "]"
+    show (LabelStatement label) =
+        show label ++ ":"
+    show (Call returnType register function argumentType argument) =
+        "    " ++ show register ++ " = call " ++ show returnType ++ " " ++ show function ++ "(" ++ show argumentType ++ " " ++ show argument ++ ")"
+    show FormatStringPointer =
+        "    %fmt = getelementptr [4 x i8], [4 x i8]* @fmt, i64 0, i64 0"
+    show (PrintfCall variableType variable) =
+        "    call i32 (i8*, ...) @printf(i8* %fmt, " ++ show variableType ++ " " ++ show variable ++ ")"
+    show (Return returnType operand) =
+        "    ret " ++ show returnType ++ " " ++ show operand
 
+data Type = Boolean | Integer
+instance Show Type where
+    show Boolean = "i1"
+    show Integer = "i32"
 
-    n <- get
+data Operation = Add | Sub | Eq
+instance Show Operation where
+    show Add = "add"
+    show Sub = "sub"
+    show Eq = "icmp eq"
 
-    let thenContextFinal = if thenContext == "" then "true" ++ show n else thenContext
-    let elseContextFinal = if elseContext == "" then "false" ++ show n else elseContext
+data Operand = Literal Int | LocalOperand LocalVar
+instance Show Operand where
+    show (Literal value) = show value
+    show (LocalOperand variable) = show variable
 
-    let content = intercalate "\n"
-            [ conditionContent
-            , "    br i1 %" ++ show conditionRegister ++ ", label %true" ++ show n ++ ", label %false" ++ show n
-            , "true" ++ show n ++ ":"
-            , thenContent
-            , "    br label %merge" ++ show n
-            , "false" ++ show n ++ ":"
-            , elseContent
-            , "    br label %merge" ++ show n
-            , "merge" ++ show n ++ ":"
-            , "    %" ++ show n ++ " = phi i32 [%" ++ show thenRegister ++ ", %" ++ thenContextFinal ++ "], [%" ++ show elseRegister ++ ", %" ++ elseContextFinal ++ "]"
-            ]
-    put (n + 1)
+newtype GlobalVar = GlobalVar String
+instance Show GlobalVar where
+    show (GlobalVar name) = "@" ++ name
 
-    return (content, "merge" ++ show n, n)
-exportExpression (TApplication (TApplication (TVariable (Symbol "+") _) left) right) context argument = do
-    (aContent, _, aRegister) <- exportExpression left context argument
-    (bContent, _, bRegister) <- exportExpression right context argument
+data LocalVar = ArgumentVar String | RegisterVar Register
+instance Show LocalVar where
+    show (ArgumentVar name) = "%" ++ name
+    show (RegisterVar register) = show register
 
-    n <- get
-    let content = "    %" ++ show n ++ " = add i32 %" ++ show aRegister ++ ", %" ++ show bRegister
-    put (n + 1)
-    return (intercalate "\n" [aContent, bContent, content], context, n)
--- Hardcoded "-" implementation
-exportExpression (TApplication (TApplication (TVariable (Symbol "-") _) left) right) context argument = do
-    (aContent, _, aRegister) <- exportExpression left context argument
-    (bContent, _, bRegister) <- exportExpression right context argument
+newtype Register = Register Int
+instance Show Register where
+    show (Register number) = "%" ++ show number
 
-    n <- get
-    let content = "    %" ++ show n ++ " = sub i32 %" ++ show aRegister ++ ", %" ++ show bRegister
-    put (n + 1)
-    return (intercalate "\n" [aContent, bContent, content], context, n)
--- Hardcoded "==" implementation
-exportExpression (TApplication (TApplication (TVariable (Symbol "==") _) left) right) context argument = do
-    (aContent, _, aRegister) <- exportExpression left context argument
-    (bContent, _, bRegister) <- exportExpression right context argument
+newtype Label = Label String
+instance Show Label where
+    show (Label label) = label
 
-    n <- get
-    let content = "    %" ++ show n ++ " = icmp eq i32 %" ++ show aRegister ++ ", %" ++ show bRegister
-    put (n + 1)
-    return (intercalate "\n" [aContent, bContent, content], context, n)
-exportExpression (TVariable (Symbol name) _) context argument = do
-    n <- get
-    let varContent = "    %" ++ show n ++ " = load i32, ptr @" ++ name
-    let argContent = "    %" ++ show n ++ " = add i32 0, %" ++ name
-    let actualContent = case argument of
-            Nothing -> varContent
-            Just argName -> if name == argName then argContent else varContent
-    put (n + 1)
-    return (actualContent, context, n)
-exportExpression (TApplication (TVariable (Symbol function) _) expression) context argument = do
-    (expressionContent, _, expressionN) <- exportExpression expression context argument
-    n <- get
-    let content = intercalate "\n"
-            [ expressionContent
-            , "    %" ++ show n ++ " = call i32 @" ++ function ++ "(i32 %" ++ show expressionN ++ ")"
-            ]
-    put (n + 1)
-    return (content, context, n)
-exportExpression expression context argument = do
-    error (show expression)
-
-inBoilerplate :: [String] -> String -> Int -> String
-inBoilerplate declarations content n = unlines (
-        [ "target triple = \"x86_64-pc-linux-gnu\""
-        , "@fmt = private constant [4 x i8] c\"%d\\0A\\00\""
-        , "declare i32 @printf(i8*, ...)"
-        , ""
-        ] ++ intersperse "\n" declarations ++
-        [ ""
-        , "define i32 @main() {"
-        , content
-        , "    %fmt = getelementptr [4 x i8], [4 x i8]* @fmt, i64 0, i64 0"
-        , "    call i32 (i8*, ...) @printf(i8* %fmt, i32 %" ++ show n ++ ")"
-        , "    ret i32 0"
-        , "}"
-        ]
-    )
-
-convertType :: Type -> String
-convertType BooleanType = "i1"
-convertType IntegerType = "i32"
+convertType :: AST.Type -> Type
+convertType AST.BooleanType = Boolean
+convertType AST.IntegerType = Integer
+convertType (AST.FunctionType _ _) = error "llvm doesn't support function types"
