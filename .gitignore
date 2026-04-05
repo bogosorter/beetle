@@ -1,10 +1,3 @@
-bsl.md
-bsl2.md
-*.hi
-*.o
-*.s
-*.out
-test.btl
-*.ll
-test
 beetle
+test.btl
+test
