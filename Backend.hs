@@ -7,8 +7,6 @@ import AST
 import LLVM
 import TypeChecker
 import Control.Monad.State
-import Distribution.PackageDescription (GenericPackageDescription)
-import Text.XHtml (content)
 
 compile :: TypedProgram -> LLVM.Program
 compile (assignments, expression) = compiledProgram
@@ -25,6 +23,10 @@ compile (assignments, expression) = compiledProgram
                 ]
             )
 
+-- These are top-level declarations of functions and global variables. Global
+-- variable calculations cannot be done in the global scope, though, which means
+-- that they can only be declared here, and initialization occurs inside the
+-- main function (see compileMain).
 compileDeclaration :: TypedAssignment -> TopLevelStatement
 compileDeclaration (TypedAssignment (Symbol name) (TFunction (Symbol argument) argumentType body returnType)) = declaration
     where (expressionStatements, compilationState) = runState (compileExpression body) (initialFunctionState argument)
@@ -178,9 +180,7 @@ initialFunctionState :: String -> CompilationState
 initialFunctionState argument = CompilationState (Label "entry") (Register 0) (Just argument)
 
 currentRegister :: State CompilationState Register
-currentRegister = do
-    state <- get
-    return (register state)
+currentRegister = gets register
 
 incrementRegister :: State CompilationState ()
 incrementRegister = do
@@ -193,9 +193,7 @@ reserveRegister = do
     currentRegister
 
 currentContext :: State CompilationState Label
-currentContext = do
-    state <- get
-    return (context state)
+currentContext = gets context
 
 setContext :: Label -> State CompilationState ()
 setContext newContext = modify (\s -> s { context = newContext })

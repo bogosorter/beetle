@@ -22,17 +22,6 @@ data TopLevelStatement
     | PrintfDeclaration
     | GlobalVariableDeclaration Type GlobalVar
     | Function Type GlobalVar (Maybe (Type, LocalVar)) [Statement] -- return type, name, argument type, name
-instance Show TopLevelStatement where
-    show TargetTriple = "target triple = \"x86_64-pc-linux-gnu\""
-    show FormatString = "@fmt = private constant [4 x i8] c\"%d\\0A\\00\""
-    show PrintfDeclaration = "declare i32 @printf(i8*, ...)"
-    show (GlobalVariableDeclaration variableType variable) = show variable ++ " = global " ++ show variableType ++ " 0"
-    show (Function returnType function argument body) =
-        "define " ++ show returnType ++ " " ++ show function ++ "(" ++ buildArguments argument ++ ") {\n"
-            ++ unlines (map show body) ++
-        "}"
-        where buildArguments Nothing = ""
-              buildArguments (Just (argumentType, argument)) = show argumentType ++ " " ++ show argument
 
 data Statement
     = LocalAssign Type Register Operation Operand Operand
@@ -46,6 +35,33 @@ data Statement
     | FormatStringPointer
     | PrintfCall Type LocalVar
     | Return Type Operand
+
+data Type = Boolean | Integer
+data Operation = Add | Sub | Eq
+data Operand = Literal Int | LocalOperand LocalVar
+newtype GlobalVar = GlobalVar String
+data LocalVar = ArgumentVar String | RegisterVar Register
+newtype Register = Register Int
+newtype Label = Label String
+
+
+convertType :: AST.Type -> Type
+convertType AST.BooleanType = Boolean
+convertType AST.IntegerType = Integer
+convertType (AST.FunctionType _ _) = error "llvm doesn't support function types"
+
+instance Show TopLevelStatement where
+    show TargetTriple = "target triple = \"x86_64-pc-linux-gnu\""
+    show FormatString = "@fmt = private constant [4 x i8] c\"%d\\0A\\00\""
+    show PrintfDeclaration = "declare i32 @printf(i8*, ...)"
+    show (GlobalVariableDeclaration variableType variable) = show variable ++ " = global " ++ show variableType ++ " 0"
+    show (Function returnType function argument body) =
+        "define " ++ show returnType ++ " " ++ show function ++ "(" ++ buildArguments argument ++ ") {\n"
+            ++ unlines (map show body) ++
+        "}"
+        where buildArguments Nothing = ""
+              buildArguments (Just (argumentType, argument)) = show argumentType ++ " " ++ show argument
+
 instance Show Statement where
     show (LocalAssign variableType register operation left right) =
         "    " ++ show register ++ " = " ++ show operation ++ " " ++ show variableType ++ " " ++ show left ++ ", " ++ show right
@@ -58,7 +74,7 @@ instance Show Statement where
     show (Jump label) =
         "    br label %" ++ show label
     show (Phi register resultType left leftLabel right rightLabel) =
-        "    " ++ show register ++ "= phi " ++ show resultType ++ " [" ++ show left ++ ", %" ++ show leftLabel ++ "], [" ++ show right ++ ", %" ++ show rightLabel ++ "]"
+        "    " ++ show register ++ " = phi " ++ show resultType ++ " [" ++ show left ++ ", %" ++ show leftLabel ++ "], [" ++ show right ++ ", %" ++ show rightLabel ++ "]"
     show (LabelStatement label) =
         show label ++ ":"
     show (Call returnType register function argumentType argument) =
@@ -70,40 +86,28 @@ instance Show Statement where
     show (Return returnType operand) =
         "    ret " ++ show returnType ++ " " ++ show operand
 
-data Type = Boolean | Integer
 instance Show Type where
     show Boolean = "i1"
     show Integer = "i32"
 
-data Operation = Add | Sub | Eq
 instance Show Operation where
     show Add = "add"
     show Sub = "sub"
     show Eq = "icmp eq"
 
-data Operand = Literal Int | LocalOperand LocalVar
 instance Show Operand where
     show (Literal value) = show value
     show (LocalOperand variable) = show variable
 
-newtype GlobalVar = GlobalVar String
 instance Show GlobalVar where
     show (GlobalVar name) = "@" ++ name
 
-data LocalVar = ArgumentVar String | RegisterVar Register
 instance Show LocalVar where
     show (ArgumentVar name) = "%" ++ name
     show (RegisterVar register) = show register
 
-newtype Register = Register Int
 instance Show Register where
     show (Register number) = "%" ++ show number
 
-newtype Label = Label String
 instance Show Label where
     show (Label label) = label
-
-convertType :: AST.Type -> Type
-convertType AST.BooleanType = Boolean
-convertType AST.IntegerType = Integer
-convertType (AST.FunctionType _ _) = error "llvm doesn't support function types"
