@@ -115,4 +115,8 @@ defaultEnvironment = fromList
     -- Note that equality should also operate on other types, but until generic
     -- types are implemented this is not possible
     , (Symbol "==", FunctionType IntegerType (FunctionType IntegerType BooleanType))
+    , (Symbol "<", FunctionType IntegerType (FunctionType IntegerType BooleanType))
+    , (Symbol ">", FunctionType IntegerType (FunctionType IntegerType BooleanType))
+    , (Symbol "<=", FunctionType IntegerType (FunctionType IntegerType BooleanType))
+    , (Symbol ">=", FunctionType IntegerType (FunctionType IntegerType BooleanType))
     ]

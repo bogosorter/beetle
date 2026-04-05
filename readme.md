@@ -44,9 +44,9 @@ assignment = symbol '(' symbol ':' type ')' ':' type '->' expression ';'
 output = '>' expression ';'
 
 expression = 'if' expression 'then' expression 'else' expression
-           | equality
-equality = additive ('==' additive)?
-additive = atom (('+' | '-') atom)*
+           | logic
+logic = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
+arithmetic = atom (('+' | '-') atom)*
 atom = symbol '(' expression ')'
      | symbol
      | integer

@@ -22,7 +22,10 @@ data Token = TokenIntegerLiteral Int
            | TokenEquality
            | TokenAssign
            | TokenArrow
-           | TokenGreater
+           | TokenGreaterThan
+           | TokenLessThan
+           | TokenGreaterThanEqual
+           | TokenLessThanEqual
            | TokenPlus
            | TokenMinus
            | TokenIf
@@ -61,9 +64,18 @@ tokenize input@(c:cs)
     | take 2 input == "->" = do
         rest <- tokenize (drop 2 input)
         return $ TokenArrow : rest
+    | take 2 input == ">=" = do
+        rest <- tokenize (drop 2 input)
+        return $ TokenGreaterThanEqual : rest
+    | take 2 input == "<=" = do
+        rest <- tokenize (drop 2 input)
+        return $ TokenLessThanEqual : rest
     | c == '>' = do
         rest <- tokenize cs
-        return $ TokenGreater : rest
+        return $ TokenGreaterThan : rest
+    | c == '<' = do
+        rest <- tokenize cs
+        return $ TokenLessThan : rest
     | c == '+' = do
         rest <- tokenize cs
         return $ TokenPlus : rest
@@ -124,7 +136,7 @@ assignment = do
 
 output :: Parser Expression
 output = do
-    match TokenGreater
+    match TokenGreaterThan
     exp <- expression
     match TokenSemicolon
     return exp
@@ -149,7 +161,7 @@ functionAssignment name = do
     return $ Assignment name (Function argument argumentType body returnType)
 
 expression :: Parser Expression
-expression = ifExpression <|> equality
+expression = ifExpression <|> logic
 
 ifExpression :: Parser Expression
 ifExpression = do
@@ -161,19 +173,21 @@ ifExpression = do
     elseAtom <- expression
     return (If condition thenAtom elseAtom)
 
-equality :: Parser Expression
-equality = do
-    left <- additive
-    rightMaybe <- optionMaybe (do
-        match TokenEquality
-        additive)
-    return (case rightMaybe of
-        Just right -> Application (Application (Variable (Symbol "==")) left) right
-        Nothing -> left)
+logic :: Parser Expression
+logic = chainl1 atom logicOperation
+    where logicOperation = do
+            token <- match TokenEquality <|> match TokenLessThan <|> match TokenGreaterThan <|> match TokenLessThanEqual <|> match TokenGreaterThanEqual
+            let operator = case token of
+                    TokenEquality -> Symbol "=="
+                    TokenLessThan -> Symbol "<"
+                    TokenGreaterThan -> Symbol ">"
+                    TokenLessThanEqual -> Symbol ">="
+                    TokenGreaterThanEqual -> Symbol "<="
+            return (\left right -> Application (Application (Variable operator) left) right)
 
-additive :: Parser Expression
-additive = chainl1 atom additiveOperation
-    where additiveOperation = do
+arithmetic :: Parser Expression
+arithmetic = chainl1 atom arithmeticOperation
+    where arithmeticOperation = do
             token <- match TokenPlus <|> match TokenMinus
             let operator = case token of
                     TokenPlus -> Symbol "+"

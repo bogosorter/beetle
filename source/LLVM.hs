@@ -37,7 +37,7 @@ data Statement
     | Return Type Operand
 
 data Type = Boolean | Integer
-data Operation = Add | Sub | Eq
+data Operation = Add | Sub | Eq | Slt | Sgt | Sle | Sge
 data Operand = Literal Int | LocalOperand LocalVar
 newtype GlobalVar = GlobalVar String
 data LocalVar = ArgumentVar String | RegisterVar Register
@@ -94,6 +94,10 @@ instance Show Operation where
     show Add = "add"
     show Sub = "sub"
     show Eq = "icmp eq"
+    show Slt = "icmp slt"
+    show Sgt = "icmp sgt"
+    show Sle = "icmp sle"
+    show Sge = "icmp sge"
 
 instance Show Operand where
     show (Literal value) = show value

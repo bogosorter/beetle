@@ -1,5 +1,4 @@
 import AST
-import Evaluator
 import Parser
 import TypeChecker
 import Backend

@@ -141,6 +141,14 @@ compileExpression (TApplication (TApplication (TVariable (Symbol "-") _) left) r
     compileBinaryOperation Sub left right
 compileExpression (TApplication (TApplication (TVariable (Symbol "==") _) left) right) =
     compileBinaryOperation Eq left right
+compileExpression (TApplication (TApplication (TVariable (Symbol "<") _) left) right) =
+    compileBinaryOperation Slt left right
+compileExpression (TApplication (TApplication (TVariable (Symbol ">") _) left) right) =
+    compileBinaryOperation Sgt left right
+compileExpression (TApplication (TApplication (TVariable (Symbol "<=") _) left) right) =
+    compileBinaryOperation Sle left right
+compileExpression (TApplication (TApplication (TVariable (Symbol ">=") _) left) right) =
+    compileBinaryOperation Sge left right
 
 compileExpression (TApplication (TVariable (Symbol function) (FunctionType _ returnType)) expression) = do
     expressionStatements <- compileExpression expression
