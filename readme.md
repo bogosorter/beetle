@@ -10,16 +10,18 @@ The language that embraces bugs.
 
 *beetle* is a simple functional programming language with TypeScript-inspired syntax. I make no pretense of being a knowledgeable language designer (linguist?), but I hope that tinkering around will teach me a little about compilers.
 
-*beetle*'s compiler is written in Haskell and outputs code in the LLVM Intermediate Representation. For now, every *beetle* program consists of a number of assignments followed by an expression (the program's output). Some examples are available under the `examples` directory, of which the most complex is a function to calculate Fibonacci numbers:
+*beetle*'s compiler is written in Haskell and outputs code in the LLVM Intermediate Representation. For now, every *beetle* program consists of a number of assignments followed by an expression (the program's output). As an example, consider this naive implementation of the *Red, Green, and Blue Tiles* problem from [Project Euler](https://projecteuler.net/problem=117):
 
 ```
-fibonacci(n: integer): integer ->
-    if n == 0 then 1
-    else if n == 1 then 1
-    else fibonacci(n - 1) + fibonacci(n - 2);
+tiles(n: integer): integer ->
+    if n < 0 then 0
+    else if n == 0 then 1
+    else tiles(n - 1) + tiles(n - 2) + tiles(n - 3) + tiles(n - 4);
 
-> fibonacci(6);
+> tiles(5);
 ```
+
+Other examples can be found under the `examples` directory.
 
 ## Building
 
