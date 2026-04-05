@@ -1,3 +1,5 @@
 beetle
 test.btl
 test
+examples/*
+!examples/*.btl
