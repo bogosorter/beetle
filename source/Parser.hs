@@ -174,7 +174,7 @@ ifExpression = do
     return (If condition thenAtom elseAtom)
 
 logic :: Parser Expression
-logic = chainl1 atom logicOperation
+logic = chainl1 arithmetic logicOperation
     where logicOperation = do
             token <- match TokenEquality <|> match TokenLessThan <|> match TokenGreaterThan <|> match TokenLessThanEqual <|> match TokenGreaterThanEqual
             let operator = case token of
