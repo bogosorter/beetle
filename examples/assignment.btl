@@ -1,0 +1,4 @@
+x = 0;
+s(n: integer): integer -> n + 1;
+
+> s(x);
