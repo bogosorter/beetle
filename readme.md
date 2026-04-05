@@ -4,7 +4,7 @@
 
 # beetle
 
-The language that embraces bugs.
+The programming language that embraces bugs.
 
 ## About
 
