@@ -43,10 +43,20 @@ typeCheckAssignments environment (x:xs) = do
 typeCheckAssignment :: TypedEnvironment -> Assignment -> Either String TypedAssignment
 -- When assigning a function, the function itself should be added to the environment to allow recursive calls
 typeCheckAssignment environment (Assignment symbol function@(Function _ argumentType _ returnType)) = do
+    let (Symbol variableName) = symbol
+    case lookup symbol environment of
+        (Just a) -> Left ("variable " ++ variableName ++ " was already defined")
+        Nothing -> Right()
+
     let newEnvironment = insert symbol (FunctionType argumentType returnType) environment
     result <- typeCheckExpression newEnvironment function
     return (TypedAssignment symbol result)
 typeCheckAssignment environment (Assignment symbol expression) = do
+    let (Symbol variableName) = symbol
+    case lookup symbol environment of
+        (Just a) -> Left ("variable " ++ variableName ++ " was already defined")
+        Nothing -> Right()
+
     result <- typeCheckExpression environment expression
     return (TypedAssignment symbol result)
 

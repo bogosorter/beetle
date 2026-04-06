@@ -6,11 +6,12 @@ import Data.Map (empty)
 import Data.Either (rights)
 import Control.Monad.State (execState)
 import System.Environment
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 import Distribution.Compat.Prelude (exitFailure)
 import System.Process (callProcess, readProcessWithExitCode)
 import Data.Text (splitOn)
 import System.FilePath (dropExtension)
+import System.Exit (ExitCode(..))
 
 main :: IO ()
 main = do
@@ -32,5 +33,7 @@ main = do
 
     let llvm = compile typedProgram
 
-    readProcessWithExitCode "clang" ["-x" ,"ir", "-", "-o", dropExtension filename] (show llvm)
-    return ()
+    (code, _, stderr) <- readProcessWithExitCode "clang" ["-x" ,"ir", "-", "-o", dropExtension filename] (show llvm)
+    case code of
+        ExitFailure _ -> print stderr
+        ExitSuccess -> return ()
