@@ -96,7 +96,7 @@ instance Show Statement where
 instance Show Type where
     show Boolean = "i1"
     show Integer = "i32"
-    show (Tuple types) = "{ " ++ (intercalate "," (map show types)) ++ " }" -- TODO: Complete declaration
+    show (Tuple types) = "{ " ++ (intercalate ", " (map show types)) ++ " }" -- TODO: Complete declaration
 
 instance Show Operation where
     show Add = "add"
