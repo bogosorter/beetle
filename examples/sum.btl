@@ -1,0 +1,4 @@
+x = 1;
+sum(y: integer): integer -> x + y;
+
+> sum(1);

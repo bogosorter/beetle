@@ -10,7 +10,8 @@ TODO: Check for boolean format string output
 
 module LLVM where
 
-import qualified AST
+import qualified Closures
+import Data.List (intercalate)
 
 newtype Program = Program [TopLevelStatement]
 instance Show Program where
@@ -22,10 +23,12 @@ data TopLevelStatement
     | PrintfDeclaration
     | GlobalVariableDeclaration Type GlobalVar
     | Function Type GlobalVar (Maybe (Type, LocalVar)) [Statement] -- return type, name, argument type, name
+    | TypeDeclaration TypeVar Type
 
 data Statement
     = LocalAssign Type Register Operation Operand Operand
-    | Load Type Register GlobalVar
+    | GetElementPointer Operand TypeVar Operand Operand Operand
+    | Load Type Register Operand
     | Store Type Register GlobalVar
     | Branch LocalVar Label Label
     | Jump Label
@@ -36,19 +39,20 @@ data Statement
     | PrintfCall Type LocalVar
     | Return Type Operand
 
-data Type = Boolean | Integer
+data Type = Boolean | Integer | Tuple [Type]
 data Operation = Add | Sub | Eq | Slt | Sgt | Sle | Sge
-data Operand = Literal Int | LocalOperand LocalVar
+data Operand = Literal Int | LocalOperand LocalVar | GlobalOperand GlobalVar
 newtype GlobalVar = GlobalVar String
-data LocalVar = ArgumentVar String | RegisterVar Register
+newtype TypeVar = TypeVar String
+data LocalVar = ArgumentVar | RegisterVar Register | LocalVar String
 newtype Register = Register Int
 newtype Label = Label String
 
 
-convertType :: AST.Type -> Type
-convertType AST.BooleanType = Boolean
-convertType AST.IntegerType = Integer
-convertType (AST.FunctionType _ _) = error "llvm doesn't support function types"
+convertType :: Closures.Type -> Type
+convertType Closures.BooleanType = Boolean
+convertType Closures.IntegerType = Integer
+--convertType (Closures.FunctionType _ _) = error "llvm doesn't support function types"
 
 instance Show TopLevelStatement where
     show TargetTriple = "target triple = \"x86_64-pc-linux-gnu\""
@@ -60,11 +64,14 @@ instance Show TopLevelStatement where
             ++ unlines (map show body) ++
         "}"
         where buildArguments Nothing = ""
-              buildArguments (Just (argumentType, argument)) = show argumentType ++ " " ++ show argument
+              buildArguments (Just (argumentType, argument)) = "ptr %env, " ++ show argumentType ++ " " ++ show argument
+    show (TypeDeclaration variable t) = show variable ++ " = type " ++ show t
 
 instance Show Statement where
     show (LocalAssign variableType register operation left right) =
         "    " ++ show register ++ " = " ++ show operation ++ " " ++ show variableType ++ " " ++ show left ++ ", " ++ show right
+    show (GetElementPointer result elementType base offset index) =
+        "    " ++ show result ++ " = getelementptr " ++ show elementType ++ ", ptr " ++ show base ++ ", i32 " ++ show offset ++ ", i32 " ++ show index
     show (Load loadType local global) =
         "    " ++ show local ++ " = load " ++ show loadType ++ ", ptr " ++ show global
     show (Store storeType local global) =
@@ -89,6 +96,7 @@ instance Show Statement where
 instance Show Type where
     show Boolean = "i1"
     show Integer = "i32"
+    show (Tuple types) = "{ " ++ (intercalate "," (map show types)) ++ " }" -- TODO: Complete declaration
 
 instance Show Operation where
     show Add = "add"
@@ -102,13 +110,18 @@ instance Show Operation where
 instance Show Operand where
     show (Literal value) = show value
     show (LocalOperand variable) = show variable
+    show (GlobalOperand operand) = show operand
 
 instance Show GlobalVar where
     show (GlobalVar name) = "@" ++ name
 
+instance Show TypeVar where
+    show (TypeVar name) = "%" ++ name
+
 instance Show LocalVar where
-    show (ArgumentVar name) = "%" ++ name
+    show ArgumentVar = "%argument"
     show (RegisterVar register) = show register
+    show (LocalVar name) = "%" ++ name
 
 instance Show Register where
     show (Register number) = "%" ++ show number
