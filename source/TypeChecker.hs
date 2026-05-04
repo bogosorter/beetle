@@ -11,6 +11,7 @@ type TypedProgram = ([TypedAssignment], TypedExpression)
 type TypedEnvironment = Map Symbol Type
 
 data TypedAssignment = TypedAssignment Symbol TypedExpression
+    deriving Show
 data TypedExpression
     = TBoolean Bool
     | TInteger Int

@@ -2,13 +2,13 @@
 
 module Closures where
 
-import qualified AST
-import qualified TypeChecker
+import Debug.Trace
 
 type Program = ([FunctionDefinition], Expression)
 
 -- A function is defined by a name, an argument type, a return type, a closure and an expression
-data FunctionDefinition = FunctionDefinition String Type Type ClosureType Expression | BuiltInFunction String
+data FunctionDefinition = FunctionDefinition String Type Type ClosureType Expression | BuiltInFunction String Type Type
+    deriving Show
 data Expression
     = Boolean Bool
     | Integer Int
@@ -19,8 +19,10 @@ data Expression
     | Closure FunctionDefinition [Expression]
     | Application Expression Expression
     | Let String Expression Expression
+    deriving Show
 
 data Type = BooleanType | IntegerType | ClosureType Type Type
+    deriving Show
 type ClosureType = [Type]
 
 typeOf :: Expression -> Type
@@ -30,21 +32,9 @@ typeOf (Argument t) = t
 typeOf (Variable _ t) = t
 typeOf (Local _ t) = t
 typeOf (If _ expression _) = typeOf expression
-typeOf (Closure function _) = ClosureType argumentType returnType
-    where (FunctionDefinition _ argumentType returnType _ _) = function
+typeOf (Closure function _) = case function of
+    (FunctionDefinition _ argumentType returnType _ _) -> ClosureType argumentType returnType
+    (BuiltInFunction _ argumentType returnType) -> ClosureType argumentType returnType
 typeOf (Application closure _) = returnType
     where (ClosureType argumentType returnType) = typeOf closure
 typeOf (Let _ _ expression) = typeOf expression
-
-sumPartialFunction :: FunctionDefinition
-sumPartialFunction = FunctionDefinition "sum_partial" IntegerType IntegerType [IntegerType]
-    (Application (Application (Closure (BuiltInFunction "+") []) (Variable 0 IntegerType)) (Argument IntegerType))
-
--- This program computes 1 + 2
-exampleProgram :: Program
-exampleProgram =
-    ( [sumPartialFunction]
-    , Let "x" (Integer 1)
-        (Let "sum" (Closure sumPartialFunction [Local "x" IntegerType])
-            (Application (Local "sum" (ClosureType IntegerType IntegerType)) (Integer 2)))
-    )

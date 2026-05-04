@@ -25,7 +25,7 @@ compile (definitions, expression) = LLVM.Program (
 compileEnvironment :: FunctionDefinition -> [TopLevelStatement]
 compileEnvironment (FunctionDefinition name argumentType returnType closure body) = [closureDeclaration]
     where closureDeclaration = TypeDeclaration (TypeVar (name ++ "_env")) (Tuple (map convertType closure))
-compileEnvironment (BuiltInFunction _) = []
+compileEnvironment (BuiltInFunction _ _ _) = []
 
 compileDefinition :: FunctionDefinition -> [TopLevelStatement]
 compileDefinition (FunctionDefinition name argumentType returnType closure body) = [definition]
@@ -33,7 +33,7 @@ compileDefinition (FunctionDefinition name argumentType returnType closure body)
           definition = LLVM.Function (convertType returnType) (GlobalVar name) (Just (convertType argumentType, ArgumentVar)) (expressionStatements ++ [returnStatement])
           (expressionStatements, compilationState) = runState (compileExpression body) (initialFunctionState (TypeVar (name ++ "_env")))
           returnStatement = Return (convertType returnType) (LocalOperand (RegisterVar (register compilationState)))
-compileDefinition (BuiltInFunction _) = []
+compileDefinition (BuiltInFunction _ _ _) = []
 
 compileMain :: Expression -> [Statement]
 compileMain expression = evalState (compileMainMonad expression) (initialFunctionState (TypeVar "_"))
@@ -141,19 +141,19 @@ compileExpression (Closure function arguments) = do
             , Store Pointer (LocalOperand (RegisterVar environmentRegister)) (LocalOperand (LocalVar ("env_" ++ (show closureNumber))))
             ]
         )
-compileExpression (Application (Application (Closure (BuiltInFunction "+") []) left) right) =
+compileExpression (Application (Application (Closure (BuiltInFunction "+" _ _) []) left) right) =
     compileBinaryOperation Add left right
-compileExpression (Application (Application (Closure (BuiltInFunction "-") []) left) right) =
+compileExpression (Application (Application (Closure (BuiltInFunction "-" _ _) []) left) right) =
     compileBinaryOperation Sub left right
-compileExpression (Application (Application (Closure (BuiltInFunction "==") []) left) right) =
+compileExpression (Application (Application (Closure (BuiltInFunction "==" _ _) []) left) right) =
     compileBinaryOperation Eq left right
-compileExpression (Application (Application (Closure (BuiltInFunction "<") []) left) right) =
+compileExpression (Application (Application (Closure (BuiltInFunction "<" _ _) []) left) right) =
     compileBinaryOperation Slt left right
-compileExpression (Application (Application (Closure (BuiltInFunction ">") []) left) right) =
+compileExpression (Application (Application (Closure (BuiltInFunction ">" _ _) []) left) right) =
     compileBinaryOperation Sgt left right
-compileExpression (Application (Application (Closure (BuiltInFunction "<=") []) left) right) =
+compileExpression (Application (Application (Closure (BuiltInFunction "<=" _ _) []) left) right) =
     compileBinaryOperation Sle left right
-compileExpression (Application (Application (Closure (BuiltInFunction ">=") []) left) right) =
+compileExpression (Application (Application (Closure (BuiltInFunction ">=" _ _) []) left) right) =
     compileBinaryOperation Sge left right
 
 compileExpression application@(Application closure expression) = do

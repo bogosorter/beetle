@@ -1,0 +1,3 @@
+x = 1;
+id(x: integer): integer -> x;
+> x + id(1);
