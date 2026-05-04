@@ -36,7 +36,7 @@ main = do
 
     print llvm
 
-    --(code, _, stderr) <- readProcessWithExitCode "clang" ["-x" ,"ir", "-", "-o", dropExtension filename] (show llvm)
-    --case code of
-    --    ExitFailure _ -> print stderr
-    --    ExitSuccess -> return ()
+    (code, _, stderr) <- readProcessWithExitCode "clang" ["-x" ,"ir", "-", "-o", "test"] (show llvm)
+    case code of
+        ExitFailure _ -> print stderr
+        ExitSuccess -> return ()

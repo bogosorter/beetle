@@ -8,27 +8,47 @@ import Closures
 import Control.Monad.State
 
 compile :: Closures.Program -> LLVM.Program
-compile (definitions, assignments, expression) = LLVM.Program (
+compile (definitions, expression) = LLVM.Program (
         [ TargetTriple
         , FormatString
         , PrintfDeclaration
+        , MallocDeclaration
+        , TypeDeclaration (TypeVar "closure_type") (Tuple [Pointer, Pointer])
         ] ++
+        (definitions >>= compileEnvironment) ++
         (definitions >>= compileDefinition) ++
         [ LLVM.Function LLVM.Integer (GlobalVar "main") Nothing
-            (compileMain assignments expression)
+            (compileMain expression)
         ]
     )
 
+compileEnvironment :: FunctionDefinition -> [TopLevelStatement]
+compileEnvironment (FunctionDefinition name argumentType returnType closure body) = [closureDeclaration]
+    where closureDeclaration = TypeDeclaration (TypeVar (name ++ "_env")) (Tuple (map convertType closure))
+compileEnvironment (BuiltInFunction _) = []
+
 compileDefinition :: FunctionDefinition -> [TopLevelStatement]
-compileDefinition (FunctionDefinition name argumentType returnType closure body) = [closureDeclaration, definition]
+compileDefinition (FunctionDefinition name argumentType returnType closure body) = [definition]
     where closureDeclaration = TypeDeclaration (TypeVar (name ++ "_env")) (Tuple (map convertType closure))
           definition = LLVM.Function (convertType returnType) (GlobalVar name) (Just (convertType argumentType, ArgumentVar)) (expressionStatements ++ [returnStatement])
           (expressionStatements, compilationState) = runState (compileExpression body) (initialFunctionState (TypeVar (name ++ "_env")))
           returnStatement = Return (convertType returnType) (LocalOperand (RegisterVar (register compilationState)))
 compileDefinition (BuiltInFunction _) = []
 
-compileMain :: [Assignment] -> Expression -> [Statement]
-compileMain = error "not implemented"
+compileMain :: Expression -> [Statement]
+compileMain expression = evalState (compileMainMonad expression) (initialFunctionState (TypeVar "_"))
+
+compileMainMonad :: Expression -> State CompilationState [Statement]
+compileMainMonad expression = do
+    expressionStatements <- compileExpression expression
+    register <- currentRegister
+    return
+        ( expressionStatements ++
+            [ FormatStringPointer
+            , PrintfCall (convertType (typeOf expression)) (RegisterVar register)
+            , Return LLVM.Integer (Literal 0)
+            ]
+        )
 
 compileExpression :: Expression -> State CompilationState [Statement]
 compileExpression (Closures.Integer value) = do
@@ -38,19 +58,19 @@ compileExpression (Closures.Boolean value) = do
     register <- reserveRegister
     let literalValue = if value then 1 else 0
     return [LocalAssign LLVM.Boolean register Add (Literal 0) (Literal literalValue)]
-compileExpression (Variable index) = do
+compileExpression (Variable index _) = do
     register <- reserveRegister
     let (Register registerNumber) = register
-    let pointerVar = LocalOperand (LocalVar (show registerNumber ++ "_ptr"))
+    let pointerVar = LocalOperand (LocalVar ("ptr_" ++ show registerNumber))
     envType <- currentEnvironmentType
     return
         [ GetElementPointer pointerVar envType (LocalOperand (LocalVar "env")) (Literal 0) (Literal index)
-        , Load LLVM.Integer register pointerVar
+        , Load LLVM.Integer (LocalOperand (RegisterVar register)) pointerVar
         ]
-compileExpression Argument = do
+compileExpression (Argument _) = do
     register <- reserveRegister
     return [LocalAssign LLVM.Integer register Add (Literal 0) (LocalOperand ArgumentVar)]
-compileExpression (If condition thenBranch elseBranch ifType) = do
+compileExpression ifExpression@(If condition thenBranch elseBranch) = do
     conditionContent <- compileExpression condition
     conditionRegister <- currentRegister
 
@@ -74,7 +94,7 @@ compileExpression (If condition thenBranch elseBranch ifType) = do
     setContext mergeLabel
     register <- reserveRegister
     let jumpStatement = Branch (RegisterVar conditionRegister) thenLabel elseLabel
-    let mergeStatement = Phi register (convertType ifType)
+    let mergeStatement = Phi register (convertType (typeOf ifExpression))
             (LocalOperand (RegisterVar thenRegister)) thenContext
             (LocalOperand (RegisterVar elseRegister)) elseContext
 
@@ -90,35 +110,72 @@ compileExpression (If condition thenBranch elseBranch ifType) = do
             [LabelStatement mergeLabel] ++
             [mergeStatement]
         )
-compileExpression (Closures.Function _) = error "function expression not implemen"
-compileExpression (Application (Application (Closures.Function (BuiltInFunction "+")) left) right) =
+compileExpression (Closure function arguments) = do
+    sizePointerRegister <- reserveRegister
+    sizeRegister <- reserveRegister
+
+    environmentRegister <- reserveRegister
+    let (FunctionDefinition name argumentType _ _ _) = function
+    environmentFilling <- mapM (addToClosure (TypeVar (name ++ "_env")) (LocalOperand (RegisterVar environmentRegister))) arguments
+
+    size2PointerRegister <- reserveRegister
+    size2Register <- reserveRegister
+
+    closureRegister <- reserveRegister
+    let (Register closureNumber) = closureRegister
+
+    return (
+            [ GetElementPointer2 (LocalOperand (RegisterVar sizePointerRegister)) (TypeVar (name ++ "_env")) NullPtr (Literal 1)
+            , PtrToInt (LocalOperand (RegisterVar sizeRegister)) (LocalOperand (RegisterVar sizePointerRegister))
+            , Malloc (LocalOperand (RegisterVar environmentRegister)) (LocalOperand (RegisterVar sizeRegister))
+            ] ++ (concat environmentFilling) ++
+            [ GetElementPointer2 (LocalOperand (RegisterVar size2PointerRegister)) (TypeVar ("closure_type")) NullPtr (Literal 1)
+            , PtrToInt (LocalOperand (RegisterVar size2Register)) (LocalOperand (RegisterVar size2PointerRegister))
+            , Malloc (LocalOperand (RegisterVar closureRegister)) (LocalOperand (RegisterVar size2Register))
+            , GetElementPointer (LocalOperand (LocalVar ("fn_" ++ (show closureNumber)))) (TypeVar ("closure_type")) (LocalOperand (RegisterVar closureRegister)) (Literal 0) (Literal 0)
+            , Store Pointer (GlobalOperand (GlobalVar name)) (LocalOperand (LocalVar ("fn_" ++ (show closureNumber))))
+            , GetElementPointer (LocalOperand (LocalVar ("env_" ++ (show closureNumber)))) (TypeVar ("closure_type")) (LocalOperand (RegisterVar closureRegister)) (Literal 0) (Literal 1)
+            , Store Pointer (LocalOperand (RegisterVar environmentRegister)) (LocalOperand (LocalVar ("env_" ++ (show closureNumber))))
+            ]
+        )
+compileExpression (Application (Application (Closure (BuiltInFunction "+") []) left) right) =
     compileBinaryOperation Add left right
-compileExpression (Application (Application (Closures.Function (BuiltInFunction "-")) left) right) =
+compileExpression (Application (Application (Closure (BuiltInFunction "-") []) left) right) =
     compileBinaryOperation Sub left right
-compileExpression (Application (Application (Closures.Function (BuiltInFunction "==")) left) right) =
+compileExpression (Application (Application (Closure (BuiltInFunction "==") []) left) right) =
     compileBinaryOperation Eq left right
-compileExpression (Application (Application (Closures.Function (BuiltInFunction "<")) left) right) =
+compileExpression (Application (Application (Closure (BuiltInFunction "<") []) left) right) =
     compileBinaryOperation Slt left right
-compileExpression (Application (Application (Closures.Function (BuiltInFunction ">")) left) right) =
+compileExpression (Application (Application (Closure (BuiltInFunction ">") []) left) right) =
     compileBinaryOperation Sgt left right
-compileExpression (Application (Application (Closures.Function (BuiltInFunction "<=")) left) right) =
+compileExpression (Application (Application (Closure (BuiltInFunction "<=") []) left) right) =
     compileBinaryOperation Sle left right
-compileExpression (Application (Application (Closures.Function (BuiltInFunction ">=")) left) right) =
+compileExpression (Application (Application (Closure (BuiltInFunction ">=") []) left) right) =
     compileBinaryOperation Sge left right
 
---compileExpression (Application (Variable (Symbol function) (FunctionType _ returnType)) expression) = do
---    expressionStatements <- compileExpression expression
---    expressionRegister <- currentRegister
---    let expressionType = convertType (typeOf expression)
---
---    register <- reserveRegister
---    let functionLLVMType = convertType returnType
---    let callStatement = Call expressionType register (GlobalVar function) expressionType (RegisterVar expressionRegister)
---    return (expressionStatements ++ [callStatement])
+compileExpression application@(Application closure expression) = do
+    let (ClosureType argumentType returnType) = typeOf closure
+    closureStatements <- compileExpression closure
+    closureRegister <- currentRegister
 
-compileExpression app@(Application {}) = do
-    error "only direct applications are supported for now"
---
+    expressionStatements <- compileExpression expression
+    expressionRegister <- currentRegister
+
+    functionPointerRegister <- reserveRegister
+    functionRegister <- reserveRegister
+    environmentPointerRegister <- reserveRegister
+    environmentRegister <- reserveRegister
+    result <- reserveRegister
+
+    return (closureStatements ++ expressionStatements ++
+            [ GetElementPointer (LocalOperand (RegisterVar functionPointerRegister)) (TypeVar "closure_type") (LocalOperand (RegisterVar closureRegister)) (Literal 0) (Literal 0)
+            , Load Pointer (LocalOperand (RegisterVar functionRegister)) (LocalOperand (RegisterVar functionPointerRegister))
+            , GetElementPointer (LocalOperand (RegisterVar environmentPointerRegister)) (TypeVar "closure_type") (LocalOperand (RegisterVar closureRegister)) (Literal 0) (Literal 1)
+            , Load Pointer (LocalOperand (RegisterVar environmentRegister)) (LocalOperand (RegisterVar environmentPointerRegister))
+            , Call (convertType returnType) (LocalOperand (RegisterVar result)) (LocalOperand (RegisterVar functionRegister)) (LocalOperand (RegisterVar environmentRegister)) (convertType argumentType) (RegisterVar expressionRegister)
+            ]
+        )
+
 compileBinaryOperation :: Operation -> Expression -> Expression -> State CompilationState [Statement]
 compileBinaryOperation operation left right = do
     leftStatements <- compileExpression left
@@ -128,9 +185,21 @@ compileBinaryOperation operation left right = do
 
     register <- reserveRegister
     return (leftStatements ++ rightStatements ++
-            [LocalAssign LLVM.Integer register operation
+            [ LocalAssign LLVM.Integer register operation
                 (LocalOperand (RegisterVar leftRegister))
                 (LocalOperand (RegisterVar rightRegister))
+            ]
+        )
+
+addToClosure :: TypeVar -> Operand -> Expression -> State CompilationState [Statement]
+addToClosure environmentType environment expression = do
+    calculation <- compileExpression expression
+    valueRegister <- currentRegister
+    register <- reserveRegister
+
+    return (calculation ++
+            [ GetElementPointer (LocalOperand (RegisterVar register)) environmentType environment (Literal 0) (Literal 0)
+            , Store LLVM.Integer (LocalOperand (RegisterVar valueRegister)) (LocalOperand (RegisterVar register))
             ]
         )
 
