@@ -30,6 +30,7 @@ data Statement
     = LocalAssign Type Register Operation Operand Operand
     | GetElementPointer Operand TypeVar Operand Operand Operand
     | GetElementPointer2 Operand TypeVar Operand Operand
+    | BitCast Operand Type Operand Type
     | PtrToInt Operand Operand
     | Malloc Operand Operand
     | Load Type Operand Operand
@@ -79,6 +80,8 @@ instance Show Statement where
         "    " ++ show result ++ " = getelementptr " ++ show elementType ++ ", ptr " ++ show base ++ ", i32 " ++ show offset ++ ", i32 " ++ show index
     show (GetElementPointer2 result elementType base offset) =
         "    " ++ show result ++ " = getelementptr " ++ show elementType ++ ", ptr " ++ show base ++ ", i32 " ++ show offset
+    show (BitCast result elementType element resultType) =
+        "    " ++ show result ++ " = bitcast " ++ show elementType ++ " " ++ show element ++ " to " ++ show resultType
     show (PtrToInt destination pointer) = "    " ++ show destination ++ " = ptrtoint ptr " ++ show pointer ++ " to i64"
     show (Malloc destination size) = "    " ++ show destination ++ " = call ptr @malloc(i64 " ++ show size ++ ")"
     show (Load loadType local global) =

@@ -55,5 +55,5 @@ atom = symbol '(' expression ')'
      | boolean
      | '(' expression ')'
 
-type = 'integer' | 'boolean' | '(' type ')' '->' type;
+type = 'integer' | 'boolean' | '(' type ')' '=>' type;
 ```

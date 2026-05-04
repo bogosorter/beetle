@@ -14,9 +14,11 @@ data Expression
     | Integer Int
     | Argument Type -- The argument of the current function (invalid if we are in the global scope)
     | Variable Int Type -- The index of the variable in the closure
+    | Local String Type -- A Variable that was declared with let
     | If Expression Expression Expression
     | Closure FunctionDefinition [Expression]
     | Application Expression Expression
+    | Let String Expression Expression
 
 data Type = BooleanType | IntegerType | ClosureType Type Type
 type ClosureType = [Type]
@@ -26,23 +28,23 @@ typeOf (Boolean _) = BooleanType
 typeOf (Integer _) = IntegerType
 typeOf (Argument t) = t
 typeOf (Variable _ t) = t
+typeOf (Local _ t) = t
 typeOf (If _ expression _) = typeOf expression
 typeOf (Closure function _) = ClosureType argumentType returnType
     where (FunctionDefinition _ argumentType returnType _ _) = function
 typeOf (Application closure _) = returnType
     where (ClosureType argumentType returnType) = typeOf closure
-
-sumFunction :: FunctionDefinition
-sumFunction = FunctionDefinition "sum" IntegerType (ClosureType IntegerType IntegerType) []
-    (Closure sumPartialFunction [Argument IntegerType])
+typeOf (Let _ _ expression) = typeOf expression
 
 sumPartialFunction :: FunctionDefinition
 sumPartialFunction = FunctionDefinition "sum_partial" IntegerType IntegerType [IntegerType]
     (Application (Application (Closure (BuiltInFunction "+") []) (Variable 0 IntegerType)) (Argument IntegerType))
 
--- This program computes 1 + 1
+-- This program computes 1 + 2
 exampleProgram :: Program
 exampleProgram =
-    ( [sumFunction, sumPartialFunction]
-    , Application (Application (Closure sumFunction []) (Integer 1)) (Integer 2)
+    ( [sumPartialFunction]
+    , Let "x" (Integer 1)
+        (Let "sum" (Closure sumPartialFunction [Local "x" IntegerType])
+            (Application (Local "sum" (ClosureType IntegerType IntegerType)) (Integer 2)))
     )

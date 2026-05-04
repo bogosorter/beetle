@@ -58,6 +58,9 @@ compileExpression (Closures.Boolean value) = do
     register <- reserveRegister
     let literalValue = if value then 1 else 0
     return [LocalAssign LLVM.Boolean register Add (Literal 0) (Literal literalValue)]
+compileExpression (Argument _) = do
+    register <- reserveRegister
+    return [LocalAssign LLVM.Integer register Add (Literal 0) (LocalOperand ArgumentVar)]
 compileExpression (Variable index _) = do
     register <- reserveRegister
     let (Register registerNumber) = register
@@ -67,9 +70,9 @@ compileExpression (Variable index _) = do
         [ GetElementPointer pointerVar envType (LocalOperand (LocalVar "env")) (Literal 0) (Literal index)
         , Load LLVM.Integer (LocalOperand (RegisterVar register)) pointerVar
         ]
-compileExpression (Argument _) = do
+compileExpression (Local name t) = do
     register <- reserveRegister
-    return [LocalAssign LLVM.Integer register Add (Literal 0) (LocalOperand ArgumentVar)]
+    return [BitCast (LocalOperand (RegisterVar register)) (convertType t) (LocalOperand (LocalVar name)) (convertType t)]
 compileExpression ifExpression@(If condition thenBranch elseBranch) = do
     conditionContent <- compileExpression condition
     conditionRegister <- currentRegister
@@ -174,6 +177,17 @@ compileExpression application@(Application closure expression) = do
             , Load Pointer (LocalOperand (RegisterVar environmentRegister)) (LocalOperand (RegisterVar environmentPointerRegister))
             , Call (convertType returnType) (LocalOperand (RegisterVar result)) (LocalOperand (RegisterVar functionRegister)) (LocalOperand (RegisterVar environmentRegister)) (convertType argumentType) (RegisterVar expressionRegister)
             ]
+        )
+compileExpression (Let name value expression) = do
+    valueStatements <- compileExpression value
+    valueRegister <- currentRegister
+
+    expressionStatements <- compileExpression expression
+
+    let t = convertType (typeOf value)
+    return ( valueStatements ++
+            [BitCast (LocalOperand (LocalVar name)) t (LocalOperand (RegisterVar valueRegister)) t] ++
+            expressionStatements
         )
 
 compileBinaryOperation :: Operation -> Expression -> Expression -> State CompilationState [Statement]
