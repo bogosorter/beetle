@@ -8,7 +8,7 @@ import Closures
 import Control.Monad.State
 
 compile :: Closures.Program -> LLVM.Program
-compile (definitions, expression) = LLVM.Program (
+compile (Closures.Program definitions expression) = LLVM.Program (
         [ TargetTriple
         , FormatString
         , PrintfDeclaration

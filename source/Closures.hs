@@ -3,12 +3,14 @@
 module Closures where
 
 import Debug.Trace
+import Data.List (intercalate)
+import Distribution.TestSuite (TestInstance(name))
 
-type Program = ([FunctionDefinition], Expression)
+data Program = Program [FunctionDefinition] Expression
 
 -- A function is defined by a name, an argument type, a return type, a closure and an expression
 data FunctionDefinition = FunctionDefinition String Type Type ClosureType Expression | BuiltInFunction String Type Type
-    deriving Show
+
 data Expression
     = Boolean Bool
     | Integer Int
@@ -19,7 +21,6 @@ data Expression
     | Closure FunctionDefinition [Expression]
     | Application Expression Expression
     | Let String Expression Expression
-    deriving Show
 
 data Type = BooleanType | IntegerType | ClosureType Type Type
     deriving Show
@@ -38,3 +39,42 @@ typeOf (Closure function _) = case function of
 typeOf (Application closure _) = returnType
     where (ClosureType argumentType returnType) = typeOf closure
 typeOf (Let _ _ expression) = typeOf expression
+
+instance Show Program where
+    show (Program definitions expression) = intercalate "\n" (map show definitions) ++ "\n" ++ show expression ++ "\n"
+
+instance Show FunctionDefinition where
+    show (FunctionDefinition name argumentType returnType closureType body) =
+        name ++ " (" ++ show argumentType ++ " -> " ++ show returnType ++ ") " ++ show closureType ++ "\n" ++ showIndent 4 body ++ "\n"
+    show (BuiltInFunction name argumentType returnType) =
+        name ++ "(" ++ show argumentType ++ " -> " ++ show returnType ++ ")"
+
+instance Show Expression where
+    show expression = showIndent 0 expression
+
+showIndent indent (Boolean b) = (take indent (repeat ' ')) ++ show b
+showIndent indent (Integer n) = take indent (repeat ' ') ++ show n
+showIndent indent (Argument t) = take indent (repeat ' ') ++ "argument"
+showIndent indent (Variable index _) = take indent (repeat ' ') ++ "variable " ++ show index
+showIndent indent (Local name _) = take indent (repeat ' ') ++ name
+showIndent indent (If condition thenBranch elseBranch) =
+    take indent (repeat ' ') ++ "if\n" ++
+        showIndent (indent + 4) condition ++ "\n" ++
+    take indent (repeat ' ') ++ "then" ++
+        showIndent (indent + 4) thenBranch ++ "\n" ++
+    take indent (repeat ' ') ++ "else" ++
+        showIndent (indent + 4) elseBranch ++ "\n"
+showIndent indent (Closure function expressions) =
+    take indent (repeat ' ') ++ "closure " ++ name ++ "\n" ++
+        intercalate "\n" (map (showIndent (indent + 4)) expressions)
+    where (FunctionDefinition name _ _ _ _) = function
+showIndent indent (Application closure argument) =
+    take indent (repeat ' ') ++ "application of\n" ++
+        showIndent (indent + 4) argument ++ "\n" ++
+    take indent (repeat ' ') ++ "to\n" ++
+        showIndent (indent + 4) closure
+showIndent indent (Let name defined expression) =
+    take indent (repeat ' ') ++ "let " ++ name ++ " =\n" ++
+        showIndent (indent + 4) defined ++ "\n" ++
+    take indent (repeat ' ') ++ "in\n" ++
+        showIndent (indent + 4) expression

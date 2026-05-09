@@ -10,8 +10,6 @@ import Control.Monad.State
 import Data.Map
 import Data.List (elemIndex)
 
-import Debug.Trace
-
 enclose :: TypedProgram -> Closures.Program
 enclose (assignments, output) = evalState (encloseAux empty assignments output) initialExecutionState
 
@@ -21,7 +19,7 @@ encloseAux env [] output = do
     state <- get
     let build = expressionBuilder state
     let expression = encloseExpression env [] output
-    return (definitions state, build expression)
+    return (Closures.Program (definitions state) (build expression))
 
 encloseAux env (assignment:assignments) output = do
     let (TypedAssignment (Symbol name) assigned) = assignment
@@ -109,9 +107,9 @@ initialExecutionState :: ExecutionState
 initialExecutionState = ExecutionState [] (\x -> x)
 
 getScope :: Environment -> String -> Closures.Expression
-getScope env name = trace (show env) (case Data.Map.lookup name env of
+getScope env name = case Data.Map.lookup name env of
     Just expression -> expression
-    Nothing -> error ("there should be an expression for " ++ name ++ " in the environment"))
+    Nothing -> error ("there should be an expression for " ++ name ++ " in the environment")
 
 putDefinition :: FunctionDefinition -> State ExecutionState ()
 putDefinition definition = do
