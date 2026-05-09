@@ -61,7 +61,8 @@ encloseExpression :: Environment -> [(String, Closures.Type)] -> TypedExpression
 encloseExpression env free (TBoolean b) = Closures.Boolean b
 encloseExpression env free (TInteger n) = Closures.Integer n
 encloseExpression env free (TVariable (Symbol name) _)
-    | name `elem` ["+", "-", "<", ">", "==", "<=", ">="] = (Closure (BuiltInFunction name Closures.IntegerType (ClosureType Closures.IntegerType Closures.IntegerType)) [])
+    | name `elem` ["+", "-"] = (Closure (BuiltInFunction name Closures.IntegerType (ClosureType Closures.IntegerType Closures.IntegerType)) [])
+    | name `elem` ["<", ">", "==", "<=", ">="] = (Closure (BuiltInFunction name Closures.IntegerType (ClosureType Closures.IntegerType Closures.BooleanType)) [])
     | otherwise = case getFreeVariable 0 free name of
         Just (index, t) -> Closures.Variable 0 t
         Nothing -> getScope env name
