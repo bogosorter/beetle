@@ -41,11 +41,12 @@ Only integers and boolean values are supported. The language's grammar is displa
 ```
 program = (assignment)* output
 
-assignment = symbol '(' symbol ':' type ')' ':' type '->' expression ';'
+assignment = symbol function ';'
            | symbol '=' expression ';'
 output = '>' expression ';'
 
 expression = 'if' expression 'then' expression 'else' expression
+           | 'lambda' function
            | logic
 logic = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
 arithmetic = atom (('+' | '-') atom)*
@@ -54,6 +55,8 @@ atom = symbol '(' expression ')'
      | integer
      | boolean
      | '(' expression ')'
+     
+function = '(' symbol ':' type ')' ':' type '=' expression
 
-type = 'integer' | 'boolean' | '(' type ')' '=>' type;
+type = 'integer' | 'boolean' | '(' type ')' '->' type;
 ```

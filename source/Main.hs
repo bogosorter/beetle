@@ -4,6 +4,7 @@ import TypeChecker
 import Closures
 import Enclose
 import Backend
+import Delambda (delambda)
 import Data.Map (empty)
 import Data.Either (rights)
 import Control.Monad.State (execState)
@@ -29,17 +30,17 @@ main = do
             Left message -> error (show message)
             Right program -> program
 
-    let typedProgram = case typeCheck program of
+    let delambded = delambda program
+
+    print delambded
+
+    let typedProgram = case typeCheck delambded of
             Left message -> error message
             Right typedProgram -> typedProgram
 
     let enclosedProgram = enclose typedProgram
 
-    print enclosedProgram
-
     let llvm = compile enclosedProgram
-
-    print llvm
 
     (code, _, stderr) <- readProcessWithExitCode "clang" ["-x" ,"ir", "-", "-o", dropExtension filename] (show llvm)
     case code of

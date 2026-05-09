@@ -33,6 +33,7 @@ data Token = TokenIntegerLiteral Int
            | TokenElse
            | TokenTypeBoolean
            | TokenTypeInteger
+           | TokenLambda
            | TokenEOF
     deriving (Show, Eq)
 
@@ -103,6 +104,9 @@ tokenize input@(c:cs)
     | take 7 input == "integer" = do
         rest <- tokenize (drop 7 input)
         return $ TokenTypeInteger : rest
+    | take 6 input == "lambda" = do
+        rest <- tokenize (drop 6 input)
+        return $ TokenLambda : rest
     | isDigit c = do
         let number = read (takeWhile isDigit input)
         rest <- tokenize (dropWhile isDigit input)
@@ -130,9 +134,9 @@ program = do
 assignment :: Parser Assignment
 assignment = do
     name <- symbol
-    content <- variableAssignment name <|> functionAssignment name
+    value <- variableAssignment <|> function
     match TokenSemicolon
-    return content
+    return $ Assignment name value
 
 output :: Parser Expression
 output = do
@@ -141,14 +145,13 @@ output = do
     match TokenSemicolon
     return exp
 
-variableAssignment :: Symbol -> Parser Assignment
-variableAssignment name = do
+variableAssignment :: Parser Expression
+variableAssignment = do
     match TokenAssign
-    body <- expression
-    return $ Assignment name body
+    expression
 
-functionAssignment :: Symbol -> Parser Assignment
-functionAssignment name = do
+function :: Parser Expression
+function = do
     match TokenLeftParenthesis
     argument <- symbol
     match TokenColon
@@ -156,12 +159,12 @@ functionAssignment name = do
     match TokenRightParenthesis
     match TokenColon
     returnType <- parseType
-    match TokenArrow
+    match TokenAssign
     body <- expression
-    return $ Assignment name (Function argument argumentType body returnType)
+    return $ Function argument argumentType body returnType
 
 expression :: Parser Expression
-expression = ifExpression <|> logic
+expression = ifExpression <|> lambda <|> logic
 
 ifExpression :: Parser Expression
 ifExpression = do
@@ -172,6 +175,11 @@ ifExpression = do
     match TokenElse
     elseAtom <- expression
     return (If condition thenAtom elseAtom)
+
+lambda :: Parser Expression
+lambda = do
+    match TokenLambda
+    function
 
 logic :: Parser Expression
 logic = chainl1 arithmetic logicOperation
@@ -238,6 +246,7 @@ functionType = do
     match TokenLeftParenthesis
     argumentType <- parseType
     match TokenRightParenthesis
+    match TokenArrow
     returnType <- parseType
     return (FunctionType argumentType returnType)
 
