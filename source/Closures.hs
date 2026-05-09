@@ -60,14 +60,16 @@ showIndent indent (Local name _) = take indent (repeat ' ') ++ name
 showIndent indent (If condition thenBranch elseBranch) =
     take indent (repeat ' ') ++ "if\n" ++
         showIndent (indent + 4) condition ++ "\n" ++
-    take indent (repeat ' ') ++ "then" ++
+    take indent (repeat ' ') ++ "then\n" ++
         showIndent (indent + 4) thenBranch ++ "\n" ++
-    take indent (repeat ' ') ++ "else" ++
+    take indent (repeat ' ') ++ "else\n" ++
         showIndent (indent + 4) elseBranch ++ "\n"
 showIndent indent (Closure function expressions) =
-    take indent (repeat ' ') ++ "closure " ++ name ++ "\n" ++
+    take indent (repeat ' ') ++ "closure of definition " ++ name ++ "\n" ++
         intercalate "\n" (map (showIndent (indent + 4)) expressions)
-    where (FunctionDefinition name _ _ _ _) = function
+    where name = case function of
+            (FunctionDefinition name _ _ _ _) -> name
+            (BuiltInFunction name _ _) -> name
 showIndent indent (Application closure argument) =
     take indent (repeat ' ') ++ "application of\n" ++
         showIndent (indent + 4) argument ++ "\n" ++
