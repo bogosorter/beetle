@@ -1,3 +1,5 @@
 x = 2;
-id(x: integer): integer -> x;
-> x + id(1);
+id(x: integer): integer =
+    return x;
+
+return x + id(1);

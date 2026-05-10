@@ -1,21 +1,24 @@
-module AST (Program, Symbol(..), Assignment(..), Expression(..), Type(..)) where
+{-# OPTIONS_GHC -Wincomplete-patterns #-}
 
-import Data.Map
-import Control.Monad.State
+module AST (Expression(..), Type(..), typeOf) where
 
 data Type = BooleanType | IntegerType | FunctionType Type Type deriving (Show, Eq)
-type Program = ([Assignment], Expression)
 
-newtype Symbol = Symbol String deriving (Eq, Ord)
-data Assignment = Assignment Symbol Expression deriving Show
-data Expression
+data Expression a
     = Boolean Bool
     | Integer Int
-    | Variable Symbol
-    | If Expression Expression Expression
-    | Function Symbol Type Expression Type
-    | Application Expression Expression
+    | Variable String a
+    | If (Expression a) (Expression a) (Expression a) a
+    | Function Type Type String (Expression a)
+    | Application (Expression a) (Expression a) a
+    | Let String (Expression a) (Expression a) a
     deriving Show
 
-instance Show Symbol where
-    show (Symbol s) = s
+typeOf :: Expression Type -> Type
+typeOf (Boolean _) = BooleanType
+typeOf (Integer _) = IntegerType
+typeOf (Variable _ t) = t
+typeOf (If _ _ _ t) = t
+typeOf (Function argumentType returnType _ _) = FunctionType argumentType returnType
+typeOf (Application _ _ t) = t
+typeOf (Let _ _ _ t) = t

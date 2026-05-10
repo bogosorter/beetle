@@ -4,7 +4,6 @@ import TypeChecker
 import Closures
 import Enclose
 import Backend
-import Delambda (delambda)
 import Data.Map (empty)
 import Data.Either (rights)
 import Control.Monad.State (execState)
@@ -30,11 +29,7 @@ main = do
             Left message -> error (show message)
             Right program -> program
 
-    let delambded = delambda program
-
-    print delambded
-
-    let typedProgram = case typeCheck delambded of
+    let typedProgram = case typeCheck program of
             Left message -> error message
             Right typedProgram -> typedProgram
 

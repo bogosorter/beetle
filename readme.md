@@ -39,14 +39,23 @@ $ ./fibonacci
 Only integers and boolean values are supported. The language's grammar is displayed below. Please note that some features are not yet implemented but already integrated in the grammar (for instance, higher-order functions and scopes).
 
 ```
-program = (assignment)* output
+-- The grammar distinguishes between expressions and return expressions. The
+-- former can only represent simple arithmetic expressions, while the later can
+-- also contain assignments and if expressions, and produced expression (which
+-- comes with last) must start with the keyword 'return' to disambiguate. In the
+-- AST, though, there is no difference between the two.
 
-assignment = symbol function ';'
-           | symbol '=' expression ';'
-output = '>' expression ';'
+program = returnExpression ';'
 
-expression = 'if' expression 'then' expression 'else' expression
-           | 'lambda' function
+returnExpression = assignment ';' returnExpression
+                 -- The if statement has an implicit else
+                 | 'if' expression ':' returnExpression ';' returnExpression
+                 | 'return' expression
+
+assignment = symbol function
+           | symbol '=' expression
+
+expression = 'lambda' function
            | logic
 logic = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
 arithmetic = atom (('+' | '-') atom)*

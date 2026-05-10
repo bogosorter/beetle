@@ -6,7 +6,6 @@ module Parser (parseProgram) where
 
 import AST
 import Text.Parsec hiding (eof, char, newline, satisfy)
-import Prelude hiding (sum)
 import Data.Char (isAlpha, isDigit)
 
 type Parser = Parsec [Token] ()
@@ -34,6 +33,7 @@ data Token = TokenIntegerLiteral Int
            | TokenTypeBoolean
            | TokenTypeInteger
            | TokenLambda
+           | TokenReturn
            | TokenEOF
     deriving (Show, Eq)
 
@@ -107,6 +107,9 @@ tokenize input@(c:cs)
     | take 6 input == "lambda" = do
         rest <- tokenize (drop 6 input)
         return $ TokenLambda : rest
+    | take 6 input == "return" = do
+        rest <- tokenize (drop 6 input)
+        return $ TokenReturn : rest
     | isDigit c = do
         let number = read (takeWhile isDigit input)
         rest <- tokenize (dropWhile isDigit input)
@@ -117,40 +120,53 @@ tokenize input@(c:cs)
         return $ TokenSymbol name : rest
     | otherwise = Left ("Unexpected character " ++ [c] ++ "found during tokenizing")
 
-parseProgram :: String -> Either String Program
+parseProgram :: String -> Either String (Expression ())
 parseProgram input = do
     tokens <- tokenize input
-    case parse program "" tokens of
+    result <- case parse program "" tokens of
         Left err -> Left (show err)
-        Right p -> Right p
+        Right expression -> Right expression
+    return result
 
-program :: Parser Program
+program :: Parser (Expression ())
 program = do
-    assignments <- many assignment
-    out <- output
-    match TokenEOF
-    return (assignments, out)
+    result <- returnExpression
+    match TokenSemicolon
+    return result
 
-assignment :: Parser Assignment
+returnExpression :: Parser (Expression ())
+returnExpression = assignment <|> ifExpression <|> returnValue
+
+assignment :: Parser (Expression ())
 assignment = do
     name <- symbol
     value <- variableAssignment <|> function
     match TokenSemicolon
-    return $ Assignment name value
+    ensuing <- returnExpression
+    return $ Let name value ensuing ()
 
-output :: Parser Expression
-output = do
-    match TokenGreaterThan
-    exp <- expression
+ifExpression :: Parser (Expression ())
+ifExpression = do
+    match TokenIf
+    condition <- expression
+    match TokenColon
+    thenBranch <- returnExpression
     match TokenSemicolon
+    elseBranch <- returnExpression
+    return $ If condition thenBranch elseBranch ()
+
+returnValue :: Parser (Expression ())
+returnValue = do
+    match TokenReturn
+    exp <- expression
     return exp
 
-variableAssignment :: Parser Expression
+variableAssignment :: Parser (Expression ())
 variableAssignment = do
     match TokenAssign
     expression
 
-function :: Parser Expression
+function :: Parser (Expression ())
 function = do
     match TokenLeftParenthesis
     argument <- symbol
@@ -160,68 +176,58 @@ function = do
     match TokenColon
     returnType <- parseType
     match TokenAssign
-    body <- expression
-    return $ Function argument argumentType body returnType
+    body <- returnExpression
+    return $ Function argumentType returnType argument body
 
-expression :: Parser Expression
-expression = ifExpression <|> lambda <|> logic
+expression :: Parser (Expression ())
+expression = lambda <|> logic
 
-ifExpression :: Parser Expression
-ifExpression = do
-    match TokenIf
-    condition <- expression
-    match TokenThen
-    thenAtom <- expression
-    match TokenElse
-    elseAtom <- expression
-    return (If condition thenAtom elseAtom)
-
-lambda :: Parser Expression
+lambda :: Parser (Expression ())
 lambda = do
     match TokenLambda
     function
 
-logic :: Parser Expression
+logic :: Parser (Expression ())
 logic = chainl1 arithmetic logicOperation
     where logicOperation = do
             token <- match TokenEquality <|> match TokenLessThan <|> match TokenGreaterThan <|> match TokenLessThanEqual <|> match TokenGreaterThanEqual
             let operator = case token of
-                    TokenEquality -> Symbol "=="
-                    TokenLessThan -> Symbol "<"
-                    TokenGreaterThan -> Symbol ">"
-                    TokenLessThanEqual -> Symbol ">="
-                    TokenGreaterThanEqual -> Symbol "<="
-            return (\left right -> Application (Application (Variable operator) left) right)
+                    TokenEquality -> "=="
+                    TokenLessThan -> "<"
+                    TokenGreaterThan -> ">"
+                    TokenLessThanEqual -> ">="
+                    TokenGreaterThanEqual -> "<="
+            return (\left right -> Application (Application (Variable operator ()) left ()) right ())
 
-arithmetic :: Parser Expression
+arithmetic :: Parser (Expression ())
 arithmetic = chainl1 atom arithmeticOperation
     where arithmeticOperation = do
             token <- match TokenPlus <|> match TokenMinus
             let operator = case token of
-                    TokenPlus -> Symbol "+"
-                    TokenMinus -> Symbol "-"
-            return (\left right -> Application (Application (Variable operator) left) right)
+                    TokenPlus -> "+"
+                    TokenMinus -> "-"
+            return (\left right -> Application (Application (Variable operator ()) left ()) right ())
 
-atom :: Parser Expression
+atom :: Parser (Expression ())
 atom = atomSymbol <|> integer <|> boolean <|> parenthesizedExpression
 
 -- This is used to parse both variable usages and function calls
-atomSymbol :: Parser Expression
+atomSymbol :: Parser (Expression ())
 atomSymbol = do
     name <- symbol
     functionCall name <|> variableUsage name
 
-functionCall :: Symbol ->  Parser Expression
+functionCall :: String -> Parser (Expression ())
 functionCall symbol = do
     match TokenLeftParenthesis
     argument <- expression
     match TokenRightParenthesis
-    return (Application (Variable symbol) argument)
+    return (Application (Variable symbol ()) argument ())
 
-variableUsage :: Symbol -> Parser Expression
-variableUsage symbol = return (Variable symbol)
+variableUsage :: String -> Parser (Expression ())
+variableUsage symbol = return (Variable symbol ())
 
-parenthesizedExpression :: Parser Expression
+parenthesizedExpression :: Parser (Expression ())
 parenthesizedExpression = do
     match TokenLeftParenthesis
     content <- expression
@@ -250,17 +256,17 @@ functionType = do
     returnType <- parseType
     return (FunctionType argumentType returnType)
 
-symbol :: Parser Symbol
+symbol :: Parser String
 symbol = satisfy (\t -> case t of
-    TokenSymbol name -> Just (Symbol name)
+    TokenSymbol name -> Just name
     _  -> Nothing)
 
-integer :: Parser Expression
+integer :: Parser (Expression ())
 integer = satisfy (\t -> case t of
     TokenIntegerLiteral value -> Just (Integer value)
     _  -> Nothing)
 
-boolean :: Parser Expression
+boolean :: Parser (Expression ())
 boolean = satisfy (\t -> case t of
     TokenBooleanLiteral value -> Just (Boolean value)
     _  -> Nothing)

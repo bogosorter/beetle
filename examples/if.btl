@@ -1,1 +1,2 @@
-> if 2 == 3 then true else false;
+if 2 == 3: return true;
+return false;
