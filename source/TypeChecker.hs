@@ -9,7 +9,12 @@ import Prelude hiding (lookup)
 
 
 typeCheck :: Expression () -> Either String (Expression Type)
-typeCheck = typeCheckAux defaultEnvironment
+typeCheck program = do
+    typeChecked <- typeCheckAux defaultEnvironment program
+    case typeOf typeChecked of
+        IntegerType -> Right typeChecked
+        BooleanType -> Right typeChecked
+        _ -> Left "the return of a program must be an integer or a boolean"
 
 type TypedEnvironment = Map String Type
 
