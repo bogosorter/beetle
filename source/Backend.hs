@@ -7,6 +7,7 @@ import LLVM
 import Closures
 import Control.Monad.State
 import qualified Data.Map
+import Data.Maybe (mapMaybe)
 
 compile :: Closures.Program -> LLVM.Program
 compile (Closures.Program definitions expression) = LLVM.Program (
@@ -16,17 +17,17 @@ compile (Closures.Program definitions expression) = LLVM.Program (
         , MallocDeclaration
         , TypeDeclaration (TypeVar "closure_type") (Tuple [Pointer, Pointer])
         ] ++
-        (definitions >>= compileEnvironment) ++
+        mapMaybe compileEnvironment definitions ++
         (definitions >>= compileDefinition) ++
         [ LLVM.Function LLVM.Integer (GlobalVar "main") Nothing
             (compileMain expression)
         ]
     )
 
-compileEnvironment :: FunctionDefinition -> [TopLevelStatement]
-compileEnvironment (FunctionDefinition name argumentType returnType closure body) = [closureDeclaration]
+compileEnvironment :: FunctionDefinition -> Maybe TopLevelStatement
+compileEnvironment (FunctionDefinition name argumentType returnType closure body) = Just closureDeclaration
     where closureDeclaration = TypeDeclaration (TypeVar (name ++ "_env")) (Tuple (map convertType closure))
-compileEnvironment (BuiltInFunction _ _ _) = []
+compileEnvironment (BuiltInFunction _ _ _) = Nothing
 
 compileDefinition :: FunctionDefinition -> [TopLevelStatement]
 compileDefinition (FunctionDefinition name argumentType returnType closure body) = [definition]
