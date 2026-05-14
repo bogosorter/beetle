@@ -241,8 +241,20 @@ functionCall :: String -> Parser (Expression ())
 functionCall symbol = do
     match TokenLeftParenthesis
     argument <- expression
+    let call = (Application (Variable symbol ()) argument ())
+    functionCallContinuation call <|> functionCallEnd call
+
+functionCallContinuation :: Expression () -> Parser (Expression ())
+functionCallContinuation base = do
+    match TokenComma
+    argument <- expression
+    let call = (Application base argument ())
+    functionCallContinuation call <|> functionCallEnd call
+
+functionCallEnd :: Expression () -> Parser (Expression ())
+functionCallEnd base = do
     match TokenRightParenthesis
-    return (Application (Variable symbol ()) argument ())
+    return base
 
 variableUsage :: String -> Parser (Expression ())
 variableUsage symbol = return (Variable symbol ())
