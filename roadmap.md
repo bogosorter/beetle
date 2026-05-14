@@ -2,15 +2,9 @@
 
 # v2.0.0
 
-- Code comments
 - Backend cleanup
 - General code review
 - Add tests
-
-# v2.0.1
-
-- Flags for AST and IR output
-- Chose output file
 
 # v2.1.0
 

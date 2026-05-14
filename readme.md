@@ -23,7 +23,7 @@ tiles(n: integer): integer ->
 
 Other examples can be found under the `examples` directory.
 
-## Building
+## Building & Running
 
 The source code is under the `source` directory. For Linux users, a `build.sh` file is provided. Please note that it will add an executable file named `beetle` to the `~/.local/bin/` directory. Usage example:
 
@@ -33,6 +33,8 @@ $ beetle fibonacci.btl
 $ ./fibonacci
 13
 ```
+
+The `-o` flag can be used to specify an output file, and the flags `-ast`, `-ir` and `ll` can be used to generate files with the AST, Intermediate Representation and LLVM codes.
 
 ## Details
 
