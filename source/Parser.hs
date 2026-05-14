@@ -1,6 +1,7 @@
 {- HLINT ignore "Use <$>" -}
 {- HLINT ignore "Eta reduce" -}
 {- HLINT ignore "Avoid lambda" -}
+{-# OPTIONS_GHC -Wincomplete-patterns #-}
 
 module Parser (parseProgram) where
 
@@ -175,12 +176,26 @@ function = do
     argument <- symbol
     match TokenColon
     argumentType <- parseType
+    (returnType, body) <- functionContinuation <|> functionEnd
+    return $ Function argumentType returnType argument body
+
+functionContinuation :: Parser (Type, Expression ())
+functionContinuation = do
+    match TokenComma
+    argument <- symbol
+    match TokenColon
+    argumentType <- parseType
+    (returnType, body) <- functionContinuation <|> functionEnd
+    return $ (FunctionType argumentType returnType, Function argumentType returnType argument body)
+
+functionEnd :: Parser (Type, Expression ())
+functionEnd = do
     match TokenRightParenthesis
     match TokenColon
     returnType <- parseType
     match TokenAssign
     body <- returnExpression
-    return $ Function argumentType returnType argument body
+    return (returnType, body)
 
 expression :: Parser (Expression ())
 expression = lambda <|> logic
@@ -200,6 +215,7 @@ logic = chainl1 arithmetic logicOperation
                     TokenGreaterThan -> ">"
                     TokenLessThanEqual -> ">="
                     TokenGreaterThanEqual -> "<="
+                    _ -> error "not reachable"
             return (\left right -> Application (Application (Variable operator ()) left ()) right ())
 
 arithmetic :: Parser (Expression ())
@@ -209,6 +225,7 @@ arithmetic = chainl1 atom arithmeticOperation
             let operator = case token of
                     TokenPlus -> "+"
                     TokenMinus -> "-"
+                    _ -> error "not reachable"
             return (\left right -> Application (Application (Variable operator ()) left ()) right ())
 
 atom :: Parser (Expression ())
@@ -254,10 +271,22 @@ functionType :: Parser Type
 functionType = do
     match TokenLeftParenthesis
     argumentType <- parseType
+    returnType <- functionTypeContinuation <|> functionTypeEnd
+    return (FunctionType argumentType returnType)
+
+functionTypeContinuation :: Parser Type
+functionTypeContinuation = do
+    match TokenComma
+    argumentType <- parseType
+    returnType <- functionTypeContinuation <|> functionTypeEnd
+    return (FunctionType argumentType returnType)
+
+functionTypeEnd :: Parser Type
+functionTypeEnd = do
     match TokenRightParenthesis
     match TokenArrow
     returnType <- parseType
-    return (FunctionType argumentType returnType)
+    return returnType
 
 symbol :: Parser String
 symbol = satisfy (\t -> case t of

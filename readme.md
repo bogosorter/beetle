@@ -69,7 +69,7 @@ atom = symbol '(' expression ')'
      | boolean
      | '(' expression ')'
      
-function = '(' symbol ':' type ')' ':' type '=' expression
+function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' expression
 
-type = 'integer' | 'boolean' | '(' type ')' '->' type;
+type = 'integer' | 'boolean' | '(' type (',' type)* ')' '->' type;
 ```
