@@ -2,6 +2,7 @@
 
 # v2.0.0
 
+- Code comments
 - Backend cleanup
 - General code review
 - Add tests
@@ -13,7 +14,6 @@
 
 # v2.1.0
 
-- Code comments
 - Prevent conflits on variable naming
 - Variable shadowing
 

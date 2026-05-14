@@ -41,6 +41,9 @@ tokenize :: String -> Either String [Token]
 tokenize [] = Right [TokenEOF]
 tokenize input@(c:cs)
     | c `elem` [' ', '\t', '\n', '\r'] = tokenize cs
+    | take 2 input == "--" = do
+        let rest = dropWhile (/= '\n') input
+        tokenize rest
     | c == '(' = do
         rest <- tokenize cs
         return $ TokenLeftParenthesis : rest

@@ -38,6 +38,8 @@ $ ./fibonacci
 
 Only integers and boolean values are supported. The language's grammar is displayed below. Please note that some features are not yet implemented but already integrated in the grammar (for instance, higher-order functions and scopes).
 
+Single-line comments start with `--`.
+
 ```
 -- The grammar distinguishes between expressions and return expressions. The
 -- former can only represent simple arithmetic expressions, while the later can
