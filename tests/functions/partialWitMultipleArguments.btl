@@ -1,0 +1,6 @@
+f(x: integer): (integer, integer) -> integer =
+    partial(y: integer, z: integer): integer = return x + y + z;
+    return partial;
+
+partial = f(1);
+return partial(2, 3);

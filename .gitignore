@@ -4,3 +4,7 @@ test
 examples/*
 !examples/*.btl
 test.ll
+tests/**
+!tests/**/
+!tests/**/*.btl
+!tests/**/*.out

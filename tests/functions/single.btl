@@ -1,0 +1,4 @@
+s(x: integer): integer =
+    return x + 1;
+
+return s(0);

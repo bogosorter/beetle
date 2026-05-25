@@ -1,0 +1,6 @@
+sum(x: integer): (integer) -> integer =
+    partial(y: integer): integer =
+        return x + y;
+    return partial;
+
+return sum(1, 2);
