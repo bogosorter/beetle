@@ -10,7 +10,6 @@ import Control.Monad.State
 import Data.Map
 import Data.List (elemIndex)
 import System.Console.Terminfo (functionKey)
-import Debug.Trace
 
 enclose :: AST.Expression AST.Type -> Program
 enclose expression = Program closedDefinitions closedExpression
@@ -34,17 +33,15 @@ encloseExpression env free (AST.Function argumentType returnType argument body) 
 
     let tmp = Prelude.map (\(n, v) -> (n, Closures.typeOf v)) free
     let free = freeVariables env'' [argument] tmp body
-    trace ("free variables in function " ++ name ++ ": " ++ show free)(do
-        let special = Prelude.map (\(n, v) -> (n, Closures.typeOf v)) free
-        let closureValues = Prelude.map (\(n, v) -> v) free
-        let closureTypes = Prelude.map (\(n, v) -> Closures.typeOf v) free
+    let special = Prelude.map (\(n, v) -> (n, Closures.typeOf v)) free
+    let closureValues = Prelude.map (\(n, v) -> v) free
+    let closureTypes = Prelude.map (\(n, v) -> Closures.typeOf v) free
 
-        trace ("calling encloseExpression with free values " ++ show free)(do
-            enclosed <- encloseExpression env'' free body
-            let definition = (FunctionDefinition name (closuredType argumentType) (closuredType returnType) closureTypes enclosed)
-            putDefinition definition
+    enclosed <- encloseExpression env'' free body
+    let definition = (FunctionDefinition name (closuredType argumentType) (closuredType returnType) closureTypes enclosed)
+    putDefinition definition
 
-            return $ Closure definition closureValues))
+    return $ Closure definition closureValues
 
 encloseExpression env free (AST.Boolean b) = return $ Closures.Boolean b
 encloseExpression env free (AST.Integer n) = return $ Closures.Integer n
@@ -52,8 +49,8 @@ encloseExpression env free (AST.Variable name _)
     | name `elem` ["+", "-"] = return (Closure (BuiltInFunction name Closures.IntegerType (ClosureType Closures.IntegerType Closures.IntegerType)) [])
     | name `elem` ["<", ">", "==", "<=", ">="] = return (Closure (BuiltInFunction name Closures.IntegerType (ClosureType Closures.IntegerType Closures.BooleanType)) [])
     | otherwise = case getFreeVariable 0 freeTypes name of
-        Just (index, t) -> trace ("got free variable " ++ name) (return $ Closures.Variable index t)
-        Nothing -> trace ("didn't get free variable " ++ name ++ " " ++ show env ++ " " ++ show free)(return $ getScope env name)
+        Just (index, t) -> return $ Closures.Variable index t
+        Nothing -> return $ getScope env name
     where freeTypes = Prelude.map (\(s, e) -> (s, Closures.typeOf e)) free
 encloseExpression env free (AST.If condition thenBranch elseBranch _) = do
     enclosedCondition <- encloseExpression env free condition
@@ -72,8 +69,8 @@ freeVariables env declared currentFree (AST.Variable name _)
     | name `elem` declared = []
     | name `elem` ["+", "-", "<", ">", "==", "<=", ">="] = []
     | otherwise = case getFreeVariable 0 currentFree name of
-        Just (index, t) -> trace ("got free variable " ++ name) [(name, Closures.Variable index t)]
-        Nothing -> trace ("didn't get free variable " ++ name ++ " ") [(name, getScope env name)]
+        Just (index, t) -> [(name, Closures.Variable index t)]
+        Nothing -> [(name, getScope env name)]
 freeVariables env declared currentFree (AST.If condition thenBranch elseBranch _) = conditionVariables ++ thenBranchVariables ++ elseBranchVariables
     where conditionVariables = freeVariables env declared currentFree condition
           thenBranchVariables = freeVariables env declared currentFree thenBranch

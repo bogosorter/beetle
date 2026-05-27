@@ -8,7 +8,6 @@ import Closures
 import Control.Monad.State
 import qualified Data.Map
 import Data.Maybe (mapMaybe)
-import Debug.Trace
 
 compile :: Closures.Program -> LLVM.Program
 compile (Closures.Program definitions expression) = LLVM.Program (
@@ -133,31 +132,28 @@ compileExpression clc waitingLets (Closure function arguments) = do
 
     closureRegister <- reserveRegister
     let (Register closureNumber) = closureRegister
+    let newClc = case waitingLets of
+            Just waitingLet -> Data.Map.insert waitingLet (RegisterVar closureRegister) clc
+            Nothing -> clc
+    environmentFilling <- mapM (\(i, x) -> addToClosure i newClc waitingLets (TypeVar (name ++ "_env")) (LocalOperand (RegisterVar environmentRegister)) x) (zip [0..] arguments)
 
-    trace ("closure of " ++ name) (do
+    finalRegister <- reserveRegister
 
-        let newClc = case waitingLets of
-                Just waitingLet -> Data.Map.insert waitingLet (RegisterVar closureRegister) clc
-                Nothing -> clc
-        environmentFilling <- mapM (\(i, x) -> addToClosure i newClc waitingLets (TypeVar (name ++ "_env")) (LocalOperand (RegisterVar environmentRegister)) x) (zip [0..] arguments)
-
-        finalRegister <- reserveRegister
-
-        return (
-                [ GetElementPointer2 (LocalOperand (RegisterVar sizePointerRegister)) (TypeVar (name ++ "_env")) NullPtr (Literal 1)
-                , PtrToInt (LocalOperand (RegisterVar sizeRegister)) (LocalOperand (RegisterVar sizePointerRegister))
-                , Malloc (LocalOperand (RegisterVar environmentRegister)) (LocalOperand (RegisterVar sizeRegister))
-                , GetElementPointer2 (LocalOperand (RegisterVar size2PointerRegister)) (TypeVar ("closure_type")) NullPtr (Literal 1)
-                , PtrToInt (LocalOperand (RegisterVar size2Register)) (LocalOperand (RegisterVar size2PointerRegister))
-                , Malloc (LocalOperand (RegisterVar closureRegister)) (LocalOperand (RegisterVar size2Register))
-                , GetElementPointer (LocalOperand (LocalVar ("fn_" ++ (show closureNumber)))) (TypeVar ("closure_type")) (LocalOperand (RegisterVar closureRegister)) (Literal 0) (Literal 0)
-                , Store Pointer (GlobalOperand (GlobalVar name)) (LocalOperand (LocalVar ("fn_" ++ (show closureNumber))))
-                , GetElementPointer (LocalOperand (LocalVar ("env_" ++ (show closureNumber)))) (TypeVar ("closure_type")) (LocalOperand (RegisterVar closureRegister)) (Literal 0) (Literal 1)
-                , Store Pointer (LocalOperand (RegisterVar environmentRegister)) (LocalOperand (LocalVar ("env_" ++ (show closureNumber))))
-                ] ++ (concat environmentFilling) ++
-                [ BitCast (LocalOperand (RegisterVar finalRegister)) Pointer (LocalOperand (RegisterVar closureRegister)) Pointer
-                ]
-            ))
+    return (
+            [ GetElementPointer2 (LocalOperand (RegisterVar sizePointerRegister)) (TypeVar (name ++ "_env")) NullPtr (Literal 1)
+            , PtrToInt (LocalOperand (RegisterVar sizeRegister)) (LocalOperand (RegisterVar sizePointerRegister))
+            , Malloc (LocalOperand (RegisterVar environmentRegister)) (LocalOperand (RegisterVar sizeRegister))
+            , GetElementPointer2 (LocalOperand (RegisterVar size2PointerRegister)) (TypeVar ("closure_type")) NullPtr (Literal 1)
+            , PtrToInt (LocalOperand (RegisterVar size2Register)) (LocalOperand (RegisterVar size2PointerRegister))
+            , Malloc (LocalOperand (RegisterVar closureRegister)) (LocalOperand (RegisterVar size2Register))
+            , GetElementPointer (LocalOperand (LocalVar ("fn_" ++ (show closureNumber)))) (TypeVar ("closure_type")) (LocalOperand (RegisterVar closureRegister)) (Literal 0) (Literal 0)
+            , Store Pointer (GlobalOperand (GlobalVar name)) (LocalOperand (LocalVar ("fn_" ++ (show closureNumber))))
+            , GetElementPointer (LocalOperand (LocalVar ("env_" ++ (show closureNumber)))) (TypeVar ("closure_type")) (LocalOperand (RegisterVar closureRegister)) (Literal 0) (Literal 1)
+            , Store Pointer (LocalOperand (RegisterVar environmentRegister)) (LocalOperand (LocalVar ("env_" ++ (show closureNumber))))
+            ] ++ (concat environmentFilling) ++
+            [ BitCast (LocalOperand (RegisterVar finalRegister)) Pointer (LocalOperand (RegisterVar closureRegister)) Pointer
+            ]
+        )
 compileExpression clc waitingLets (Application (Application (Closure (BuiltInFunction "+" _ _) []) left) right) =
     compileBinaryOperation clc waitingLets Add left right
 compileExpression clc waitingLets (Application (Application (Closure (BuiltInFunction "-" _ _) []) left) right) =
