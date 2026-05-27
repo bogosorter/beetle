@@ -34,7 +34,7 @@ $ ./fibonacci
 13
 ```
 
-The `-o` flag can be used to specify an output file, and the flags `-ast`, `-ir` and `ll` can be used to generate files with the AST, Intermediate Representation and LLVM codes.
+The `-o` flag can be used to specify an output file, and the flags `-ast`, `-ir` and `-ll` can be used to generate files with the AST, Intermediate Representation and LLVM codes.
 
 ## Details
 
