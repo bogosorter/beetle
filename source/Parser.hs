@@ -213,8 +213,8 @@ logic = chainl1 arithmetic logicOperation
                     TokenEquality -> "=="
                     TokenLessThan -> "<"
                     TokenGreaterThan -> ">"
-                    TokenLessThanEqual -> ">="
-                    TokenGreaterThanEqual -> "<="
+                    TokenLessThanEqual -> "<="
+                    TokenGreaterThanEqual -> ">="
                     _ -> error "not reachable"
             return (\left right -> Application (Application (Variable operator ()) left ()) right ())
 
