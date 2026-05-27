@@ -1,2 +1,0 @@
-s(n: integer): integer = return n + 1;
-return s(s(0));

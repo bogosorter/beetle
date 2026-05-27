@@ -13,15 +13,15 @@ The programming language that embraces bugs.
 *beetle*'s compiler is written in Haskell and outputs code in the LLVM Intermediate Representation. For now, every *beetle* program consists of a number of assignments followed by an expression (the program's output). As an example, consider this naive implementation of the *Red, Green, and Blue Tiles* problem from [Project Euler](https://projecteuler.net/problem=117):
 
 ```
-tiles(n: integer): integer ->
-    if n < 0 then 0
-    else if n == 0 then 1
-    else tiles(n - 1) + tiles(n - 2) + tiles(n - 3) + tiles(n - 4);
+tiles(n: integer): integer =
+    if n < 0: return 0;
+    if n == 0: return 1;
+    return tiles(n - 1) + tiles(n - 2) + tiles(n - 3) + tiles(n - 4);
 
-> tiles(5);
+return tiles(5);
 ```
 
-Other examples can be found under the `examples` directory.
+Other examples can be found under the `tests` directory (especially inside `tests/complete`).
 
 ## Building & Running
 
