@@ -10,6 +10,7 @@ import Control.Monad.State
 import Data.Map
 import Data.List (elemIndex)
 import System.Console.Terminfo (functionKey)
+import Debug.Trace
 
 enclose :: AST.Expression AST.Type -> Program
 enclose expression = Program closedDefinitions closedExpression
@@ -25,23 +26,25 @@ encloseExpression env free (AST.Let name value ensuing _) = do
     closedEnsuing <- encloseExpression env' free ensuing
     return $ Closures.Let name enclosed closedEnsuing
 
--- If we get here, this must be a lambda function
 encloseExpression env free (AST.Function argumentType returnType argument body) = do
     name <- reserveLambda
 
     let env' = insert name (Closures.Local name (ClosureType (closuredType argumentType) (closuredType returnType))) env
     let env'' = insert argument (Closures.Argument (closuredType argumentType)) env'
 
-    let free = freeVariables env'' [argument] body
-    let special = Prelude.map (\(n, v) -> (n, Closures.typeOf v)) free
-    let closureValues = Prelude.map (\(n, v) -> v) free
-    let closureTypes = Prelude.map (\(n, v) -> Closures.typeOf v) free
+    let tmp = Prelude.map (\(n, v) -> (n, Closures.typeOf v)) free
+    let free = freeVariables env'' [argument] tmp body
+    trace ("free variables in function " ++ name ++ ": " ++ show free)(do
+        let special = Prelude.map (\(n, v) -> (n, Closures.typeOf v)) free
+        let closureValues = Prelude.map (\(n, v) -> v) free
+        let closureTypes = Prelude.map (\(n, v) -> Closures.typeOf v) free
 
-    enclosed <- encloseExpression env'' free body
-    let definition = (FunctionDefinition name (closuredType argumentType) (closuredType returnType) closureTypes enclosed)
-    putDefinition definition
+        trace ("calling encloseExpression with free values " ++ show free)(do
+            enclosed <- encloseExpression env'' free body
+            let definition = (FunctionDefinition name (closuredType argumentType) (closuredType returnType) closureTypes enclosed)
+            putDefinition definition
 
-    return $ Closure definition closureValues
+            return $ Closure definition closureValues))
 
 encloseExpression env free (AST.Boolean b) = return $ Closures.Boolean b
 encloseExpression env free (AST.Integer n) = return $ Closures.Integer n
@@ -49,8 +52,8 @@ encloseExpression env free (AST.Variable name _)
     | name `elem` ["+", "-"] = return (Closure (BuiltInFunction name Closures.IntegerType (ClosureType Closures.IntegerType Closures.IntegerType)) [])
     | name `elem` ["<", ">", "==", "<=", ">="] = return (Closure (BuiltInFunction name Closures.IntegerType (ClosureType Closures.IntegerType Closures.BooleanType)) [])
     | otherwise = case getFreeVariable 0 freeTypes name of
-        Just (index, t) -> return $ Closures.Variable 0 t
-        Nothing -> return $ getScope env name
+        Just (index, t) -> trace ("got free variable " ++ name) (return $ Closures.Variable index t)
+        Nothing -> trace ("didn't get free variable " ++ name ++ " " ++ show env ++ " " ++ show free)(return $ getScope env name)
     where freeTypes = Prelude.map (\(s, e) -> (s, Closures.typeOf e)) free
 encloseExpression env free (AST.If condition thenBranch elseBranch _) = do
     enclosedCondition <- encloseExpression env free condition
@@ -62,25 +65,28 @@ encloseExpression env free (AST.Application closure argument _) = do
     enclosedArgument <- encloseExpression env free argument
     return $ Closures.Application enclosedClosure enclosedArgument
 
-freeVariables :: Environment -> [String] -> AST.Expression AST.Type -> [(String, Closures.Expression)]
-freeVariables env declared (AST.Boolean _) = []
-freeVariables env declared (AST.Integer _) = []
-freeVariables env declared (AST.Variable name _)
+freeVariables :: Environment -> [String] -> [(String, Closures.Type)] -> AST.Expression AST.Type -> [(String, Closures.Expression)]
+freeVariables env declared currentFree (AST.Boolean _) = []
+freeVariables env declared currentFree (AST.Integer _) = []
+freeVariables env declared currentFree (AST.Variable name _)
     | name `elem` declared = []
     | name `elem` ["+", "-", "<", ">", "==", "<=", ">="] = []
-    | otherwise = [(name, getScope env name)]
-freeVariables env declared (AST.If condition thenBranch elseBranch _) = conditionVariables ++ thenBranchVariables ++ elseBranchVariables
-    where conditionVariables = freeVariables env declared condition
-          thenBranchVariables = freeVariables env declared thenBranch
-          elseBranchVariables = freeVariables env declared elseBranch
-freeVariables env declared (AST.Function _ _ argument body) = freeVariables env declared' body
+    | otherwise = case getFreeVariable 0 currentFree name of
+        Just (index, t) -> trace ("got free variable " ++ name) [(name, Closures.Variable index t)]
+        Nothing -> trace ("didn't get free variable " ++ name ++ " ") [(name, getScope env name)]
+freeVariables env declared currentFree (AST.If condition thenBranch elseBranch _) = conditionVariables ++ thenBranchVariables ++ elseBranchVariables
+    where conditionVariables = freeVariables env declared currentFree condition
+          thenBranchVariables = freeVariables env declared currentFree thenBranch
+          elseBranchVariables = freeVariables env declared currentFree elseBranch
+freeVariables env declared currentFree (AST.Function _ _ argument body) = freeVariables env declared' currentFree body
     where declared' = argument : declared
-freeVariables env declared (AST.Application closure argument _) = closureVariables ++ argumentVariables
-    where closureVariables = freeVariables env declared closure
-          argumentVariables = freeVariables env declared argument
-freeVariables env declared (AST.Let name value ensuing _) = ensuingVariables
+freeVariables env declared currentFree (AST.Application closure argument _) = closureVariables ++ argumentVariables
+    where closureVariables = freeVariables env declared currentFree closure
+          argumentVariables = freeVariables env declared currentFree argument
+freeVariables env declared currentFree (AST.Let name value ensuing _) = valueVariables ++ ensuingVariables
     where newDeclared = name : declared
-          ensuingVariables = freeVariables env newDeclared ensuing
+          valueVariables = freeVariables env declared currentFree value
+          ensuingVariables = freeVariables env newDeclared currentFree ensuing
 
 
 getFreeVariable :: Int -> [(String, Closures.Type)] -> String -> Maybe (Int, Closures.Type)
