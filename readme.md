@@ -8,9 +8,9 @@ The programming language that embraces bugs.
 
 ## About
 
-*beetle* is a simple functional programming language with TypeScript-inspired syntax. I make no pretense of being a knowledgeable language designer (linguist?), but I hope that tinkering around will teach me a little about compilers.
+*beetle* is a simple functional programming language with TypeScript-inspired syntax. I make no pretense of being a knowledgeable language designer (linguist?), but I hope that tinkering around will teach me a little about compilers. *beetle*'s compiler is written in Haskell and outputs code in the LLVM Intermediate Representation.
 
-*beetle*'s compiler is written in Haskell and outputs code in the LLVM Intermediate Representation. For now, every *beetle* program consists of a number of assignments followed by an expression (the program's output). As an example, consider this naive implementation of the *Red, Green, and Blue Tiles* problem from [Project Euler](https://projecteuler.net/problem=117):
+For now, *beetle* programs consist of a number of assignments followed by an expression (the program's output). As an example, consider this naive implementation of the *Red, Green, and Blue Tiles* problem from [Project Euler](https://projecteuler.net/problem=117):
 
 ```
 tiles(n: integer): integer =
@@ -38,7 +38,7 @@ The `-o` flag can be used to specify an output file, and the flags `-ast`, `-ir`
 
 ## Details
 
-Only integers and boolean values are supported. The language's grammar is displayed below. Please note that some features are not yet implemented but already integrated in the grammar (for instance, higher-order functions and scopes).
+The only supported primitive types are integers and booleans. The language's grammar is displayed below. A curious particularity, which I have not yet seen in any other language, is that there are two different types of expressions, `returnExpressions` and plain `expressions`. Since this is a functional language, pretty much everything is an expression, but `returnExpressions` also allow the definitions of variables, `if` usage and must terminate with a `return`. This allows a clean syntax (similar to Python's, without cluttering from curly braces and `let` statements) while avoiding whitespace sensitivity. I must admit I'm quite proud of it.
 
 Single-line comments start with `--`.
 

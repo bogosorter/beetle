@@ -1,13 +1,8 @@
 # Roadmap
 
-# v2.0.0
-
-- Backend cleanup
-- General code review
-- Add tests
-
 # v2.1.0
 
+- General code review
 - Prevent conflits on variable naming
 - Variable shadowing
 
