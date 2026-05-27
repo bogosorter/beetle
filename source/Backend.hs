@@ -60,9 +60,9 @@ compileExpression clc (Closures.Boolean value) = do
     register <- reserveRegister
     let literalValue = if value then 1 else 0
     return [LocalAssign LLVM.Boolean register Add (Literal 0) (Literal literalValue)]
-compileExpression clc (Argument _) = do
+compileExpression clc (Argument t) = do
     register <- reserveRegister
-    return [LocalAssign LLVM.Integer register Add (Literal 0) (LocalOperand ArgumentVar)]
+    return [BitCast (LocalOperand (RegisterVar register)) (convertType t) (LocalOperand ArgumentVar) (convertType t)]
 compileExpression clc (Variable index t) = do
     register <- reserveRegister
     let (Register registerNumber) = register
