@@ -1,0 +1,12 @@
+abs(x: integer): integer =
+    if x >= 0: return x;
+    return -x;
+
+manhattan(a: (integer, integer), b: (integer, integer)): integer =
+    xa, ya = a
+    xb, yb = a
+    first = abs(xa - xb);
+    second = abs(ya - yb);
+    return first + second;
+
+return manhattan((1, 2), (3, 4));
