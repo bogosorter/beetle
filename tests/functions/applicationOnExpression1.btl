@@ -1,0 +1,4 @@
+sum(x: integer, y: integer): integer =
+    return x + y;
+
+return sum(1)(2);
