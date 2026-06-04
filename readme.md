@@ -60,7 +60,7 @@ assignment = symbol function
            | symbol '=' expression
 
 expression = 'lambda' function
-           | logic
+           | logic expressionCall
 logic = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
 arithmetic = atom (('+' | '-') atom)*
 atom = symbol '(' expression ')'
@@ -68,6 +68,8 @@ atom = symbol '(' expression ')'
      | integer
      | boolean
      | '(' expression ')'
+expressionCall = '(' expression (',' expression)* ')'
+               | ϵ
      
 function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' expression
 
