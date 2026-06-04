@@ -270,7 +270,7 @@ parenthesizedExpression = do
 
 parseType :: Parser Type
 parseType = chainr1 baseTypes functionType
-    where baseTypes = booleanType <|> integerType
+    where baseTypes = booleanType <|> integerType <|> parenthesizedType
           functionType = do
             match TokenArrow
             return (\left right -> FunctionType left right)
@@ -284,6 +284,13 @@ integerType :: Parser Type
 integerType = do
     match TokenTypeInteger
     return IntegerType
+
+parenthesizedType :: Parser Type
+parenthesizedType = do
+    match TokenLeftParenthesis
+    t <- parseType
+    match TokenRightParenthesis
+    return t
 
 symbol :: Parser String
 symbol = satisfy (\t -> case t of

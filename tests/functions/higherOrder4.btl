@@ -1,0 +1,6 @@
+f(a: integer): (integer -> integer) -> integer =
+    g(function: integer -> integer): integer =
+        return function(a);
+    return g;
+
+return f(0)(lambda (x: integer): integer = return x + 1);
