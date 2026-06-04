@@ -1,5 +1,5 @@
-f(x: integer): (integer) -> (integer) -> integer =
-    g(y: integer): (integer) -> integer =
+f(x: integer): integer -> integer -> integer =
+    g(y: integer): integer -> integer =
         h(z: integer): integer =
             return x + y + z;
         return h;

@@ -1,4 +1,4 @@
-test(f: (integer) -> boolean): boolean =
+test(f: integer -> boolean): boolean =
     if f(1): return true;
     return false;
 

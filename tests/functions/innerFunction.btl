@@ -1,4 +1,4 @@
-sum(x: integer): (integer) -> integer =
+sum(x: integer): integer -> integer =
     partial(y: integer): integer =
         return x + y;
     return partial;

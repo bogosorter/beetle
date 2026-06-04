@@ -8,7 +8,6 @@
 
 # v2.2.0
 
-- Function applications on arbitrary expressions (not just symbols)
 - Lambda declaration without using lambda keyword
 - Allow parenthesized types and types without parenthesis (i.e., `integer -> (integer -> integer)`)
 

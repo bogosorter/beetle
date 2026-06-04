@@ -1,4 +1,4 @@
-f(x: integer): (integer, integer) -> integer =
+f(x: integer): integer -> integer -> integer =
     partial(y: integer, z: integer): integer = return x + y + z;
     return partial;
 
