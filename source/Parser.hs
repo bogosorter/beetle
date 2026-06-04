@@ -229,19 +229,16 @@ arithmetic = chainl1 atom arithmeticOperation
             return (\left right -> Application (Application (Variable operator ()) left ()) right ())
 
 atom :: Parser (Expression ())
-atom = atomSymbol <|> integer <|> boolean <|> parenthesizedExpression
+atom = variableUsage <|> integer <|> boolean <|> parenthesizedExpression
 
--- This is used to parse both variable usages and function calls
-atomSymbol :: Parser (Expression ())
-atomSymbol = do
-    name <- symbol
-    functionCall name <|> variableUsage name
+expressionCall :: Expression () -> Parser (Expression ())
+expressionCall logicExpression = functionCall logicExpression <|> emptyExpressionCall logicExpression
 
-functionCall :: String -> Parser (Expression ())
-functionCall symbol = do
+functionCall :: Expression () -> Parser (Expression ())
+functionCall base = do
     match TokenLeftParenthesis
     argument <- expression
-    let call = (Application (Variable symbol ()) argument ())
+    let call = (Application base argument ())
     functionCallContinuation call <|> functionCallEnd call
 
 functionCallContinuation :: Expression () -> Parser (Expression ())
@@ -254,17 +251,22 @@ functionCallContinuation base = do
 functionCallEnd :: Expression () -> Parser (Expression ())
 functionCallEnd base = do
     match TokenRightParenthesis
-    return base
+    expressionCall base
 
-variableUsage :: String -> Parser (Expression ())
-variableUsage symbol = return (Variable symbol ())
+emptyExpressionCall :: Expression () -> Parser (Expression ())
+emptyExpressionCall expr = return expr
+
+variableUsage :: Parser (Expression ())
+variableUsage = do
+    name <- symbol
+    expressionCall (Variable name ())
 
 parenthesizedExpression :: Parser (Expression ())
 parenthesizedExpression = do
     match TokenLeftParenthesis
     content <- expression
     match TokenRightParenthesis
-    return content
+    expressionCall content
 
 parseType :: Parser Type
 parseType = booleanType <|> integerType <|> functionType
