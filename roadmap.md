@@ -1,16 +1,16 @@
 # Roadmap
 
-# v2.2.1
+# v3.0.1
 
 - General code review
 - Prevent conflits on variable naming
 - Variable shadowing
 
-# v2.3.0
+# v3.1.0
 
 - Tuples
 
-# v2.4.0
+# v3.2.0
 
 - Objects
 

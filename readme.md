@@ -21,11 +21,11 @@ tiles(n: integer): integer =
 return tiles(5);
 ```
 
-Other examples can be found under the `tests` directory (especially inside `tests/complete`).
+Other examples can be found under the `tests` directory (especially inside `tests/functions`).
 
 ## Building & Running
 
-The source code is under the `source` directory. For Linux users, a `build.sh` file is provided. Please note that it will add an executable file named `beetle` to the `~/.local/bin/` directory. Usage example:
+For Linux users, a `build.sh` file is provided. Please note that it will add an executable file named `beetle` to the `~/.local/bin/` directory. Usage example:
 
 ```
 $ ./build.sh
@@ -42,6 +42,8 @@ The only supported primitive types are integers and booleans. The language's gra
 
 Single-line comments start with `--`.
 
+> The factored, non-left-recursive grammar can be found under `grammar.md`
+
 ```
 -- The grammar distinguishes between expressions and return expressions. The
 -- former can only represent simple arithmetic expressions, while the later can
@@ -56,18 +58,17 @@ returnExpression = assignment ';' returnExpression
                  | 'if' expression ':' returnExpression ';' returnExpression
                  | 'return' expression
 
-assignment = symbol function
-           | symbol '=' expression
+assignment = symbol '=' expression
+           | symbol function
 
 expression = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
 arithmetic = atom (('+' | '-') atom)*
-atom = symbol expressionCall
-     | '(' expression ')' expressionCall
+atom = symbol
+     | atom '(' expression (',' expression)* ')' -- call
+     | '(' expression ')'
      | lambda
      | integer
      | boolean
-expressionCall = '(' expression (',' expression)* ')' expressionCall
-               | ϵ
      
 function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' returnExpression
 lambda = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' expression
