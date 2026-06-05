@@ -1,5 +1,0 @@
-sum = lambda (x: integer): integer =
-    if x == 0: return 0;
-    return x + sum(x - 1);
-
-return sum(3);

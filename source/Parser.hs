@@ -33,7 +33,6 @@ data Token = TokenIntegerLiteral Int
            | TokenElse
            | TokenTypeBoolean
            | TokenTypeInteger
-           | TokenLambda
            | TokenReturn
            | TokenEOF
     deriving (Show, Eq)
@@ -108,9 +107,6 @@ tokenize input@(c:cs)
     | take 7 input == "integer" = do
         rest <- tokenize (drop 7 input)
         return $ TokenTypeInteger : rest
-    | take 6 input == "lambda" = do
-        rest <- tokenize (drop 6 input)
-        return $ TokenLambda : rest
     | take 6 input == "return" = do
         rest <- tokenize (drop 6 input)
         return $ TokenReturn : rest
@@ -198,15 +194,7 @@ functionEnd = do
     return (returnType, body)
 
 expression :: Parser (Expression ())
-expression = lambda <|> logic
-
-lambda :: Parser (Expression ())
-lambda = do
-    match TokenLambda
-    function
-
-logic :: Parser (Expression ())
-logic = chainl1 arithmetic logicOperation
+expression = chainl1 arithmetic logicOperation
     where logicOperation = do
             token <- match TokenEquality <|> match TokenLessThan <|> match TokenGreaterThan <|> match TokenLessThanEqual <|> match TokenGreaterThanEqual
             let operator = case token of
@@ -229,7 +217,10 @@ arithmetic = chainl1 atom arithmeticOperation
             return (\left right -> Application (Application (Variable operator ()) left ()) right ())
 
 atom :: Parser (Expression ())
-atom = variableUsage <|> integer <|> boolean <|> parenthesizedExpression
+-- try is used for lambda function because their beginning shares a few terms
+-- with some of the productions of an expression that starts by referencing a
+-- variable, and it is difficult to factor it out
+atom = try lambda <|> variableUsage <|> integer <|> boolean <|> parenthesizedExpression
 
 expressionCall :: Expression () -> Parser (Expression ())
 expressionCall logicExpression = functionCall logicExpression <|> emptyExpressionCall logicExpression
@@ -255,6 +246,33 @@ functionCallEnd base = do
 
 emptyExpressionCall :: Expression () -> Parser (Expression ())
 emptyExpressionCall expr = return expr
+
+lambda :: Parser (Expression ())
+lambda = do
+    match TokenLeftParenthesis
+    argument <- symbol
+    match TokenColon
+    argumentType <- parseType
+    (returnType, body) <- lambdaContinuation <|> lambdaEnd
+    return $ Function argumentType returnType argument body
+
+lambdaContinuation :: Parser (Type, Expression ())
+lambdaContinuation = do
+    match TokenComma
+    argument <- symbol
+    match TokenColon
+    argumentType <- parseType
+    (returnType, body) <- lambdaContinuation <|> lambdaEnd
+    return $ (FunctionType argumentType returnType, Function argumentType returnType argument body)
+
+lambdaEnd :: Parser (Type, Expression ())
+lambdaEnd = do
+    match TokenRightParenthesis
+    match TokenColon
+    returnType <- parseType
+    match TokenAssign
+    body <- expression
+    return (returnType, body)
 
 variableUsage :: Parser (Expression ())
 variableUsage = do

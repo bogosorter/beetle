@@ -59,18 +59,18 @@ returnExpression = assignment ';' returnExpression
 assignment = symbol function
            | symbol '=' expression
 
-expression = 'lambda' function
-           | logic
-logic = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
+expression = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
 arithmetic = atom (('+' | '-') atom)*
 atom = symbol expressionCall
      | '(' expression ')' expressionCall
+     | lambda
      | integer
      | boolean
 expressionCall = '(' expression (',' expression)* ')' expressionCall
                | ϵ
      
-function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' expression
+function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' returnExpression
+lambda = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' expression
 
 type = 'integer' | 'boolean' | '(' type ')' | type ('->' type)*;
 ```

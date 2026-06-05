@@ -1,0 +1,4 @@
+mapSum(f: integer -> integer, a: integer, b: integer): integer =
+    return f(a) + f(b);
+
+return mapSum((n: integer): integer = n + 1, 0, 1);

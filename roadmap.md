@@ -1,15 +1,10 @@
 # Roadmap
 
-# v2.1.0
+# v2.2.1
 
 - General code review
 - Prevent conflits on variable naming
 - Variable shadowing
-
-# v2.2.0
-
-- Lambda declaration without using lambda keyword
-- Allow parenthesized types and types without parenthesis (i.e., `integer -> (integer -> integer)`)
 
 # v2.3.0
 
