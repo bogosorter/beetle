@@ -60,8 +60,11 @@ returnExpression = assignment ';' returnExpression
 
 assignment = symbol '=' expression
            | symbol function
+           | symbol (',' symbol)+ '=' expression -- tuple assignment
 
-expression = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
+expression = logical
+           | logical (',' logical) -- tuple creation
+logical = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
 arithmetic = atom (('+' | '-') atom)*
 atom = symbol
      | atom '(' expression (',' expression)* ')' -- call
