@@ -66,6 +66,7 @@ arithmetic = atom (('+' | '-') atom)*
 atom = symbol
      | atom '(' expression (',' expression)* ')' -- call
      | '(' expression ')'
+     | - atom
      | lambda
      | integer
      | boolean

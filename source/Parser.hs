@@ -221,7 +221,7 @@ atom :: Parser (Expression ())
 -- try is used for lambda function because their beginning shares a few terms
 -- with some of the productions of an expression that starts by referencing a
 -- variable, and it is difficult to factor it out
-atom = try lambda <|> variableUsage <|> integer <|> boolean <|> parenthesizedExpression
+atom = try lambda <|> variableUsage <|> unaryMinus <|> integer <|> boolean <|> parenthesizedExpression
 
 expressionCall :: Expression () -> Parser (Expression ())
 expressionCall logicExpression = functionCall logicExpression <|> emptyExpressionCall logicExpression
@@ -279,6 +279,12 @@ variableUsage :: Parser (Expression ())
 variableUsage = do
     name <- symbol
     expressionCall (Variable name ())
+
+unaryMinus :: Parser (Expression())
+unaryMinus = do
+    match TokenMinus
+    content <- atom
+    return $ Application (Application (Variable "-" ()) (Integer 0) ()) content ()
 
 parenthesizedExpression :: Parser (Expression ())
 parenthesizedExpression = do
