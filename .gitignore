@@ -1,9 +1,10 @@
 beetle
 test.btl
+test.ir
+test.ll
 test
 examples/*
 !examples/*.btl
-test.ll
 tests/**
 !tests/**/
 !tests/**/*.btl

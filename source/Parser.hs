@@ -132,6 +132,7 @@ program :: Parser (Expression ())
 program = do
     result <- returnExpression
     match TokenSemicolon
+    match TokenEOF
     return result
 
 returnExpression :: Parser (Expression ())
