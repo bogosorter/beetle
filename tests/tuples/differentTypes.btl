@@ -1,5 +1,5 @@
 triple = 1, false, true, 2;
-a, b, c, d = triple
+a, b, c, d = triple;
 
 if b: return a + d;
 return d - a;

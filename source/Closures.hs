@@ -14,6 +14,7 @@ data FunctionDefinition = FunctionDefinition String Type Type ClosureType Expres
 data Expression
     = Boolean Bool
     | Integer Int
+    | Tuple [Expression] Type
     | Argument Type -- The argument of the current function (invalid if we are in the global scope)
     | Variable Int Type -- The index of the variable in the closure
     | Local String Type -- A Variable that was declared with let
@@ -21,14 +22,16 @@ data Expression
     | Closure FunctionDefinition [Expression]
     | Application Expression Expression
     | Let String Expression Expression
+    | TupleDestructuring [String] Expression Expression
 
-data Type = BooleanType | IntegerType | ClosureType Type Type
+data Type = BooleanType | IntegerType | TupleType [Type] | ClosureType Type Type
     deriving Show
 type ClosureType = [Type]
 
 typeOf :: Expression -> Type
 typeOf (Boolean _) = BooleanType
 typeOf (Integer _) = IntegerType
+typeOf (Tuple _ t) = t
 typeOf (Argument t) = t
 typeOf (Variable _ t) = t
 typeOf (Local _ t) = t
@@ -39,6 +42,7 @@ typeOf (Closure function _) = case function of
 typeOf (Application closure _) = returnType
     where (ClosureType argumentType returnType) = typeOf closure
 typeOf (Let _ _ expression) = typeOf expression
+typeOf (TupleDestructuring _ _ expression) = typeOf expression
 
 instance Show Program where
     show (Program definitions expression) = intercalate "\n" (map show definitions) ++ "\n" ++ show expression ++ "\n"
@@ -54,6 +58,7 @@ instance Show Expression where
 
 showIndent indent (Boolean b) = (take indent (repeat ' ')) ++ show b
 showIndent indent (Integer n) = take indent (repeat ' ') ++ show n
+showIndent indent (Tuple members _) = take indent (repeat ' ') ++ "(" ++ intercalate "," (map show members) ++ ")"
 showIndent indent (Argument t) = take indent (repeat ' ') ++ "argument"
 showIndent indent (Variable index _) = take indent (repeat ' ') ++ "variable " ++ show index
 showIndent indent (Local name _) = take indent (repeat ' ') ++ name
@@ -78,5 +83,10 @@ showIndent indent (Application closure argument) =
 showIndent indent (Let name defined expression) =
     take indent (repeat ' ') ++ "let " ++ name ++ " =\n" ++
         showIndent (indent + 4) defined ++ "\n" ++
+    take indent (repeat ' ') ++ "in\n" ++
+        showIndent (indent + 4) expression
+showIndent indent (TupleDestructuring names value expression) =
+    take indent (repeat ' ') ++ "let " ++ "(" ++ intercalate "," (map show names) ++ ")" ++ " =\n" ++
+        showIndent (indent + 4) value ++ "\n" ++
     take indent (repeat ' ') ++ "in\n" ++
         showIndent (indent + 4) expression

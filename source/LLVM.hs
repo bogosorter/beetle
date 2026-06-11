@@ -57,6 +57,7 @@ newtype Label = Label String
 convertType :: Closures.Type -> Type
 convertType Closures.BooleanType = Boolean
 convertType Closures.IntegerType = Integer
+convertType (Closures.TupleType memberTypes) = Tuple (map convertType memberTypes)
 convertType (Closures.ClosureType _ _) = Pointer
 
 instance Show TopLevelStatement where

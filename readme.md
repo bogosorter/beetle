@@ -67,7 +67,7 @@ expression = logical
 logical = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
 arithmetic = atom (('+' | '-') atom)*
 atom = symbol
-     | atom '(' expression (',' expression)* ')' -- call
+     | atom '(' logical (',' logical)* ')' -- call
      | '(' expression ')'
      | - atom
      | lambda

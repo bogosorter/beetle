@@ -8,6 +8,7 @@ module Parser (parseProgram) where
 import AST
 import Text.Parsec hiding (eof, char, newline, satisfy)
 import Data.Char (isAlpha, isDigit)
+import Debug.Trace
 
 type Parser = Parsec [Token] ()
 
@@ -141,6 +142,10 @@ returnExpression = assignment <|> ifExpression <|> returnValue
 assignment :: Parser (Expression ())
 assignment = do
     name <- symbol
+    varFunctionAssignment name <|> tupleDestructuring name
+
+varFunctionAssignment :: String -> Parser (Expression ())
+varFunctionAssignment name = do
     value <- variableAssignment <|> function
     match TokenSemicolon
     ensuing <- returnExpression
@@ -194,8 +199,36 @@ functionEnd = do
     body <- returnExpression
     return (returnType, body)
 
+tupleDestructuring :: String -> Parser (Expression ())
+tupleDestructuring name = do
+    tupleDestructuringContinuation [name]
+
+tupleDestructuringContinuation :: [String] -> Parser (Expression ())
+tupleDestructuringContinuation destructuredNames = do
+    match TokenComma
+    nextName <- symbol
+    let destructuredNames' = destructuredNames ++ [nextName]
+    tupleDestructuringContinuation destructuredNames' <|> tupleDestructuringEnd destructuredNames'
+
+tupleDestructuringEnd :: [String] -> Parser (Expression ())
+tupleDestructuringEnd destructuredNames = do
+    match TokenAssign
+    value <- expression
+    match TokenSemicolon
+    ensuing <- returnExpression
+    return $ TupleDestructuring destructuredNames value ensuing ()
+
 expression :: Parser (Expression ())
-expression = chainl1 arithmetic logicOperation
+expression = chainl1 logical tupleConstructor
+    where tupleConstructor = do
+            match TokenComma
+            return buildTuple
+
+          buildTuple (Tuple expressions ()) newExpression = Tuple (expressions ++ [newExpression]) ()
+          buildTuple left right = Tuple [left, right] ()
+
+logical :: Parser (Expression ())
+logical = chainl1 arithmetic logicOperation
     where logicOperation = do
             token <- match TokenEquality <|> match TokenLessThan <|> match TokenGreaterThan <|> match TokenLessThanEqual <|> match TokenGreaterThanEqual
             let operator = case token of
@@ -229,14 +262,14 @@ expressionCall logicExpression = functionCall logicExpression <|> emptyExpressio
 functionCall :: Expression () -> Parser (Expression ())
 functionCall base = do
     match TokenLeftParenthesis
-    argument <- expression
+    argument <- logical
     let call = (Application base argument ())
     functionCallContinuation call <|> functionCallEnd call
 
 functionCallContinuation :: Expression () -> Parser (Expression ())
 functionCallContinuation base = do
     match TokenComma
-    argument <- expression
+    argument <- logical
     let call = (Application base argument ())
     functionCallContinuation call <|> functionCallEnd call
 

@@ -15,7 +15,7 @@ compile (Closures.Program definitions expression) = LLVM.Program (
         , FormatString
         , PrintfDeclaration
         , MallocDeclaration
-        , TypeDeclaration (TypeVar "closure_type") (Tuple [Pointer, Pointer])
+        , TypeDeclaration (TypeVar "closure_type") (LLVM.Tuple [Pointer, Pointer])
         ] ++
         mapMaybe compileEnvironment definitions ++
         (definitions >>= compileDefinition) ++
@@ -26,12 +26,12 @@ compile (Closures.Program definitions expression) = LLVM.Program (
 
 compileEnvironment :: FunctionDefinition -> Maybe TopLevelStatement
 compileEnvironment (FunctionDefinition name argumentType returnType closure body) = Just closureDeclaration
-    where closureDeclaration = TypeDeclaration (TypeVar (name ++ "_env")) (Tuple (map convertType closure))
+    where closureDeclaration = TypeDeclaration (TypeVar (name ++ "_env")) (LLVM.Tuple (map convertType closure))
 compileEnvironment (BuiltInFunction _ _ _) = Nothing
 
 compileDefinition :: FunctionDefinition -> [TopLevelStatement]
 compileDefinition (FunctionDefinition name argumentType returnType closure body) = [definition]
-    where closureDeclaration = TypeDeclaration (TypeVar (name ++ "_env")) (Tuple (map convertType closure))
+    where closureDeclaration = TypeDeclaration (TypeVar (name ++ "_env")) (LLVM.Tuple (map convertType closure))
           definition = LLVM.Function (convertType returnType) (GlobalVar name) (Just (convertType argumentType, ArgumentVar)) (expressionStatements ++ [returnStatement])
           (expressionStatements, compilationState) = runState (compileExpression Data.Map.empty Nothing body) (initialFunctionState (TypeVar (name ++ "_env")))
           returnStatement = Return (convertType returnType) (LocalOperand (RegisterVar (register compilationState)))
@@ -60,6 +60,7 @@ compileExpression clc waitingLets (Closures.Boolean value) = do
     register <- reserveRegister
     let literalValue = if value then 1 else 0
     return [LocalAssign LLVM.Boolean register Add (Literal 0) (Literal literalValue)]
+compileExpression clc waitingLets (Closures.Tuple {}) = error "not implemented"
 compileExpression clc waitingLets (Argument t) = do
     register <- reserveRegister
     return [BitCast (LocalOperand (RegisterVar register)) (convertType t) (LocalOperand ArgumentVar) (convertType t)]
@@ -202,6 +203,22 @@ compileExpression clc waitingLets (Let name value expression) = do
             [BitCast (LocalOperand (LocalVar name)) t (LocalOperand (RegisterVar valueRegister)) t] ++
             expressionStatements
         )
+compileExpression clc waitingLets (Closures.TupleDestructuring names value ensuing) = do
+    -- Food for thought: using Nothing below is a simplification, but does not
+    -- allow lambdas defined in tuples to be recursive
+    valueStatements <- compileExpression clc Nothing value
+    valueRegister <- currentRegister
+
+    ensuingStatements <- compileExpression clc waitingLets ensuing
+
+    let (LLVM.Tuple memberTypes) = convertType (typeOf value)
+    return ( valueStatements ++
+             map (\(name, t) -> BitCast (LocalOperand (LocalVar name)) t (LocalOperand (RegisterVar valueRegister)) t) (zip names memberTypes) ++
+             ensuingStatements
+        )
+
+
+    error "not implemented"
 
 compileBinaryOperation :: CurrentLetClosures -> Maybe String -> Operation -> Expression -> Expression -> State CompilationState [Statement]
 compileBinaryOperation clc waitingLets operation left right = do
