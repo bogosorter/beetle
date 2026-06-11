@@ -1,6 +1,9 @@
+-- A naive solution to the tiles problem from Project Euler
+-- https://projecteuler.net/problem=117
+
 tiles(n: integer): integer =
-    if n < 0: return 0;
-    if n == 0: return 1;
+    if n < 0: return 0; -- impossible
+    if n == 0: return 1; -- empty sequence
     return tiles(n - 1) + tiles(n - 2) + tiles(n - 3) + tiles(n - 4);
 
 return tiles(5);
