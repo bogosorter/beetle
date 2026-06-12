@@ -27,7 +27,12 @@ encloseExpression env free (AST.Let name value ensuing _) = do
     return $ Closures.Let name enclosed closedEnsuing
 
 encloseExpression env free (AST.TupleDestructuring names value ensuing _) = do
-    error "not implemented"
+    enclosed <- encloseExpression env free value
+
+    let insertTupleMember name environment = insert name (Closures.Local name (closuredType (AST.typeOf value))) environment
+    let env' = Prelude.foldr insertTupleMember env names
+    closedEnsuing <- encloseExpression env' free ensuing
+    return $ Closures.TupleDestructuring names enclosed closedEnsuing
 
 encloseExpression env free (AST.Function argumentType returnType argument body) = do
     name <- reserveLambda

@@ -48,7 +48,7 @@ data Type = Boolean | Integer | Tuple [Type] | Pointer
 data Operation = Add | Sub | Eq | Slt | Sgt | Sle | Sge
 data Operand = Literal Int | LocalOperand LocalVar | GlobalOperand GlobalVar | NullPtr
 newtype GlobalVar = GlobalVar String
-newtype TypeVar = TypeVar String
+data TypeVar = TypeVar String | LiteralType Type
 data LocalVar = ArgumentVar | RegisterVar Register | LocalVar String
 newtype Register = Register Int
 newtype Label = Label String
@@ -132,6 +132,7 @@ instance Show GlobalVar where
 
 instance Show TypeVar where
     show (TypeVar name) = "%" ++ name
+    show (LiteralType t) = show t
 
 instance Show LocalVar where
     show ArgumentVar = "%argument"

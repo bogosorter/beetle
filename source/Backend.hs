@@ -8,6 +8,7 @@ import Closures
 import Control.Monad.State
 import qualified Data.Map
 import Data.Maybe (mapMaybe)
+import Data.Foldable (foldrM)
 
 compile :: Closures.Program -> LLVM.Program
 compile (Closures.Program definitions expression) = LLVM.Program (
@@ -60,7 +61,44 @@ compileExpression clc waitingLets (Closures.Boolean value) = do
     register <- reserveRegister
     let literalValue = if value then 1 else 0
     return [LocalAssign LLVM.Boolean register Add (Literal 0) (Literal literalValue)]
-compileExpression clc waitingLets (Closures.Tuple {}) = error "not implemented"
+compileExpression clc waitingLets (Closures.Tuple expressions t) = do
+
+    let compileTupleMember member (statements, registers) = do
+            memberStatements <- compileExpression clc waitingLets member
+            register <- currentRegister
+            return (statements ++ memberStatements, registers ++ [register])
+
+    (statements, registers) <- foldrM compileTupleMember ([], []) expressions
+
+    sizePointerRegister <- reserveRegister
+    sizeRegister <- reserveRegister
+    resultRegister <- reserveRegister
+
+    let storeTupleMember :: (Int, Register, LLVM.Type) -> [Statement] -> State CompilationState [Statement]
+        storeTupleMember (index, member, memberType) statements = do
+            storePointer <- reserveRegister
+            let memberStatements =
+                    [ GetElementPointer (LocalOperand (RegisterVar storePointer)) (LiteralType (convertType t)) (LocalOperand (RegisterVar resultRegister)) (Literal 0) (Literal index)
+                    , Store memberType (LocalOperand (RegisterVar member)) (LocalOperand (RegisterVar storePointer))
+                    ]
+            return (statements ++ memberStatements)
+
+    tupleStoreStatements <- foldrM storeTupleMember [] (zip3 [0..] registers (map (convertType . typeOf) expressions))
+
+    lastRegister <- reserveRegister
+
+    return
+        ( statements ++
+          [ GetElementPointer2 (LocalOperand (RegisterVar sizePointerRegister)) (LiteralType (convertType t)) NullPtr (Literal 1)
+          , PtrToInt (LocalOperand (RegisterVar sizeRegister)) (LocalOperand (RegisterVar sizePointerRegister))
+          , Malloc (LocalOperand (RegisterVar resultRegister)) (LocalOperand (RegisterVar sizeRegister))
+          ] ++
+          tupleStoreStatements ++
+          -- This is a little trick to make the last register be that of the
+          -- tuple. There should be a better way to do this, though
+          [ BitCast (LocalOperand (RegisterVar lastRegister)) Pointer (LocalOperand (RegisterVar resultRegister)) Pointer
+          ]
+        )
 compileExpression clc waitingLets (Argument t) = do
     register <- reserveRegister
     return [BitCast (LocalOperand (RegisterVar register)) (convertType t) (LocalOperand ArgumentVar) (convertType t)]
@@ -204,8 +242,6 @@ compileExpression clc waitingLets (Let name value expression) = do
             expressionStatements
         )
 compileExpression clc waitingLets (Closures.TupleDestructuring names value ensuing) = do
-    -- Food for thought: using Nothing below is a simplification, but does not
-    -- allow lambdas defined in tuples to be recursive
     valueStatements <- compileExpression clc Nothing value
     valueRegister <- currentRegister
 
@@ -216,9 +252,6 @@ compileExpression clc waitingLets (Closures.TupleDestructuring names value ensui
              map (\(name, t) -> BitCast (LocalOperand (LocalVar name)) t (LocalOperand (RegisterVar valueRegister)) t) (zip names memberTypes) ++
              ensuingStatements
         )
-
-
-    error "not implemented"
 
 compileBinaryOperation :: CurrentLetClosures -> Maybe String -> Operation -> Expression -> Expression -> State CompilationState [Statement]
 compileBinaryOperation clc waitingLets operation left right = do
