@@ -333,6 +333,19 @@ parseType = chainr1 baseTypes functionType
             match TokenArrow
             return (\left right -> FunctionType left right)
 
+tupleType :: Type -> Parser Type
+tupleType t = tupleTypeContinuation [t]
+
+tupleTypeContinuation :: [Type] -> Parser Type
+tupleTypeContinuation ts = do
+    match TokenComma
+    nextType <- parseType
+    let newTypes = (ts ++ [nextType])
+    tupleTypeContinuation newTypes <|> tupleTypeEnd newTypes
+
+tupleTypeEnd :: [Type] -> Parser Type
+tupleTypeEnd ts = return $ TupleType ts
+
 booleanType :: Parser Type
 booleanType = do
     match TokenTypeBoolean
@@ -347,6 +360,7 @@ parenthesizedType :: Parser Type
 parenthesizedType = do
     match TokenLeftParenthesis
     t <- parseType
+    t <- tupleType t <|> (return t)
     match TokenRightParenthesis
     return t
 

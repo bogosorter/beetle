@@ -3,8 +3,8 @@ abs(x: integer): integer =
     return -x;
 
 manhattan(a: (integer, integer), b: (integer, integer)): integer =
-    xa, ya = a
-    xb, yb = a
+    xa, ya = a;
+    xb, yb = b;
     first = abs(xa - xb);
     second = abs(ya - yb);
     return first + second;

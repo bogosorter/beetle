@@ -77,5 +77,5 @@ atom = symbol
 function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' returnExpression
 lambda = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' expression
 
-type = 'integer' | 'boolean' | '(' type ')' | type ('->' type)*;
+type = 'integer' | 'boolean' | type (',' type)+ | '(' type ')' | type ('->' type)*;
 ```
