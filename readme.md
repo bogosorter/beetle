@@ -75,7 +75,7 @@ atom = symbol
      | boolean
      
 function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' returnExpression
-lambda = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' expression
+lambda = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' logical
 
 type = 'integer' | 'boolean' | type (',' type)+ | '(' type ')' | type ('->' type)*;
 ```

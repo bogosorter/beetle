@@ -305,7 +305,7 @@ lambdaEnd = do
     match TokenColon
     returnType <- parseType
     match TokenAssign
-    body <- expression
+    body <- logical
     return (returnType, body)
 
 variableUsage :: Parser (Expression ())
