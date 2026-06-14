@@ -1,3 +1,0 @@
-uselessPair = (1, 2);
-_, useful = uselessPair;
-return useful;

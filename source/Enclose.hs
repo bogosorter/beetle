@@ -10,7 +10,7 @@ import Control.Monad.State
 import Data.Map
 import Data.List (elemIndex)
 import System.Console.Terminfo (functionKey)
-import Distribution.Compat.Graph (closure)
+import Distribution.Compat.Graph (closure, member)
 
 enclose :: AST.Expression AST.Type -> Program
 enclose expression = Program closedDefinitions closedExpression
@@ -29,8 +29,10 @@ encloseExpression env free (AST.Let name value ensuing _) = do
 encloseExpression env free (AST.TupleDestructuring names value ensuing _) = do
     enclosed <- encloseExpression env free value
 
-    let insertTupleMember name environment = insert name (Closures.Local name (closuredType (AST.typeOf value))) environment
-    let env' = Prelude.foldr insertTupleMember env names
+    let insertTupleMember (name, t) environment = insert name (Closures.Local name (closuredType t)) environment
+
+    let (AST.TupleType memberTypes) = AST.typeOf value
+    let env' = Prelude.foldr insertTupleMember env (zip names memberTypes)
     closedEnsuing <- encloseExpression env' free ensuing
     return $ Closures.TupleDestructuring names enclosed closedEnsuing
 

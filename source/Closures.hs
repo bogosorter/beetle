@@ -58,10 +58,10 @@ instance Show Expression where
 
 showIndent indent (Boolean b) = (take indent (repeat ' ')) ++ show b
 showIndent indent (Integer n) = take indent (repeat ' ') ++ show n
-showIndent indent (Tuple members _) = take indent (repeat ' ') ++ "(" ++ intercalate "," (map show members) ++ ")"
-showIndent indent (Argument t) = take indent (repeat ' ') ++ "argument"
-showIndent indent (Variable index _) = take indent (repeat ' ') ++ "variable " ++ show index
-showIndent indent (Local name _) = take indent (repeat ' ') ++ name
+showIndent indent (Tuple members t) = take indent (repeat ' ') ++ "(" ++ intercalate "," (map show members) ++ ")"  ++ " (" ++ show t ++ ")"
+showIndent indent (Argument t) = take indent (repeat ' ') ++ "argument" ++ " (" ++ show t ++ ")"
+showIndent indent (Variable index t) = take indent (repeat ' ') ++ "variable " ++ show index ++ " (" ++ show t ++ ")"
+showIndent indent (Local name t) = take indent (repeat ' ') ++ name ++ " (" ++ show t ++ ")"
 showIndent indent (If condition thenBranch elseBranch) =
     take indent (repeat ' ') ++ "if\n" ++
         showIndent (indent + 4) condition ++ "\n" ++

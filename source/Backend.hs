@@ -8,7 +8,7 @@ import Closures
 import Control.Monad.State
 import qualified Data.Map
 import Data.Maybe (mapMaybe)
-import Data.Foldable (foldrM)
+import Data.Foldable (foldrM, foldlM)
 
 compile :: Closures.Program -> LLVM.Program
 compile (Closures.Program definitions expression) = LLVM.Program (
@@ -63,12 +63,12 @@ compileExpression clc waitingLets (Closures.Boolean value) = do
     return [LocalAssign LLVM.Boolean register Add (Literal 0) (Literal literalValue)]
 compileExpression clc waitingLets (Closures.Tuple expressions t) = do
 
-    let compileTupleMember member (statements, registers) = do
+    let compileTupleMember (statements, registers) member = do
             memberStatements <- compileExpression clc waitingLets member
             register <- currentRegister
             return (statements ++ memberStatements, registers ++ [register])
 
-    (statements, registers) <- foldrM compileTupleMember ([], []) expressions
+    (statements, registers) <- foldlM compileTupleMember ([], []) expressions
 
     sizePointerRegister <- reserveRegister
     sizeRegister <- reserveRegister
@@ -78,7 +78,7 @@ compileExpression clc waitingLets (Closures.Tuple expressions t) = do
         storeTupleMember (index, member, memberType) statements = do
             storePointer <- reserveRegister
             let memberStatements =
-                    [ GetElementPointer (LocalOperand (RegisterVar storePointer)) (LiteralType (convertType t)) (LocalOperand (RegisterVar resultRegister)) (Literal 0) (Literal index)
+                    [ GetElementPointer (LocalOperand (RegisterVar storePointer)) (LiteralType (convertToTupleType t)) (LocalOperand (RegisterVar resultRegister)) (Literal 0) (Literal index)
                     , Store memberType (LocalOperand (RegisterVar member)) (LocalOperand (RegisterVar storePointer))
                     ]
             return (statements ++ memberStatements)
@@ -89,7 +89,7 @@ compileExpression clc waitingLets (Closures.Tuple expressions t) = do
 
     return
         ( statements ++
-          [ GetElementPointer2 (LocalOperand (RegisterVar sizePointerRegister)) (LiteralType (convertType t)) NullPtr (Literal 1)
+          [ GetElementPointer2 (LocalOperand (RegisterVar sizePointerRegister)) (LiteralType (convertToTupleType t)) NullPtr (Literal 1)
           , PtrToInt (LocalOperand (RegisterVar sizeRegister)) (LocalOperand (RegisterVar sizePointerRegister))
           , Malloc (LocalOperand (RegisterVar resultRegister)) (LocalOperand (RegisterVar sizeRegister))
           ] ++
@@ -245,11 +245,20 @@ compileExpression clc waitingLets (Closures.TupleDestructuring names value ensui
     valueStatements <- compileExpression clc Nothing value
     valueRegister <- currentRegister
 
+    let destructureMember (name, t, i) = do
+            addressRegister <- reserveRegister
+            return
+                [ GetElementPointer (LocalOperand (RegisterVar addressRegister)) (LiteralType (convertToTupleType (typeOf value))) (LocalOperand (RegisterVar valueRegister)) (Literal 0) (Literal i)
+                , Load t (LocalOperand (LocalVar name)) (LocalOperand (RegisterVar addressRegister))
+                ]
+
+    let (LLVM.Tuple memberTypes) = convertToTupleType (typeOf value)
+    destructureStatements <- mapM destructureMember (zip3 names memberTypes [0..])
+
     ensuingStatements <- compileExpression clc waitingLets ensuing
 
-    let (LLVM.Tuple memberTypes) = convertType (typeOf value)
     return ( valueStatements ++
-             map (\(name, t) -> BitCast (LocalOperand (LocalVar name)) t (LocalOperand (RegisterVar valueRegister)) t) (zip names memberTypes) ++
+             concat destructureStatements ++
              ensuingStatements
         )
 
