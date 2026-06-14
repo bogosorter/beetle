@@ -37,7 +37,7 @@ main = do
             Right typedProgram -> typedProgram
 
     unless (outputType parsedArguments /= AST) $ do
-        writeFile (outputFile parsedArguments) (show program)
+        writeFile (outputFile parsedArguments) (show typedProgram)
         exitSuccess
 
     let enclosedProgram = enclose typedProgram

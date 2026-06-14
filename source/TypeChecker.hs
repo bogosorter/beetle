@@ -22,6 +22,10 @@ typeCheckAux :: TypedEnvironment -> Expression () -> Either String (Expression T
 
 typeCheckAux environment (Boolean value) = Right (Boolean value)
 typeCheckAux environment (Integer value) = Right (Integer value)
+typeCheckAux environment (Tuple values ()) = do
+    checkedValues <- mapM (typeCheckAux environment) values
+    let tupleType = Prelude.map typeOf checkedValues
+    return $ Tuple checkedValues (TupleType tupleType)
 typeCheckAux environment (Variable name ()) = case lookup name environment of
     Nothing -> Left ("symbol " ++ show name ++ " is not defined")
     Just t -> Right (Variable name t)
@@ -89,6 +93,17 @@ typeCheckAux environment (Let name expression ensuing ()) = do
     let newEnvironment = insert name (typeOf typedExpression) environment
     typedEnsuing <- typeCheckAux newEnvironment ensuing
     return (Let name typedExpression typedEnsuing (typeOf typedEnsuing))
+
+typeCheckAux environment (TupleDestructuring names tuple ensuing ()) = do
+    typedTuple <- typeCheckAux environment tuple
+
+    let (TupleType memberTypes) = typeOf typedTuple
+    let insertTupleMember (name, t) env = insert name t env
+    let newEnvironment = Prelude.foldr insertTupleMember environment (zip names memberTypes)
+
+    typedEnsuing <- typeCheckAux newEnvironment ensuing
+
+    return $ TupleDestructuring names typedTuple typedEnsuing (typeOf typedEnsuing)
 
 defaultEnvironment :: TypedEnvironment
 defaultEnvironment = fromList

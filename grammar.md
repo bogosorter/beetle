@@ -14,8 +14,11 @@ returnExpression = assignment ';' returnExpression
 
 assignment = symbol function
            | symbol '=' expression
+           | symbol (',' symbol)+ '=' expression -- tuple assignment
 
-expression = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
+expression = logical
+           | logical (',' logical) -- tuple creation
+logical = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
 arithmetic = atom (('+' | '-') atom)*
 atom = symbol expressionCall
      | '(' expression ')' expressionCall

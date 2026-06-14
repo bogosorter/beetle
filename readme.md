@@ -60,11 +60,14 @@ returnExpression = assignment ';' returnExpression
 
 assignment = symbol '=' expression
            | symbol function
+           | symbol (',' symbol)+ '=' expression -- tuple assignment
 
-expression = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
+expression = logical
+           | logical (',' logical) -- tuple creation
+logical = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
 arithmetic = atom (('+' | '-') atom)*
 atom = symbol
-     | atom '(' expression (',' expression)* ')' -- call
+     | atom '(' logical (',' logical)* ')' -- call
      | '(' expression ')'
      | - atom
      | lambda
@@ -72,7 +75,7 @@ atom = symbol
      | boolean
      
 function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' returnExpression
-lambda = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' expression
+lambda = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' logical
 
-type = 'integer' | 'boolean' | '(' type ')' | type ('->' type)*;
+type = 'integer' | 'boolean' | type (',' type)+ | '(' type ')' | type ('->' type)*;
 ```

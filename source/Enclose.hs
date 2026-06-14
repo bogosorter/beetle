@@ -10,6 +10,7 @@ import Control.Monad.State
 import Data.Map
 import Data.List (elemIndex)
 import System.Console.Terminfo (functionKey)
+import Distribution.Compat.Graph (closure, member)
 
 enclose :: AST.Expression AST.Type -> Program
 enclose expression = Program closedDefinitions closedExpression
@@ -24,6 +25,16 @@ encloseExpression env free (AST.Let name value ensuing _) = do
     enclosed <- encloseExpression env' free value
     closedEnsuing <- encloseExpression env' free ensuing
     return $ Closures.Let name enclosed closedEnsuing
+
+encloseExpression env free (AST.TupleDestructuring names value ensuing _) = do
+    enclosed <- encloseExpression env free value
+
+    let insertTupleMember (name, t) environment = insert name (Closures.Local name (closuredType t)) environment
+
+    let (AST.TupleType memberTypes) = AST.typeOf value
+    let env' = Prelude.foldr insertTupleMember env (zip names memberTypes)
+    closedEnsuing <- encloseExpression env' free ensuing
+    return $ Closures.TupleDestructuring names enclosed closedEnsuing
 
 encloseExpression env free (AST.Function argumentType returnType argument body) = do
     name <- reserveLambda
@@ -45,6 +56,9 @@ encloseExpression env free (AST.Function argumentType returnType argument body) 
 
 encloseExpression env free (AST.Boolean b) = return $ Closures.Boolean b
 encloseExpression env free (AST.Integer n) = return $ Closures.Integer n
+encloseExpression env free (AST.Tuple members t) = do
+    enclosedMembers <- mapM (encloseExpression env free) members
+    return $ Closures.Tuple enclosedMembers (closuredType t)
 encloseExpression env free (AST.Variable name _)
     | name `elem` ["+", "-"] = return (Closure (BuiltInFunction name Closures.IntegerType (ClosureType Closures.IntegerType Closures.IntegerType)) [])
     | name `elem` ["<", ">", "==", "<=", ">="] = return (Closure (BuiltInFunction name Closures.IntegerType (ClosureType Closures.IntegerType Closures.BooleanType)) [])
@@ -65,6 +79,7 @@ encloseExpression env free (AST.Application closure argument _) = do
 freeVariables :: Environment -> [String] -> [(String, Closures.Type)] -> AST.Expression AST.Type -> [(String, Closures.Expression)]
 freeVariables env declared currentFree (AST.Boolean _) = []
 freeVariables env declared currentFree (AST.Integer _) = []
+freeVariables env declared currentFree (AST.Tuple members _) = concatMap (freeVariables env declared currentFree) members
 freeVariables env declared currentFree (AST.Variable name _)
     | name `elem` declared = []
     | name `elem` ["+", "-", "<", ">", "==", "<=", ">="] = []
@@ -82,6 +97,10 @@ freeVariables env declared currentFree (AST.Application closure argument _) = cl
           argumentVariables = freeVariables env declared currentFree argument
 freeVariables env declared currentFree (AST.Let name value ensuing _) = valueVariables ++ ensuingVariables
     where newDeclared = name : declared
+          valueVariables = freeVariables env declared currentFree value
+          ensuingVariables = freeVariables env newDeclared currentFree ensuing
+freeVariables env declared currentFree (AST.TupleDestructuring names value ensuing _) = valueVariables ++ ensuingVariables
+    where newDeclared = declared ++ names
           valueVariables = freeVariables env declared currentFree value
           ensuingVariables = freeVariables env newDeclared currentFree ensuing
 
@@ -123,4 +142,5 @@ reserveLambda = do
 closuredType :: AST.Type -> Closures.Type
 closuredType AST.BooleanType = Closures.BooleanType
 closuredType AST.IntegerType = Closures.IntegerType
+closuredType (AST.TupleType memberTypes) = Closures.TupleType (Prelude.map closuredType memberTypes)
 closuredType (AST.FunctionType a b) = Closures.ClosureType (closuredType a) (closuredType b)

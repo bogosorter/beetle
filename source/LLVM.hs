@@ -48,16 +48,24 @@ data Type = Boolean | Integer | Tuple [Type] | Pointer
 data Operation = Add | Sub | Eq | Slt | Sgt | Sle | Sge
 data Operand = Literal Int | LocalOperand LocalVar | GlobalOperand GlobalVar | NullPtr
 newtype GlobalVar = GlobalVar String
-newtype TypeVar = TypeVar String
+data TypeVar = TypeVar String | LiteralType Type
 data LocalVar = ArgumentVar | RegisterVar Register | LocalVar String
 newtype Register = Register Int
 newtype Label = Label String
 
 
+-- While there is a tuple type in the LLVM IR, the closures tuple type is
+-- allocated on the heap, and therefore is converted to a pointer. If one wants
+-- to force conversion to a tuple, the convertToTupleType is provided.
 convertType :: Closures.Type -> Type
 convertType Closures.BooleanType = Boolean
 convertType Closures.IntegerType = Integer
+convertType (Closures.TupleType _) = Pointer
 convertType (Closures.ClosureType _ _) = Pointer
+
+convertToTupleType :: Closures.Type -> Type
+convertToTupleType (Closures.TupleType memberTypes) = Tuple (map convertType memberTypes)
+convertToTupleType _ = error "convertToTupleType should only be called on tuples"
 
 instance Show TopLevelStatement where
     show TargetTriple = "target triple = \"x86_64-pc-linux-gnu\""
@@ -131,6 +139,7 @@ instance Show GlobalVar where
 
 instance Show TypeVar where
     show (TypeVar name) = "%" ++ name
+    show (LiteralType t) = show t
 
 instance Show LocalVar where
     show ArgumentVar = "%argument"

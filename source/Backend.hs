@@ -8,6 +8,7 @@ import Closures
 import Control.Monad.State
 import qualified Data.Map
 import Data.Maybe (mapMaybe)
+import Data.Foldable (foldrM, foldlM)
 
 compile :: Closures.Program -> LLVM.Program
 compile (Closures.Program definitions expression) = LLVM.Program (
@@ -15,7 +16,7 @@ compile (Closures.Program definitions expression) = LLVM.Program (
         , FormatString
         , PrintfDeclaration
         , MallocDeclaration
-        , TypeDeclaration (TypeVar "closure_type") (Tuple [Pointer, Pointer])
+        , TypeDeclaration (TypeVar "closure_type") (LLVM.Tuple [Pointer, Pointer])
         ] ++
         mapMaybe compileEnvironment definitions ++
         (definitions >>= compileDefinition) ++
@@ -26,12 +27,12 @@ compile (Closures.Program definitions expression) = LLVM.Program (
 
 compileEnvironment :: FunctionDefinition -> Maybe TopLevelStatement
 compileEnvironment (FunctionDefinition name argumentType returnType closure body) = Just closureDeclaration
-    where closureDeclaration = TypeDeclaration (TypeVar (name ++ "_env")) (Tuple (map convertType closure))
+    where closureDeclaration = TypeDeclaration (TypeVar (name ++ "_env")) (LLVM.Tuple (map convertType closure))
 compileEnvironment (BuiltInFunction _ _ _) = Nothing
 
 compileDefinition :: FunctionDefinition -> [TopLevelStatement]
 compileDefinition (FunctionDefinition name argumentType returnType closure body) = [definition]
-    where closureDeclaration = TypeDeclaration (TypeVar (name ++ "_env")) (Tuple (map convertType closure))
+    where closureDeclaration = TypeDeclaration (TypeVar (name ++ "_env")) (LLVM.Tuple (map convertType closure))
           definition = LLVM.Function (convertType returnType) (GlobalVar name) (Just (convertType argumentType, ArgumentVar)) (expressionStatements ++ [returnStatement])
           (expressionStatements, compilationState) = runState (compileExpression Data.Map.empty Nothing body) (initialFunctionState (TypeVar (name ++ "_env")))
           returnStatement = Return (convertType returnType) (LocalOperand (RegisterVar (register compilationState)))
@@ -60,6 +61,44 @@ compileExpression clc waitingLets (Closures.Boolean value) = do
     register <- reserveRegister
     let literalValue = if value then 1 else 0
     return [LocalAssign LLVM.Boolean register Add (Literal 0) (Literal literalValue)]
+compileExpression clc waitingLets (Closures.Tuple expressions t) = do
+
+    let compileTupleMember (statements, registers) member = do
+            memberStatements <- compileExpression clc waitingLets member
+            register <- currentRegister
+            return (statements ++ memberStatements, registers ++ [register])
+
+    (statements, registers) <- foldlM compileTupleMember ([], []) expressions
+
+    sizePointerRegister <- reserveRegister
+    sizeRegister <- reserveRegister
+    resultRegister <- reserveRegister
+
+    let storeTupleMember :: (Int, Register, LLVM.Type) -> [Statement] -> State CompilationState [Statement]
+        storeTupleMember (index, member, memberType) statements = do
+            storePointer <- reserveRegister
+            let memberStatements =
+                    [ GetElementPointer (LocalOperand (RegisterVar storePointer)) (LiteralType (convertToTupleType t)) (LocalOperand (RegisterVar resultRegister)) (Literal 0) (Literal index)
+                    , Store memberType (LocalOperand (RegisterVar member)) (LocalOperand (RegisterVar storePointer))
+                    ]
+            return (statements ++ memberStatements)
+
+    tupleStoreStatements <- foldrM storeTupleMember [] (zip3 [0..] registers (map (convertType . typeOf) expressions))
+
+    lastRegister <- reserveRegister
+
+    return
+        ( statements ++
+          [ GetElementPointer2 (LocalOperand (RegisterVar sizePointerRegister)) (LiteralType (convertToTupleType t)) NullPtr (Literal 1)
+          , PtrToInt (LocalOperand (RegisterVar sizeRegister)) (LocalOperand (RegisterVar sizePointerRegister))
+          , Malloc (LocalOperand (RegisterVar resultRegister)) (LocalOperand (RegisterVar sizeRegister))
+          ] ++
+          tupleStoreStatements ++
+          -- This is a little trick to make the last register be that of the
+          -- tuple. There should be a better way to do this, though
+          [ BitCast (LocalOperand (RegisterVar lastRegister)) Pointer (LocalOperand (RegisterVar resultRegister)) Pointer
+          ]
+        )
 compileExpression clc waitingLets (Argument t) = do
     register <- reserveRegister
     return [BitCast (LocalOperand (RegisterVar register)) (convertType t) (LocalOperand ArgumentVar) (convertType t)]
@@ -201,6 +240,26 @@ compileExpression clc waitingLets (Let name value expression) = do
     return ( valueStatements ++
             [BitCast (LocalOperand (LocalVar name)) t (LocalOperand (RegisterVar valueRegister)) t] ++
             expressionStatements
+        )
+compileExpression clc waitingLets (Closures.TupleDestructuring names value ensuing) = do
+    valueStatements <- compileExpression clc Nothing value
+    valueRegister <- currentRegister
+
+    let destructureMember (name, t, i) = do
+            addressRegister <- reserveRegister
+            return
+                [ GetElementPointer (LocalOperand (RegisterVar addressRegister)) (LiteralType (convertToTupleType (typeOf value))) (LocalOperand (RegisterVar valueRegister)) (Literal 0) (Literal i)
+                , Load t (LocalOperand (LocalVar name)) (LocalOperand (RegisterVar addressRegister))
+                ]
+
+    let (LLVM.Tuple memberTypes) = convertToTupleType (typeOf value)
+    destructureStatements <- mapM destructureMember (zip3 names memberTypes [0..])
+
+    ensuingStatements <- compileExpression clc waitingLets ensuing
+
+    return ( valueStatements ++
+             concat destructureStatements ++
+             ensuingStatements
         )
 
 compileBinaryOperation :: CurrentLetClosures -> Maybe String -> Operation -> Expression -> Expression -> State CompilationState [Statement]
