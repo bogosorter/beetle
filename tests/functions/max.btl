@@ -1,0 +1,8 @@
+max(a: integer, b: integer): integer =
+    if a >= b: return a;
+    return b;
+
+maxThree(a: integer, b: integer, c: integer): integer =
+    return max(a, max(b, c));
+
+return maxThree(1, 2, 3);

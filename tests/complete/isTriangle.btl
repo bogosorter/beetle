@@ -1,0 +1,7 @@
+isTriangle(a: integer, b: integer, c: integer): boolean =
+    if a + b <= c: return false;
+    if b + c <= a: return false;
+    if a + c <= b: return false;
+    return true;
+
+return isTriangle(3, 4, 5);
