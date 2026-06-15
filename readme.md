@@ -69,6 +69,7 @@ arithmetic = atom (('+' | '-') atom)*
 atom = symbol
      | atom '(' logical (',' logical)* ')' -- call
      | atom '.' symbol -- struct access
+     | '-' atom -- unary minus
      | '{' symbol ':' logical (',' symbol ':' logical)* ','? '}' -- struct constructor
      | '(' expression ')'
      | - atom

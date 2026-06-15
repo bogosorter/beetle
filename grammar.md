@@ -22,6 +22,7 @@ logical = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
 arithmetic = atom (('+' | '-') atom)*
 atom = symbol expressionCall
      | symbol structAccess
+     | '-' atom -- unary minus
      | '(' expression ')' expressionCall
      | '{' symbol ':' logical (',' symbol ':' logical)* ','? '}' -- struct constructor
      | lambda

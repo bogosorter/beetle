@@ -145,10 +145,12 @@ atom :: Parser (Expression ())
 -- try is used for lambda function because their beginning shares a few terms
 -- with some of the productions of an expression that starts by referencing a
 -- variable, and it is difficult to factor it out
-atom = try lambda <|> variableUsage <|> unaryMinus <|> integer <|> boolean <|> parenthesizedExpression
+atom = try lambda <|> variableUsage <|> unaryMinus <|> struct <|> integer <|> boolean <|> parenthesizedExpression
 
-expressionCall :: Expression () -> Parser (Expression ())
-expressionCall logicExpression = functionCall logicExpression <|> expressionIdentity logicExpression
+-- This takes care of things that might continue atoms, such as expression calls
+-- and member access
+atomContinuation :: Expression () -> Parser (Expression ())
+atomContinuation atom = functionCall atom <|> structAccess atom <|> expressionIdentity atom
 
 functionCall :: Expression () -> Parser (Expression ())
 functionCall base = do
@@ -167,16 +169,13 @@ functionCallContinuation base = do
 functionCallEnd :: Expression () -> Parser (Expression ())
 functionCallEnd base = do
     match TokenRightParenthesis
-    expressionCall base
-
-expressionAccess :: Expression () -> Parser (Expression ())
-expressionAccess logicExpression = structAccess logicExpression <|> expressionIdentity logicExpression
+    atomContinuation base
 
 structAccess :: Expression () -> Parser (Expression ())
 structAccess base = do
     match TokenPeriod
     name <- symbol
-    expressionAccess $ StructAccess name base ()
+    atomContinuation $ StructAccess name base ()
 
 expressionIdentity :: Expression () -> Parser (Expression ())
 expressionIdentity expr = return expr
@@ -228,7 +227,8 @@ lambdaEnd = do
 variableUsage :: Parser (Expression ())
 variableUsage = do
     name <- symbol
-    expressionCall (Variable name ())
+    let base = Variable name ()
+    atomContinuation base
 
 unaryMinus :: Parser (Expression())
 unaryMinus = do
@@ -241,7 +241,7 @@ parenthesizedExpression = do
     match TokenLeftParenthesis
     content <- expression
     match TokenRightParenthesis
-    expressionCall content
+    atomContinuation content
 
 parseType :: Parser Type
 parseType = chainr1 baseTypes functionType
