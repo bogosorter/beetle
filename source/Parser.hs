@@ -150,7 +150,7 @@ atom = try lambda <|> variableUsage <|> unaryMinus <|> struct <|> integer <|> bo
 -- This takes care of things that might continue atoms, such as expression calls
 -- and member access
 atomContinuation :: Expression () -> Parser (Expression ())
-atomContinuation atom = functionCall atom <|> structAccess atom <|> expressionIdentity atom
+atomContinuation atom = functionCall atom <|> structAccess atom <|> return atom
 
 functionCall :: Expression () -> Parser (Expression ())
 functionCall base = do
@@ -176,9 +176,6 @@ structAccess base = do
     match TokenPeriod
     name <- symbol
     atomContinuation $ StructAccess name base ()
-
-expressionIdentity :: Expression () -> Parser (Expression ())
-expressionIdentity expr = return expr
 
 struct :: Parser (Expression ())
 struct = do
