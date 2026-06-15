@@ -8,7 +8,7 @@ module Parser (parseProgram) where
 import AST
 import Text.Parsec hiding (eof, char, newline, satisfy)
 import Data.Char (isAlpha, isDigit)
-import Debug.Trace
+import Data.Map (insert, empty, fromList)
 
 type Parser = Parsec [Token] ()
 
@@ -17,9 +17,12 @@ data Token = TokenIntegerLiteral Int
            | TokenSymbol String
            | TokenLeftParenthesis
            | TokenRightParenthesis
+           | TokenLeftCurlyBrace
+           | TokenRightCurlyBrace
            | TokenComma
            | TokenSemicolon
            | TokenColon
+           | TokenPeriod
            | TokenEquality
            | TokenAssign
            | TokenArrow
@@ -51,6 +54,12 @@ tokenize input@(c:cs)
     | c == ')' = do
         rest <- tokenize cs
         return $ TokenRightParenthesis : rest
+    | c == '{' = do
+        rest <- tokenize cs
+        return $ TokenLeftCurlyBrace : rest
+    | c == '}' = do
+        rest <- tokenize cs
+        return $ TokenRightCurlyBrace : rest
     | c == ',' = do
         rest <- tokenize cs
         return $ TokenComma : rest
@@ -60,6 +69,9 @@ tokenize input@(c:cs)
     | c == ':' = do
         rest <- tokenize cs
         return $ TokenColon : rest
+    | c == '.' = do
+        rest <- tokenize cs
+        return $ TokenPeriod : rest
     | take 2 input == "==" = do
         rest <- tokenize (drop 2 input)
         return $ TokenEquality : rest
@@ -257,7 +269,7 @@ atom :: Parser (Expression ())
 atom = try lambda <|> variableUsage <|> unaryMinus <|> integer <|> boolean <|> parenthesizedExpression
 
 expressionCall :: Expression () -> Parser (Expression ())
-expressionCall logicExpression = functionCall logicExpression <|> emptyExpressionCall logicExpression
+expressionCall logicExpression = functionCall logicExpression <|> expressionIdentity logicExpression
 
 functionCall :: Expression () -> Parser (Expression ())
 functionCall base = do
@@ -278,8 +290,34 @@ functionCallEnd base = do
     match TokenRightParenthesis
     expressionCall base
 
-emptyExpressionCall :: Expression () -> Parser (Expression ())
-emptyExpressionCall expr = return expr
+expressionAccess :: Expression () -> Parser (Expression ())
+expressionAccess logicExpression = structAccess logicExpression <|> expressionIdentity logicExpression
+
+structAccess :: Expression () -> Parser (Expression ())
+structAccess base = do
+    match TokenPeriod
+    name <- symbol
+    expressionAccess $ StructAccess name base ()
+
+expressionIdentity :: Expression () -> Parser (Expression ())
+expressionIdentity expr = return expr
+
+struct :: Parser (Expression ())
+struct = do
+    match TokenLeftCurlyBrace
+    first <- structMember
+    ensuing <- many (match TokenComma >> structMember)
+    match TokenRightCurlyBrace
+
+    let members = first : ensuing
+    return $ Struct (fromList members) ()
+
+structMember :: Parser (String, Expression ())
+structMember = do
+    name <- symbol
+    match TokenColon
+    value <- logical
+    return (name, value)
 
 lambda :: Parser (Expression ())
 lambda = do
@@ -345,6 +383,23 @@ tupleTypeContinuation ts = do
 
 tupleTypeEnd :: [Type] -> Parser Type
 tupleTypeEnd ts = return $ TupleType ts
+
+structType :: Parser Type
+structType = do
+    match TokenLeftCurlyBrace
+    first <- structMemberType
+    ensuing <- many (match TokenComma >> structMemberType)
+    match TokenRightCurlyBrace
+
+    let members = first : ensuing
+    return $ StructType (fromList members)
+
+structMemberType :: Parser (String, Type)
+structMemberType = do
+    name <- symbol
+    match TokenColon
+    t <- parseType
+    return (name, t)
 
 booleanType :: Parser Type
 booleanType = do

@@ -3,7 +3,7 @@
 module AST (Expression(..), Type(..), typeOf) where
 import Data.Map
 
-data Type = BooleanType | IntegerType | TupleType [Type] | FunctionType Type Type deriving (Show, Eq)
+data Type = BooleanType | IntegerType | TupleType [Type] | StructType (Map String Type) | FunctionType Type Type deriving (Show, Eq)
 
 data Expression a
     = Boolean Bool
