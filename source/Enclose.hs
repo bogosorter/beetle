@@ -59,7 +59,18 @@ encloseExpression env free (AST.Integer n) = return $ Closures.Integer n
 encloseExpression env free (AST.Tuple members t) = do
     enclosedMembers <- mapM (encloseExpression env free) members
     return $ Closures.Tuple enclosedMembers (closuredType t)
+encloseExpression env free (AST.Struct members t) = do
+    let tupleMembers = elems members
+    enclosedMembers <- mapM (encloseExpression env free) tupleMembers
+    return $ Closures.Tuple enclosedMembers (closuredType t)
 encloseExpression env free (AST.Variable name _)
+    | name `elem` ["+", "-"] = return (Closure (BuiltInFunction name Closures.IntegerType (ClosureType Closures.IntegerType Closures.IntegerType)) [])
+    | name `elem` ["<", ">", "==", "<=", ">="] = return (Closure (BuiltInFunction name Closures.IntegerType (ClosureType Closures.IntegerType Closures.BooleanType)) [])
+    | otherwise = case getFreeVariable 0 freeTypes name of
+        Just (index, t) -> return $ Closures.Variable index t
+        Nothing -> return $ getScope env name
+    where freeTypes = Prelude.map (\(s, e) -> (s, Closures.typeOf e)) free
+encloseExpression env free (AST.StructAccess name _ _)
     | name `elem` ["+", "-"] = return (Closure (BuiltInFunction name Closures.IntegerType (ClosureType Closures.IntegerType Closures.IntegerType)) [])
     | name `elem` ["<", ">", "==", "<=", ">="] = return (Closure (BuiltInFunction name Closures.IntegerType (ClosureType Closures.IntegerType Closures.BooleanType)) [])
     | otherwise = case getFreeVariable 0 freeTypes name of
@@ -80,12 +91,14 @@ freeVariables :: Environment -> [String] -> [(String, Closures.Type)] -> AST.Exp
 freeVariables env declared currentFree (AST.Boolean _) = []
 freeVariables env declared currentFree (AST.Integer _) = []
 freeVariables env declared currentFree (AST.Tuple members _) = concatMap (freeVariables env declared currentFree) members
+freeVariables env declared currentFree (AST.Struct members _) = concatMap (freeVariables env declared currentFree) members
 freeVariables env declared currentFree (AST.Variable name _)
     | name `elem` declared = []
     | name `elem` ["+", "-", "<", ">", "==", "<=", ">="] = []
     | otherwise = case getFreeVariable 0 currentFree name of
         Just (index, t) -> [(name, Closures.Variable index t)]
         Nothing -> [(name, getScope env name)]
+freeVariables env declared currentFree (AST.StructAccess _ base _) = freeVariables env declared currentFree base
 freeVariables env declared currentFree (AST.If condition thenBranch elseBranch _) = conditionVariables ++ thenBranchVariables ++ elseBranchVariables
     where conditionVariables = freeVariables env declared currentFree condition
           thenBranchVariables = freeVariables env declared currentFree thenBranch
@@ -143,4 +156,5 @@ closuredType :: AST.Type -> Closures.Type
 closuredType AST.BooleanType = Closures.BooleanType
 closuredType AST.IntegerType = Closures.IntegerType
 closuredType (AST.TupleType memberTypes) = Closures.TupleType (Prelude.map closuredType memberTypes)
+closuredType (AST.StructType memberTypes) = Closures.TupleType (Prelude.map closuredType (elems memberTypes))
 closuredType (AST.FunctionType a b) = Closures.ClosureType (closuredType a) (closuredType b)

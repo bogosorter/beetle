@@ -38,7 +38,7 @@ typeCheckAux environment (StructAccess name base _) = do
     case checkedBase of
         Struct _ (StructType memberTypes) -> case lookup name memberTypes of
             Just t -> Right (StructAccess name checkedBase t)
-            Nothing -> Left ("trying to access non-existing member " ++ name ++ " in a tuple of type " ++ show t)
+            Nothing -> Left ("trying to access non-existing member " ++ name ++ " in a tuple of type " ++ show (typeOf checkedBase))
         _ -> Left ("struct access can only be performed on structs, but tried to access member " ++ name ++ " of type " ++ show checkedBase)
 
 typeCheckAux environment (If condition thenExpression elseExpression ()) = do
