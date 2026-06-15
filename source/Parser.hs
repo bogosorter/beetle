@@ -245,7 +245,7 @@ parenthesizedExpression = do
 
 parseType :: Parser Type
 parseType = chainr1 baseTypes functionType
-    where baseTypes = booleanType <|> integerType <|> parenthesizedType
+    where baseTypes = booleanType <|> integerType <|> parenthesizedType <|> structType
           functionType = do
             match TokenArrow
             return (\left right -> FunctionType left right)
