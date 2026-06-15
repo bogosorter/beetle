@@ -2,7 +2,6 @@
 
 # v3.2.0
 
-- Structs
 - Type aliases
 
 # v3.2.1
