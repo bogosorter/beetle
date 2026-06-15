@@ -18,6 +18,7 @@ data Expression
     | Argument Type -- The argument of the current function (invalid if we are in the global scope)
     | Variable Int Type -- The index of the variable in the closure
     | Local String Type -- A Variable that was declared with let
+    | TupleMember Int Expression Type -- Get the tuple member with a given index
     | If Expression Expression Expression
     | Closure FunctionDefinition [Expression]
     | Application Expression Expression
@@ -35,6 +36,7 @@ typeOf (Tuple _ t) = t
 typeOf (Argument t) = t
 typeOf (Variable _ t) = t
 typeOf (Local _ t) = t
+typeOf (TupleMember _ _ t) = t
 typeOf (If _ expression _) = typeOf expression
 typeOf (Closure function _) = case function of
     (FunctionDefinition _ argumentType returnType _ _) -> ClosureType argumentType returnType
@@ -62,6 +64,7 @@ showIndent indent (Tuple members t) = take indent (repeat ' ') ++ "(" ++ interca
 showIndent indent (Argument t) = take indent (repeat ' ') ++ "argument" ++ " (" ++ show t ++ ")"
 showIndent indent (Variable index t) = take indent (repeat ' ') ++ "variable " ++ show index ++ " (" ++ show t ++ ")"
 showIndent indent (Local name t) = take indent (repeat ' ') ++ name ++ " (" ++ show t ++ ")"
+showIndent indent (TupleMember index base t) = take indent (repeat ' ') ++ show base ++ "[" ++ show index ++ "] (" ++ show t ++ ")"
 showIndent indent (If condition thenBranch elseBranch) =
     take indent (repeat ' ') ++ "if\n" ++
         showIndent (indent + 4) condition ++ "\n" ++
