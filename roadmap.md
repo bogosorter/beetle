@@ -1,21 +1,23 @@
 # Roadmap
 
-# v3.0.1
-
-- General code review
-- Prevent conflits on variable naming
-- Variable shadowing
-
 # v3.1.0
 
 - Tuples
 
 # v3.2.0
 
-- Objects
+- Structs
+- Type aliases
+
+# v3.2.1
+
+- General code review
+- Prevent conflits on variable naming
+- Variable shadowing
 
 # v.X.X.X
 
+- AND, OR and NOT operators
 - Union types
 - Generic types
 - Garbage collection
