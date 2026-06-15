@@ -175,7 +175,7 @@ while IFS= read -r -d '' btl_file; do
     run_test "$btl_file"
 done < <(find "$TEST_DIR" -type f -name '*.btl' -print0)
 
-echo
+[[ $failed -gt 0 ]] && echo
 echo "passed: $passed"
 echo "failed: $failed"
 
