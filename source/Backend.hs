@@ -123,13 +123,14 @@ compileExpression clc waitingLets (Local name t) = do
 
 compileExpression clc waitingLets (TupleMember index base t) = do
     baseContent <- compileExpression clc waitingLets base
-    baseRegister <- reserveRegister
+    baseRegister <- currentRegister
 
     addressRegister <- reserveRegister
     valueRegister <- reserveRegister
 
-    return
-        [ GetElementPointer (LocalOperand (RegisterVar addressRegister)) (LiteralType (convertToTupleType (typeOf base))) (LocalOperand (RegisterVar valueRegister)) (Literal 0) (Literal index)
+    return $
+        baseContent ++
+        [ GetElementPointer (LocalOperand (RegisterVar addressRegister)) (LiteralType (convertToTupleType (typeOf base))) (LocalOperand (RegisterVar baseRegister)) (Literal 0) (Literal index)
         , Load (convertType t) (LocalOperand (RegisterVar valueRegister)) (LocalOperand (RegisterVar addressRegister))
         ]
 
