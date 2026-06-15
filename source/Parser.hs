@@ -183,11 +183,9 @@ expressionIdentity expr = return expr
 struct :: Parser (Expression ())
 struct = do
     match TokenLeftCurlyBrace
-    first <- structMember
-    ensuing <- many (match TokenComma >> structMember)
+    members <- sepEndBy1 structMember (match TokenComma)
     match TokenRightCurlyBrace
 
-    let members = first : ensuing
     return $ Struct (fromList members) ()
 
 structMember :: Parser (String, Expression ())
@@ -266,11 +264,9 @@ tupleTypeEnd ts = return $ TupleType ts
 structType :: Parser Type
 structType = do
     match TokenLeftCurlyBrace
-    first <- structMemberType
-    ensuing <- many (match TokenComma >> structMemberType)
+    members <- sepEndBy1 structMemberType (match TokenComma)
     match TokenRightCurlyBrace
 
-    let members = first : ensuing
     return $ StructType (fromList members)
 
 structMemberType :: Parser (String, Type)
