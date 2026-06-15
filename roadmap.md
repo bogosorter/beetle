@@ -1,9 +1,5 @@
 # Roadmap
 
-# v3.1.0
-
-- Tuples
-
 # v3.2.0
 
 - Structs

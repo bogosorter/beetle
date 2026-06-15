@@ -10,7 +10,7 @@ The programming language that embraces bugs.
 
 *beetle* is a simple functional programming language with TypeScript-inspired syntax. I make no pretense of being a knowledgeable language designer (linguist?), but I hope that tinkering around will teach me a little about compilers. *beetle*'s compiler is written in Haskell and outputs code in the LLVM Intermediate Representation.
 
-For now, *beetle* programs consist of a number of assignments followed by an expression (the program's output). As an example, consider this naive implementation of the *Red, Green, and Blue Tiles* problem from [Project Euler](https://projecteuler.net/problem=117):
+*beetle* programs consist of a number of assignments followed by a return expression (the program's output). As an example, consider this naive implementation of the *Red, Green, and Blue Tiles* problem from [Project Euler](https://projecteuler.net/problem=117):
 
 ```
 tiles(n: integer): integer =
@@ -77,5 +77,5 @@ atom = symbol
 function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' returnExpression
 lambda = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' logical
 
-type = 'integer' | 'boolean' | type (',' type)+ | '(' type ')' | type ('->' type)*;
+type = 'integer' | 'boolean' | '(' type (',' type)+ ')' | type ('->' type)*;
 ```
