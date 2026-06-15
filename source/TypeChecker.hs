@@ -35,8 +35,8 @@ typeCheckAux environment (Variable name ()) = case lookup name environment of
     Just t -> Right (Variable name t)
 typeCheckAux environment (StructAccess name base _) = do
     checkedBase <- typeCheckAux environment base
-    case checkedBase of
-        Struct _ (StructType memberTypes) -> case lookup name memberTypes of
+    case typeOf checkedBase of
+        StructType memberTypes -> case lookup name memberTypes of
             Just t -> Right (StructAccess name checkedBase t)
             Nothing -> Left ("trying to access non-existing member " ++ name ++ " in a tuple of type " ++ show (typeOf checkedBase))
         _ -> Left ("struct access can only be performed on structs, but tried to access member " ++ name ++ " of type " ++ show checkedBase)
