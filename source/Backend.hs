@@ -111,6 +111,7 @@ compileExpression clc waitingLets (Variable index t) = do
         [ GetElementPointer pointerVar envType (LocalOperand (LocalVar "env")) (Literal 0) (Literal index)
         , Load (convertType t) (LocalOperand (RegisterVar register)) pointerVar
         ]
+
 compileExpression clc waitingLets (Local name t) = do
     register <- reserveRegister
 
@@ -119,6 +120,19 @@ compileExpression clc waitingLets (Local name t) = do
             Nothing -> LocalVar name
 
     return [BitCast (LocalOperand (RegisterVar register)) (convertType t) (LocalOperand source) (convertType t)]
+
+compileExpression clc waitingLets (TupleMember index base t) = do
+    baseContent <- compileExpression clc waitingLets base
+    baseRegister <- reserveRegister
+
+    addressRegister <- reserveRegister
+    valueRegister <- reserveRegister
+
+    return
+        [ GetElementPointer (LocalOperand (RegisterVar addressRegister)) (LiteralType (convertToTupleType (typeOf base))) (LocalOperand (RegisterVar valueRegister)) (Literal 0) (Literal index)
+        , Load (convertType t) (LocalOperand (RegisterVar valueRegister)) (LocalOperand (RegisterVar addressRegister))
+        ]
+
 compileExpression clc waitingLets ifExpression@(If condition thenBranch elseBranch) = do
     conditionContent <- compileExpression clc waitingLets condition
     conditionRegister <- currentRegister
