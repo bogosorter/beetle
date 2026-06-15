@@ -26,9 +26,20 @@ typeCheckAux environment (Tuple values ()) = do
     checkedValues <- mapM (typeCheckAux environment) values
     let tupleType = Prelude.map typeOf checkedValues
     return $ Tuple checkedValues (TupleType tupleType)
+typeCheckAux environment (Struct values ()) = do
+    checkedValues <- mapM (typeCheckAux environment) values
+    let tupleType = Data.Map.map typeOf checkedValues
+    return $ Struct checkedValues (StructType tupleType)
 typeCheckAux environment (Variable name ()) = case lookup name environment of
     Nothing -> Left ("symbol " ++ show name ++ " is not defined")
     Just t -> Right (Variable name t)
+typeCheckAux environment (StructAccess name base _) = do
+    checkedBase <- typeCheckAux environment base
+    case checkedBase of
+        Struct _ (StructType memberTypes) -> case lookup name memberTypes of
+            Just t -> Right (StructAccess name checkedBase t)
+            Nothing -> Left ("trying to access non-existing member " ++ name ++ " in a tuple of type " ++ show t)
+        _ -> Left ("struct access can only be performed on structs, but tried to access member " ++ name ++ " of type " ++ show checkedBase)
 
 typeCheckAux environment (If condition thenExpression elseExpression ()) = do
     typedCondition <- typeCheckAux environment condition
