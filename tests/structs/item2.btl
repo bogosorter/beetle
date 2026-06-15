@@ -1,0 +1,6 @@
+item = {
+    cost: 10,
+    premium: false
+};
+
+return item.premium;

@@ -1,0 +1,9 @@
+item = {
+    x: {
+        y: {
+            z: 1
+        }
+    }
+};
+
+return item.x.y.z;

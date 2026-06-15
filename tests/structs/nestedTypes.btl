@@ -1,0 +1,10 @@
+extract(item: {x: {y: {z: integer}}}): integer =
+    return item.x.y.z;
+
+return extract({
+    x: {
+        y: {
+            z: 1
+        }
+    }
+});
