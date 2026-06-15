@@ -68,6 +68,8 @@ logical = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
 arithmetic = atom (('+' | '-') atom)*
 atom = symbol
      | atom '(' logical (',' logical)* ')' -- call
+     | atom '.' symbol -- member access
+     | '{' symbol ':' logical (',' symbol ':' logical)* ','? '}' -- struct constructor
      | '(' expression ')'
      | - atom
      | lambda
@@ -77,5 +79,5 @@ atom = symbol
 function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' returnExpression
 lambda = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' logical
 
-type = 'integer' | 'boolean' | '(' type (',' type)+ ')' | type ('->' type)*;
+type = 'integer' | 'boolean' | '(' type (',' type)+ ')' | '{' symbol ':' type (',' symbol ':' type)* ','? '}' | type ('->' type)*;
 ```

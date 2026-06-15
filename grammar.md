@@ -21,15 +21,19 @@ expression = logical
 logical = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
 arithmetic = atom (('+' | '-') atom)*
 atom = symbol expressionCall
+     | symbol memberAccess
      | '(' expression ')' expressionCall
+     | '{' symbol ':' logical (',' symbol ':' logical)* ','? '}' -- struct constructor
      | lambda
      | integer
      | boolean
 expressionCall = '(' expression (',' expression)* ')' expressionCall
                | ϵ
+memberAccess = '.' symbol memberAccess
+               | ϵ
      
 function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' returnExpression
 lambda = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' expression
 
-type = 'integer' | 'boolean' | '(' type (',' type)+ ')' | type ('->' type)*;
+type = 'integer' | 'boolean' | '(' type (',' type)+ ')' | '{' symbol ':' type (',' symbol ':' type)* ','? '}' | type ('->' type)*;
 ```
