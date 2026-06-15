@@ -21,7 +21,7 @@ expression = logical
 logical = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
 arithmetic = atom (('+' | '-') atom)*
 atom = symbol expressionCall
-     | symbol memberAccess
+     | symbol structAccess
      | '(' expression ')' expressionCall
      | '{' symbol ':' logical (',' symbol ':' logical)* ','? '}' -- struct constructor
      | lambda
@@ -29,7 +29,7 @@ atom = symbol expressionCall
      | boolean
 expressionCall = '(' expression (',' expression)* ')' expressionCall
                | ϵ
-memberAccess = '.' symbol memberAccess
+structAccess = '.' symbol structAccess
                | ϵ
      
 function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' returnExpression
