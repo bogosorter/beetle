@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wincomplete-patterns #-}
 
+import Tokenizer
 import AST
 import Parser
 import TypeChecker
@@ -16,6 +17,7 @@ import System.Process (callProcess, readProcessWithExitCode)
 import Data.Text (splitOn)
 import System.FilePath (dropExtension)
 import System.Exit (ExitCode(..))
+import Data.List
 
 main :: IO ()
 main = do
@@ -28,7 +30,15 @@ main = do
 
     content <- readFile (inputFile parsedArguments)
 
-    let program = case parseProgram content of
+    let tokens = case tokenize content of
+            Left message -> error (show message)
+            Right tokens -> tokens
+
+    unless (outputType parsedArguments /= Tokens) $ do
+        writeFile (outputFile parsedArguments) (intercalate "\n" (map show tokens))
+        exitSuccess
+
+    let program = case parseProgram tokens of
             Left message -> error (show message)
             Right program -> program
 
@@ -64,7 +74,7 @@ data Arguments = Arguments
     , outputType :: OutputType
     }
 
-data OutputType = AST | IR | LLVM | Binary deriving Eq
+data OutputType = Tokens | AST | IR | LLVM | Binary deriving Eq
 
 parseArguments :: [String] -> Maybe Arguments
 parseArguments arguments = case parseInputFile arguments of
@@ -92,6 +102,7 @@ parseInputFile (a:b:cs)
 parseOutputType :: [String] -> OutputType
 parseOutputType [] = Binary
 parseOutputType (argument:arguments)
+    | argument == "-t" = Tokens
     | argument == "-ast" = AST
     | argument == "-ir" = IR
     | argument == "-ll" = LLVM
@@ -105,6 +116,7 @@ parseOutputFile (flag:filename:rest) inputFile outputType
     | otherwise = parseOutputFile (filename : rest) inputFile outputType
 
 outputTypeExtension :: OutputType -> String
+outputTypeExtension Tokens = ".t"
 outputTypeExtension AST = ".ast"
 outputTypeExtension IR = ".ir"
 outputTypeExtension LLVM = ".ll"

@@ -1,5 +1,6 @@
 beetle
 test.btl
+test.t
 test.ast
 test.ir
 test.ll
