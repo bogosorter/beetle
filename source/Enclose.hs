@@ -70,13 +70,19 @@ encloseExpression env free (AST.Variable name _)
         Just (index, t) -> return $ Closures.Variable index t
         Nothing -> return $ getScope env name
     where freeTypes = Prelude.map (\(s, e) -> (s, Closures.typeOf e)) free
-encloseExpression env free (AST.StructAccess name _ _)
-    | name `elem` ["+", "-"] = return (Closure (BuiltInFunction name Closures.IntegerType (ClosureType Closures.IntegerType Closures.IntegerType)) [])
-    | name `elem` ["<", ">", "==", "<=", ">="] = return (Closure (BuiltInFunction name Closures.IntegerType (ClosureType Closures.IntegerType Closures.BooleanType)) [])
-    | otherwise = case getFreeVariable 0 freeTypes name of
-        Just (index, t) -> return $ Closures.Variable index t
-        Nothing -> return $ getScope env name
-    where freeTypes = Prelude.map (\(s, e) -> (s, Closures.typeOf e)) free
+
+encloseExpression env free (AST.StructAccess name base t) = do
+    let memberTypes = case (AST.typeOf base) of
+            StructType memberTypes -> memberTypes
+            _ -> error "enclosExpression called on a member access of a struct that does not have tuple type"
+
+    let index = case elemIndex name (keys memberTypes) of
+            Just index -> index
+            Nothing -> error "encloseExpression called on a member access of a struct that does not have that member"
+
+    enclosedBase <- encloseExpression env free base
+    return $ TupleMember index enclosedBase (closuredType t)
+
 encloseExpression env free (AST.If condition thenBranch elseBranch _) = do
     enclosedCondition <- encloseExpression env free condition
     enclosedThen <- encloseExpression env free thenBranch
