@@ -28,7 +28,7 @@ program = do
     return result
 
 returnExpression :: Parser (Expression ())
-returnExpression = assignment <|> ifExpression <|> returnValue
+returnExpression = assignment <|> typeAlias <|> ifExpression <|> returnValue
 
 assignment :: Parser (Expression ())
 assignment = do
