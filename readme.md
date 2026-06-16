@@ -14,14 +14,14 @@ The programming language that embraces bugs.
 
 ```
 tiles(n: integer): integer =
-    if n < 0: return 0;
-    if n == 0: return 1;
+    if n < 0: return 0; -- impossible
+    if n == 0: return 1; -- empty sequence
     return tiles(n - 1) + tiles(n - 2) + tiles(n - 3) + tiles(n - 4);
 
 return tiles(5);
 ```
 
-Other examples can be found under the `tests` directory (especially inside `tests/functions`).
+Other examples can be found under the `tests` directory (the most relevant examples are under `tests/complete` and `tests/functions`).
 
 ## Building & Running
 
@@ -38,9 +38,9 @@ The `-o` flag can be used to specify an output file, and the flags `-ast`, `-ir`
 
 ## Details
 
-The only supported primitive types are integers and booleans. The language's grammar is displayed below. A curious particularity, which I have not yet seen in any other language, is that there are two different types of expressions, `returnExpressions` and plain `expressions`. Since this is a functional language, pretty much everything is an expression, but `returnExpressions` also allow the definitions of variables, `if` usage and must terminate with a `return`. This allows a clean syntax (similar to Python's, without cluttering from curly braces and `let` statements) while avoiding whitespace sensitivity. I must admit I'm quite proud of it.
+*beetle* is a tiny language. It is strictly typed, with the only supported primitive types being integers and booleans. These may be composed using tuples or structs. Closures enable higher-order functions and multiple-argument functions (which are desugared into chains of single-argument functions). Single-line comments start with `--`.
 
-Single-line comments start with `--`.
+The language's grammar is displayed below. A curious particularity, which I have not yet seen in any other language, is that there are two different types of expressions, `returnExpressions` and plain `expressions`. Since this is a functional language, pretty much everything is an expression, but `returnExpressions` also allow the definitions of variables, `if` usage and must terminate with a `return`. This allows a clean syntax (similar to Python's, without cluttering from curly braces and `let` statements) while avoiding whitespace sensitivity. I must admit I'm quite proud of it.
 
 > The factored, non-left-recursive grammar can be found under `grammar.md`
 
