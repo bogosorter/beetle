@@ -10,7 +10,8 @@ import Prelude hiding (lookup)
 
 typeCheck :: Expression () -> Either String (Expression Type)
 typeCheck program = do
-    typeChecked <- typeCheckAux defaultEnvironment program
+    unaliased <- removeAliases empty program
+    typeChecked <- typeCheckAux defaultEnvironment unaliased
     case typeOf typeChecked of
         IntegerType -> Right typeChecked
         BooleanType -> Right typeChecked
@@ -115,6 +116,69 @@ typeCheckAux environment (TupleDestructuring names tuple ensuing ()) = do
     typedEnsuing <- typeCheckAux newEnvironment ensuing
 
     return $ TupleDestructuring names typedTuple typedEnsuing (typeOf typedEnsuing)
+
+typeCheckAux environment (TypeLet _ _ _ _) = error "typeCheckAux run on expression which contains type aliases"
+
+
+type AliasEnvironment = Map String Type
+
+removeAliases :: AliasEnvironment -> Expression () -> Either String (Expression ())
+removeAliases environment (Boolean b) = Right (Boolean b)
+removeAliases environment (Integer n) = Right (Integer n)
+removeAliases environment (Variable name ()) = Right (Variable name ())
+removeAliases environment (Tuple members ()) = do
+    sanitizedMembers <- mapM (removeAliases environment) members
+    Right (Tuple sanitizedMembers ())
+removeAliases environment (Struct members ()) = do
+    sanitizedMembers <- mapM (removeAliases environment) members
+    Right (Struct sanitizedMembers ())
+removeAliases environment (StructAccess name base ()) = do
+    sanitizedBase <- removeAliases environment base
+    Right (StructAccess name sanitizedBase ())
+removeAliases environment (If condition left right ()) = do
+    sanitizedCondition <- removeAliases environment condition
+    sanitizedLeft <- removeAliases environment left
+    sanitizedRight <- removeAliases environment right
+    Right (If sanitizedCondition sanitizedLeft sanitizedRight ())
+removeAliases environment (Function argumentType returnType argumentName body) = do
+    sanitizedArgumentType <- sanitizeType environment argumentType
+    sanitizedReturnType <- sanitizeType environment returnType
+    sanitizedBody <- removeAliases environment body
+    Right (Function sanitizedArgumentType sanitizedReturnType argumentName sanitizedBody)
+removeAliases environment (Application function argument ()) = do
+    sanitizedFunction <- removeAliases environment function
+    sanitizedArgument <- removeAliases environment argument
+    Right (Application sanitizedFunction sanitizedArgument ())
+removeAliases environment (Let name value ensuing ()) = do
+    sanitizedValue <- removeAliases environment value
+    sanitizedEnsuing <- removeAliases environment ensuing
+    Right (Let name sanitizedValue sanitizedEnsuing ())
+removeAliases environment (TypeLet name t ensuing ()) = do
+    sanitizedType <- sanitizeType environment t
+    let newEnvironment = insert name sanitizedType environment
+    sanitizedEnsuing <- removeAliases newEnvironment ensuing
+    Right (TypeLet name sanitizedType sanitizedEnsuing ())
+removeAliases environment (TupleDestructuring members value ensuing ()) = do
+    sanitizedValue <- removeAliases environment value
+    sanitizedEnsuing <- removeAliases environment ensuing
+    Right (TupleDestructuring members sanitizedValue sanitizedEnsuing ())
+
+sanitizeType :: AliasEnvironment -> Type -> Either String Type
+sanitizeType environment BooleanType = Right BooleanType
+sanitizeType environment IntegerType = Right IntegerType
+sanitizeType environment (AliasedType name) = case lookup name environment of
+    Just t -> Right t
+    Nothing -> Left ("type " ++ name ++ " is not defined")
+sanitizeType environment (TupleType members) = do
+    sanitizedMembers <- mapM (sanitizeType environment) members
+    Right (TupleType sanitizedMembers)
+sanitizeType environment (StructType members) = do
+    sanitizedMembers <- mapM (sanitizeType environment) members
+    Right (StructType sanitizedMembers)
+sanitizeType environment (FunctionType argument return) = do
+    sanitizedArgument <- sanitizeType environment argument
+    sanitizedReturn <- sanitizeType environment return
+    Right (FunctionType sanitizedArgument sanitizedReturn)
 
 defaultEnvironment :: TypedEnvironment
 defaultEnvironment = fromList
