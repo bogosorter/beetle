@@ -1,0 +1,9 @@
+s(n: integer): integer =
+    return n + 1;
+
+struct = {
+    n: 0,
+    s: s
+};
+
+return struct.s(struct.n);

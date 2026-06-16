@@ -1,0 +1,6 @@
+s(n: integer): integer =
+    return n + 1;
+
+tuple = (0, s);
+x, f = tuple;
+return f(x);

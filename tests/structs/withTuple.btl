@@ -1,0 +1,3 @@
+struct = { member: (1, 2) };
+a, b = struct.member;
+return a;
