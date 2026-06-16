@@ -58,7 +58,8 @@ returnExpression = assignment ';' returnExpression
                  | 'if' expression ':' returnExpression ';' returnExpression
                  | 'return' expression
 
-assignment = symbol '=' expression
+assignment = typeSymbol '=' type
+           | symbol '=' expression
            | symbol function
            | symbol (',' symbol)+ '=' expression -- tuple assignment
 
@@ -80,5 +81,8 @@ atom = symbol
 function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' returnExpression
 lambda = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' logical
 
-type = 'integer' | 'boolean' | '(' type (',' type)+ ')' | '{' symbol ':' type (',' symbol ':' type)* ','? '}' | type ('->' type)*;
+type = 'integer' | 'boolean' | typeSymbol | '(' type (',' type)+ ')' | '{' symbol ':' type (',' symbol ':' type)* ','? '}' | type ('->' type)*;
+
+symbol = ['a'-'z']['a'-'z''A'-'Z']*;
+typeSymbol = ['A'-'Z']['a'-'z''A'-'Z']*;
 ```

@@ -12,8 +12,9 @@ returnExpression = assignment ';' returnExpression
                  | 'if' expression ':' returnExpression ';' returnExpression
                  | 'return' expression
 
-assignment = symbol function
+assignment = typeSymbol '=' type
            | symbol '=' expression
+           | symbol function
            | symbol (',' symbol)+ '=' expression -- tuple assignment
 
 expression = logical
@@ -36,5 +37,8 @@ structAccess = '.' symbol structAccess
 function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' returnExpression
 lambda = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' expression
 
-type = 'integer' | 'boolean' | '(' type (',' type)+ ')' | '{' symbol ':' type (',' symbol ':' type)* ','? '}' | type ('->' type)*;
+type = 'integer' | 'boolean' | typeSymbol | '(' type (',' type)+ ')' | '{' symbol ':' type (',' symbol ':' type)* ','? '}' | type ('->' type)*;
+
+symbol = ['a'-'z']['a'-'z''A'-'Z']*;
+typeSymbol = ['A'-'Z']['a'-'z''A'-'Z']*;
 ```
