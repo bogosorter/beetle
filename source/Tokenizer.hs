@@ -7,7 +7,7 @@ module Tokenizer (Token(..), tokenize) where
 
 import AST
 import Text.Parsec hiding (eof, char, newline, satisfy)
-import Data.Char (isAlpha, isDigit)
+import Data.Char (isAlpha, isDigit, isLower)
 import Data.Map (insert, empty, fromList)
 
 type Parser = Parsec [Token] ()
@@ -15,6 +15,7 @@ type Parser = Parsec [Token] ()
 data Token = TokenIntegerLiteral Int
            | TokenBooleanLiteral Bool
            | TokenSymbol String
+           | TokenTypeSymbol String
            | TokenLeftParenthesis
            | TokenRightParenthesis
            | TokenLeftCurlyBrace
@@ -127,8 +128,12 @@ tokenize input@(c:cs)
         let number = read (takeWhile isDigit input)
         rest <- tokenize (dropWhile isDigit input)
         return $ TokenIntegerLiteral number : rest
-    | isAlpha c = do
+    | isAlpha c && isLower c = do
         let name = takeWhile isAlpha input
         rest <- tokenize (dropWhile isAlpha input)
         return $ TokenSymbol name : rest
+    | isAlpha c = do
+        let name = takeWhile isAlpha input
+        rest <- tokenize (dropWhile isAlpha input)
+        return $ TokenTypeSymbol name : rest
     | otherwise = Left ("Unexpected character " ++ [c] ++ "found during tokenizing")
