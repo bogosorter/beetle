@@ -35,6 +35,15 @@ assignment = do
     name <- symbol
     varFunctionAssignment name <|> tupleDestructuring name
 
+typeAlias :: Parser (Expression ())
+typeAlias = do
+    (AliasedType name) <- typeSymbol
+    match TokenAssign
+    definition <- parseType
+    match TokenSemicolon
+    ensuing <- returnExpression
+    return $ TypeLet name definition ensuing ()
+
 varFunctionAssignment :: String -> Parser (Expression ())
 varFunctionAssignment name = do
     value <- variableAssignment <|> function
@@ -240,7 +249,7 @@ parenthesizedExpression = do
 
 parseType :: Parser Type
 parseType = chainr1 baseTypes functionType
-    where baseTypes = booleanType <|> integerType <|> parenthesizedType <|> structType
+    where baseTypes = booleanType <|> integerType <|> typeSymbol <|> parenthesizedType <|> structType
           functionType = do
             match TokenArrow
             return (\left right -> FunctionType left right)
@@ -294,6 +303,11 @@ parenthesizedType = do
 symbol :: Parser String
 symbol = satisfy (\t -> case t of
     TokenSymbol name -> Just name
+    _  -> Nothing)
+
+typeSymbol :: Parser Type
+typeSymbol = satisfy (\t -> case t of
+    TokenTypeSymbol name -> Just (AliasedType name)
     _  -> Nothing)
 
 integer :: Parser (Expression ())
