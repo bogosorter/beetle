@@ -9,6 +9,9 @@
 # v.X.X.X
 
 - AND, OR and NOT operators
+- Multiplication and division operators
+- Floating point numbers
 - Union types
+- Recursive types
 - Generic types
 - Garbage collection
