@@ -92,6 +92,7 @@ encloseExpression env free (AST.Application closure argument _) = do
     enclosedClosure <- encloseExpression env free closure
     enclosedArgument <- encloseExpression env free argument
     return $ Closures.Application enclosedClosure enclosedArgument
+encloseExpression env free (AST.TypeLet {}) = error "encloseExpression called on an aliased type"
 
 freeVariables :: Environment -> [String] -> [(String, Closures.Type)] -> AST.Expression AST.Type -> [(String, Closures.Expression)]
 freeVariables env declared currentFree (AST.Boolean _) = []
@@ -122,6 +123,7 @@ freeVariables env declared currentFree (AST.TupleDestructuring names value ensui
     where newDeclared = declared ++ names
           valueVariables = freeVariables env declared currentFree value
           ensuingVariables = freeVariables env newDeclared currentFree ensuing
+freeVariables env declared currentFree (AST.TypeLet {}) = error "freeVariables called on an aliased type"
 
 
 getFreeVariable :: Int -> [(String, Closures.Type)] -> String -> Maybe (Int, Closures.Type)
@@ -164,3 +166,4 @@ closuredType AST.IntegerType = Closures.IntegerType
 closuredType (AST.TupleType memberTypes) = Closures.TupleType (Prelude.map closuredType memberTypes)
 closuredType (AST.StructType memberTypes) = Closures.TupleType (Prelude.map closuredType (elems memberTypes))
 closuredType (AST.FunctionType a b) = Closures.ClosureType (closuredType a) (closuredType b)
+closuredType (AST.AliasedType _) = error "closuredType called on an aliased type"
