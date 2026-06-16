@@ -4,4 +4,4 @@ sumComponents(pair: Pair): integer =
     a, b = pair;
     return a + b;
 
-return sumComponents(1, 2);
+return sumComponents((1, 2));

@@ -157,7 +157,7 @@ removeAliases environment (TypeLet name t ensuing ()) = do
     sanitizedType <- sanitizeType environment t
     let newEnvironment = insert name sanitizedType environment
     sanitizedEnsuing <- removeAliases newEnvironment ensuing
-    Right (TypeLet name sanitizedType sanitizedEnsuing ())
+    Right sanitizedEnsuing
 removeAliases environment (TupleDestructuring members value ensuing ()) = do
     sanitizedValue <- removeAliases environment value
     sanitizedEnsuing <- removeAliases environment ensuing
