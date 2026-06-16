@@ -15,9 +15,9 @@ manhattanTriangle(triangle: Triangle): integer =
     third = manhattan(a, c);
     return first + second + third;
 
-a = (0, 0);
-b = (1, 0);
-c = (0, 1);
+a = {x: 0, y: 0};
+b = {x: 1, y: 0};
+c = {x: 0, y: 1};
 triangle = a, b, c;
 
 return manhattanTriangle(triangle);
