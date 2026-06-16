@@ -1,9 +1,5 @@
 # Roadmap
 
-# v3.2.0
-
-- Type aliases
-
 # v3.2.1
 
 - General code review
