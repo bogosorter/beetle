@@ -16,6 +16,7 @@ data Expression a
     | Function Type Type String (Expression a)
     | Application (Expression a) (Expression a) a
     | Let String (Expression a) (Expression a) a
+    | TypeLet String Type (Expression a) a
     | TupleDestructuring [String] (Expression a) (Expression a) a -- the list of destructured names, the tuple and the ensuing expression
     deriving Show
 
@@ -31,3 +32,4 @@ typeOf (If _ _ _ t) = t
 typeOf (Function argumentType returnType _ _) = FunctionType argumentType returnType
 typeOf (Application _ _ t) = t
 typeOf (Let _ _ _ t) = t
+typeOf (TypeLet _ _ _ t) = t
