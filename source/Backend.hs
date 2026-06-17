@@ -347,3 +347,16 @@ getWaitingLet = do
     let (wL:remaining) = waitingLet state
     modify (\s -> s { waitingLet = remaining })
     return wL
+
+-- While there is a tuple type in the LLVM IR, the closures tuple type is
+-- allocated on the heap, and therefore is converted to a pointer. If one wants
+-- to force conversion to a tuple, the convertToTupleType is provided.
+convertType :: Closures.Type -> LLVM.Type
+convertType Closures.BooleanType = LLVM.Boolean
+convertType Closures.IntegerType = LLVM.Integer
+convertType (Closures.TupleType _) = LLVM.Pointer
+convertType (Closures.ClosureType _ _) = LLVM.Pointer
+
+convertToTupleType :: Closures.Type -> LLVM.Type
+convertToTupleType (Closures.TupleType memberTypes) = LLVM.Tuple (map convertType memberTypes)
+convertToTupleType _ = error "convertToTupleType should only be called on tuples"

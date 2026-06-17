@@ -1,78 +1,116 @@
 {-# OPTIONS_GHC -Wincomplete-patterns #-}
 
 {-
-This module provides a representation and export utilities for LLVM functions.
-It is by no means representative of the whole LLVM IR, only of the subset used
-here. It also doesn't ensure that all representable programs are correct.
-
-TODO: Check for boolean format string output
+This module provides a representation for LLVM IR statements. It is by no means
+representative of the whole LLVM IR, only of the subset used here.
 -}
 
-module LLVM where
+module LLVM (Program, TopLevelStatement(..), Statement(..)) where
 
-import qualified Closures
 import Data.List (intercalate)
 
 newtype Program = Program [TopLevelStatement]
-instance Show Program where
-    show (Program lines) = unlines (map show lines)
 
 data TopLevelStatement
-    = TargetTriple
-    | FormatString
-    | PrintfDeclaration
-    | MallocDeclaration
-    | GlobalVariableDeclaration Type GlobalVar
-    | Function Type GlobalVar (Maybe (Type, LocalVar)) [Statement] -- return type, name, argument type, name
-    | TypeDeclaration TypeVar Type
+    = Function
+        { fnReturnType :: Type
+        , fnName :: String
+        , fnArgumentType :: Type
+        , fnBody :: [Statement]
+        }
+    | TypeDeclaration
+        { tdName :: String
+        , tdType :: Type
+        }
 
 data Statement
-    = LocalAssign Type Register Operation Operand Operand
-    | GetElementPointer Operand TypeVar Operand Operand Operand
-    | GetElementPointer2 Operand TypeVar Operand Operand
-    | BitCast Operand Type Operand Type
-    | PtrToInt Operand Operand
-    | Malloc Operand Operand
-    | Load Type Operand Operand
-    | Store Type Operand Operand
-    | Branch LocalVar Label Label
-    | Jump Label
-    | Phi Register Type Operand Label Operand Label
-    | LabelStatement Label
-    | Call Type Operand Operand Operand Type LocalVar -- register to store and its type, function, environment, argument type and name
-    | FormatStringPointer
-    | PrintfCall Type LocalVar
-    | Return Type Operand
+    = BinaryOperation
+        { opType :: Type
+        , opDest :: String
+        , opOperation :: Operation
+        , opLeftArg :: String
+        , opRightArg :: String
+        }
+    | GetElementPointer
+        { gepDest :: String
+        , gepElementType :: String
+        , gepBasePtr :: String
+        , gepOffset :: String
+        , gepIndex :: Maybe String
+        }
+    | BitCast
+        { bcDest :: String
+        , bcTargetType :: Type
+        , bcSrc :: String
+        , bcSrcType :: Type
+        }
+    | PtrToInt
+        { ptiDest :: String
+        , ptiSrc :: String
+        }
+    | Malloc
+        { mallocDest :: String
+        , mallocSize :: String
+        }
+    | Load
+        { loadDest :: String
+        , loadType :: Type
+        , loadSrc :: String
+        }
+    | Store
+        { storeType :: Type
+        , storeSrc :: String
+        , storeDest :: String
+        }
+    | Branch
+        { brCond :: String
+        , brTrueLabel :: String
+        , brFalseLabel :: String
+        }
+    | Jump
+        { jumpLabel :: String
+        }
+    | Phi
+        { phiDest :: String
+        , phiType :: Type
+        , phiValA :: String
+        , phiLabelA :: String
+        , phiValB :: String
+        , phiLabelB :: String
+        }
+    | LabelStatement
+        { labelName :: String
+        }
+    | Call
+        { callReturnType :: Type
+        , callDest :: String
+        , callFunc :: String
+        , callEnv :: String
+        , callArgType :: Type
+        , callArg :: String
+        }
+    | FormatStringPointer -- loads the format string onto a register
+    | PrintfCall
+        { printfArgType :: Type
+        , printfArg :: String
+        }
+    | Return
+        { retType :: Type
+        , retVal :: String
+        }
 
 data Type = Boolean | Integer | Tuple [Type] | Pointer
 data Operation = Add | Sub | Eq | Slt | Sgt | Sle | Sge
-data Operand = Literal Int | LocalOperand LocalVar | GlobalOperand GlobalVar | NullPtr
-newtype GlobalVar = GlobalVar String
-data TypeVar = TypeVar String | LiteralType Type
-data LocalVar = ArgumentVar | RegisterVar Register | LocalVar String
-newtype Register = Register Int
-newtype Label = Label String
 
 
--- While there is a tuple type in the LLVM IR, the closures tuple type is
--- allocated on the heap, and therefore is converted to a pointer. If one wants
--- to force conversion to a tuple, the convertToTupleType is provided.
-convertType :: Closures.Type -> Type
-convertType Closures.BooleanType = Boolean
-convertType Closures.IntegerType = Integer
-convertType (Closures.TupleType _) = Pointer
-convertType (Closures.ClosureType _ _) = Pointer
-
-convertToTupleType :: Closures.Type -> Type
-convertToTupleType (Closures.TupleType memberTypes) = Tuple (map convertType memberTypes)
-convertToTupleType _ = error "convertToTupleType should only be called on tuples"
+instance Show Program where
+    show (Program lines) = unlines (map show lines)
 
 instance Show TopLevelStatement where
     show TargetTriple = "target triple = \"x86_64-pc-linux-gnu\""
     show FormatString = "@fmt = private constant [4 x i8] c\"%d\\0A\\00\""
     show PrintfDeclaration = "declare i32 @printf(i8*, ...)"
     show MallocDeclaration = "declare ptr @malloc(i64)"
-    show (GlobalVariableDeclaration variableType variable) = show variable ++ " = global " ++ show variableType ++ " 0"
     show (Function returnType function argument body) =
         "define " ++ show returnType ++ " " ++ show function ++ "(" ++ buildArguments argument ++ ") {\n"
             ++ unlines (map show body) ++
@@ -82,12 +120,13 @@ instance Show TopLevelStatement where
     show (TypeDeclaration variable t) = show variable ++ " = type " ++ show t
 
 instance Show Statement where
-    show (LocalAssign variableType register operation left right) =
+    show (BinaryOperation variableType register operation left right) =
         "    " ++ show register ++ " = " ++ show operation ++ " " ++ show variableType ++ " " ++ show left ++ ", " ++ show right
     show (GetElementPointer result elementType base offset index) =
-        "    " ++ show result ++ " = getelementptr " ++ show elementType ++ ", ptr " ++ show base ++ ", i32 " ++ show offset ++ ", i32 " ++ show index
-    show (GetElementPointer2 result elementType base offset) =
-        "    " ++ show result ++ " = getelementptr " ++ show elementType ++ ", ptr " ++ show base ++ ", i32 " ++ show offset
+        let indexSuffix = case index of
+                Just i -> ", i32 " ++ show index
+                Nothing -> ""
+        in "    " ++ show result ++ " = getelementptr " ++ show elementType ++ ", ptr " ++ show base ++ ", i32 " ++ show offset ++ indexSuffix
     show (BitCast result elementType element resultType) =
         "    " ++ show result ++ " = bitcast " ++ show elementType ++ " " ++ show element ++ " to " ++ show resultType
     show (PtrToInt destination pointer) = "    " ++ show destination ++ " = ptrtoint ptr " ++ show pointer ++ " to i64"
@@ -127,27 +166,3 @@ instance Show Operation where
     show Sgt = "icmp sgt"
     show Sle = "icmp sle"
     show Sge = "icmp sge"
-
-instance Show Operand where
-    show (Literal value) = show value
-    show (LocalOperand variable) = show variable
-    show (GlobalOperand operand) = show operand
-    show NullPtr = "null"
-
-instance Show GlobalVar where
-    show (GlobalVar name) = "@" ++ name
-
-instance Show TypeVar where
-    show (TypeVar name) = "%" ++ name
-    show (LiteralType t) = show t
-
-instance Show LocalVar where
-    show ArgumentVar = "%argument"
-    show (RegisterVar register) = show register
-    show (LocalVar name) = "%" ++ name
-
-instance Show Register where
-    show (Register number) = "%" ++ show number
-
-instance Show Label where
-    show (Label label) = label
