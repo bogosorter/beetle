@@ -1,0 +1,74 @@
+lambda0 (IntegerType -> IntegerType) []
+    application of
+        1
+    to
+        application of
+            argument
+        to
+            closure of definition +
+
+
+lambda2 (IntegerType -> IntegerType) []
+    if
+        application of
+            0
+        to
+            application of
+                argument
+            to
+                closure of definition ==
+
+    then
+        0
+    else
+        let current =
+            application of
+                argument
+            to
+                argument
+        in
+            let recursive =
+                application of
+                    application of
+                        1
+                    to
+                        application of
+                            argument
+                        to
+                            closure of definition -
+
+                to
+                    application of
+                        argument
+                    to
+                        accumulate
+            in
+                application of
+                    recursive
+                to
+                    application of
+                        current
+                    to
+                        closure of definition +
+
+
+
+lambda1 (ClosureType IntegerType IntegerType -> ClosureType IntegerType IntegerType) []
+    closure of definition lambda2
+
+
+let s =
+    closure of definition lambda0
+
+in
+    let accumulate =
+        closure of definition lambda1
+
+    in
+        application of
+            3
+        to
+            application of
+                s
+            to
+                accumulate

@@ -1,13 +1,1 @@
-beetle
-test.btl
-test.t
-test.ast
-test.ir
-test.ll
-test
-examples/*
-!examples/*.btl
-tests/**
-!tests/**/
-!tests/**/*.btl
-!tests/**/*.out
+dist-newstyle

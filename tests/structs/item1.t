@@ -1,0 +1,1 @@
+[TokenSymbol "item",TokenAssign,TokenLeftCurlyBrace,TokenSymbol "cost",TokenColon,TokenIntegerLiteral 10,TokenComma,TokenSymbol "premium",TokenColon,TokenBooleanLiteral False,TokenRightCurlyBrace,TokenSemicolon,TokenReturn,TokenSymbol "item",TokenPeriod,TokenSymbol "cost",TokenSemicolon,TokenEOF]

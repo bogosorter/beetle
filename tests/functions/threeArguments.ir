@@ -1,0 +1,40 @@
+lambda2 (IntegerType -> IntegerType) [IntegerType,IntegerType]
+    application of
+        argument
+    to
+        application of
+            application of
+                variable 0
+            to
+                application of
+                    variable 0
+                to
+                    closure of definition +
+
+        to
+            closure of definition +
+
+
+lambda1 (IntegerType -> ClosureType IntegerType IntegerType) [IntegerType]
+    closure of definition lambda2
+        argument
+        argument
+
+lambda0 (IntegerType -> ClosureType IntegerType (ClosureType IntegerType IntegerType)) []
+    closure of definition lambda1
+        argument
+
+let sum =
+    closure of definition lambda0
+
+in
+    application of
+        3
+    to
+        application of
+            2
+        to
+            application of
+                1
+            to
+                sum

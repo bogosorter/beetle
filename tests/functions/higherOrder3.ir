@@ -1,0 +1,46 @@
+lambda1 (IntegerType -> IntegerType) [IntegerType,ClosureType IntegerType (ClosureType IntegerType IntegerType),IntegerType]
+    if
+        application of
+            0
+        to
+            application of
+                variable 0
+            to
+                closure of definition ==
+
+    then
+        0
+    else
+        application of
+            argument
+        to
+            application of
+                application of
+                    1
+                to
+                    application of
+                        variable 0
+                    to
+                        closure of definition -
+
+            to
+                variable 1
+
+
+lambda0 (IntegerType -> ClosureType IntegerType IntegerType) [ClosureType IntegerType (ClosureType IntegerType IntegerType)]
+    closure of definition lambda1
+        argument
+        variable 0
+        argument
+
+let accumulate =
+    closure of definition lambda0
+        accumulate
+in
+    application of
+        0
+    to
+        application of
+            1
+        to
+            accumulate
