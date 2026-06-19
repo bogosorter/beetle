@@ -1,9 +1,9 @@
-module AST where
+module AST (Type(..), Expression(..), SourceExpression, TypedExpression, getPosition, getType) where
 
 import Data.Map (Map)
 import Text.Megaparsec (SourcePos)
 
-data Type = IntegerType | BooleanType | TupleType [Type] | RecordType (Map String Type) | FunctionType Type Type
+data Type = IntegerType | BooleanType | UserType String | TupleType [Type] | RecordType (Map String Type) | FunctionType Type Type
     deriving (Show, Eq)
 
 data Expression a
@@ -50,26 +50,30 @@ data Expression a
         , memberName :: String
         , annotation :: a
         }
-    | TypeAlias
+    | TypeDeclaration
         { name :: String
         , aliasedType :: Type
+        , body :: Expression a
         , annotation :: a
         }
-    | Let
+    | Assignment
         { variableName :: String
         , variableValue :: Expression a
         , body :: Expression a
         , annotation :: a
         }
     | TupleDestructuring
-        { tuple :: Expression a
-        , destructuredNames :: [String]
+        { destructuredNames :: [String]
+        , tuple :: Expression a
         , body :: Expression a
         , annotation :: a
         }
+    deriving Show
 
-getPosition :: Expression SourcePos -> SourcePos
+type SourceExpression = Expression SourcePos
+getPosition :: SourceExpression -> SourcePos
 getPosition others = annotation others
 
-getType :: Expression Type -> Type
+type TypedExpression = Expression Type
+getType :: TypedExpression -> Type
 getType others = annotation others
