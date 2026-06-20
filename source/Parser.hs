@@ -7,6 +7,7 @@ import AST
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as C
 import qualified Text.Megaparsec.Char.Lexer as L
+import qualified Control.Monad.Combinators.Expr as E
 import Control.Applicative
 import Data.Void
 import Data.Map (fromList)
@@ -74,11 +75,127 @@ assignment = do
 
 
 expression :: Parser SourceExpression
-expression = error "not implemented"
+expression = do
+    position <- M.getSourcePos
+    logicals <- M.sepBy binaryOperation (symbol ",")
+    case logicals of
+        [single] -> return single
+        many -> return $ Tuple many position
+
+binaryOperation :: Parser SourceExpression
+binaryOperation = do
+    position <- M.getSourcePos
+    E.makeExprParser atom (table position)
+
+    where table position =
+            [
+                [ E.InfixL (builder position <$> symbol "+")
+                , E.InfixL (builder position <$> symbol "-")
+                ]
+            ,
+                [ E.InfixL (builder position <$> symbol "==")
+                , E.InfixL (builder position <$> symbol "<")
+                , E.InfixL (builder position <$> symbol ">")
+                , E.InfixL (builder position <$> symbol "<=")
+                , E.InfixL (builder position <$> symbol ">=")
+                ]
+            ]
+          builder position operation left right = Application (Application (Variable operation position) left position) right position
+
+atom :: Parser SourceExpression
+atom = M.try lambda <|> variableUsage <|> unaryMinus <|> recordParser <|> integer <|> boolean <|> parenthesizedExpression
+
+-- This takes care of things that might continue atoms, such as expression calls
+-- and member access
+atomContinuation :: SourceExpression -> Parser (SourceExpression)
+atomContinuation atom = functionCall atom <|> recordAccess atom <|> return atom
+
+lambda :: Parser SourceExpression
+lambda = do error "not implemented"
+
+variableUsage :: Parser SourceExpression
+variableUsage = do
+    position <- M.getSourcePos
+    name <- identifier
+    atomContinuation (Variable name position)
+
+unaryMinus :: Parser SourceExpression
+unaryMinus = do
+    position <- M.getSourcePos
+    symbol "-"
+    inner <- atom
+    return $ Application (Application (Variable "-" position) (Integer 0 position) position) inner position
+
+recordParser :: Parser SourceExpression
+recordParser = do
+    position <- M.getSourcePos
+    symbol "{"
+    members <- M.sepEndBy1 recordMember (symbol ",")
+    symbol "}"
+
+    return $ Record (fromList members) position
+
+recordMember :: Parser (String, SourceExpression)
+recordMember = do
+    name <- identifier
+    symbol ":"
+    value <- binaryOperation
+    return (name, value)
+
+integer :: Parser SourceExpression
+integer = do
+    position <- M.getSourcePos
+    value <- L.decimal
+    return $ Integer value position
+
+boolean :: Parser SourceExpression
+boolean = true <|> false
+
+parenthesizedExpression :: Parser SourceExpression
+parenthesizedExpression = do
+    symbol "("
+    value <- expression
+    symbol ")"
+    return $ value
+
+functionCall :: SourceExpression -> Parser SourceExpression
+functionCall base = do
+    position <- M.getSourcePos
+
+    symbol "("
+    -- we do not use full expressions to avoid ambiguity with tuples
+    arguments <- M.sepBy binaryOperation (symbol ",")
+    symbol ")"
+
+    let buildCall base argument = Application base argument position
+    let result = foldl buildCall base arguments
+    atomContinuation result
+
+recordAccess :: SourceExpression -> Parser SourceExpression
+recordAccess base = do
+    position <- M.getSourcePos
+
+    symbol "."
+    name <- identifier
+    let result = RecordMember base name position
+
+    atomContinuation result
+
+true :: Parser SourceExpression
+true = do
+    position <- M.getSourcePos
+    symbol "true"
+    return $ Boolean True position
+
+false :: Parser SourceExpression
+false = do
+    position <- M.getSourcePos
+    symbol "false"
+    return $ Boolean False position
 
 typeParser :: Parser Type
 typeParser = do
-    atomic <- atomicTypes
+    atomic <- atomicTypes -- not a general expression because using tuples here would lead to ambiguity
     functionType atomic <|> return atomic
 
 atomicTypes :: Parser Type
