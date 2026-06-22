@@ -11,6 +11,7 @@ import qualified Control.Monad.Combinators.Expr as E
 import Control.Applicative
 import Data.Void
 import Data.Map (fromList)
+import Text.Megaparsec.Char (lowerChar)
 
 
 parseProgram :: String -> Either (M.ParseErrorBundle String Void) SourceExpression
@@ -21,6 +22,7 @@ type Parser = M.Parsec Void String
 
 program :: Parser SourceExpression
 program = do
+    space
     content <- returnExpression
     symbol ";"
     M.eof
@@ -41,17 +43,17 @@ binding = do
 ifExpression :: Parser SourceExpression
 ifExpression = do
     position <- M.getSourcePos
-    symbol "if"
+    keyword "if"
     condition <- expression
     symbol ":"
-    left <- expression
+    left <- returnExpression
     symbol ";"
-    right <- expression
+    right <- returnExpression
     return $ If condition left right position
 
 returnValue :: Parser SourceExpression
 returnValue = do
-    symbol "return"
+    keyword "return"
     value <- expression
     return value
 
@@ -67,17 +69,43 @@ assignment :: Parser (SourceExpression -> SourceExpression)
 assignment = do
     position <- M.getSourcePos
     names <- M.sepBy1 identifier (symbol ",")
+    case names of
+        [name] -> singleAssignment position name <|> functionDefinition position name
+        _ -> tupleAssignment position names
+
+singleAssignment :: M.SourcePos -> String -> Parser (SourceExpression -> SourceExpression)
+singleAssignment position name = do
     symbol "="
     value <- expression
-    case names of
-        [name] -> return $ \body -> Assignment name value body position
-        _ -> return $ \body -> TupleDestructuring names value body position
+    return $ \body -> Assignment name value body position
 
+tupleAssignment :: M.SourcePos -> [String] -> Parser (SourceExpression -> SourceExpression)
+tupleAssignment position names = do
+    symbol "="
+    value <- expression
+    return $ \body -> TupleDestructuring names value body position
+
+functionDefinition :: M.SourcePos -> String -> Parser (SourceExpression -> SourceExpression)
+functionDefinition position name = do
+    symbol "("
+    arguments <- M.sepBy1 identifierTypePair (symbol ",")
+    symbol ")"
+    symbol ":"
+    returnType <- typeParser
+    symbol "="
+    body <- returnExpression
+
+    let builder :: (String, Type) -> (SourceExpression, Type) -> (SourceExpression, Type)
+        builder (argumentName, argumentType) (body, bodyType) =
+            (Function argumentType bodyType argumentName body position, FunctionType argumentType bodyType)
+
+    let (result, _) = foldr builder (body, returnType) arguments
+    return $ \body -> Assignment name result body position
 
 expression :: Parser SourceExpression
 expression = do
     position <- M.getSourcePos
-    logicals <- M.sepBy binaryOperation (symbol ",")
+    logicals <- M.sepBy1 binaryOperation (symbol ",")
     case logicals of
         [single] -> return single
         many -> return $ Tuple many position
@@ -94,10 +122,10 @@ binaryOperation = do
                 ]
             ,
                 [ E.InfixL (builder position <$> symbol "==")
-                , E.InfixL (builder position <$> symbol "<")
-                , E.InfixL (builder position <$> symbol ">")
                 , E.InfixL (builder position <$> symbol "<=")
                 , E.InfixL (builder position <$> symbol ">=")
+                , E.InfixL (builder position <$> symbol "<")
+                , E.InfixL (builder position <$> symbol ">")
                 ]
             ]
           builder position operation left right = Application (Application (Variable operation position) left position) right position
@@ -111,7 +139,22 @@ atomContinuation :: SourceExpression -> Parser (SourceExpression)
 atomContinuation atom = functionCall atom <|> recordAccess atom <|> return atom
 
 lambda :: Parser SourceExpression
-lambda = do error "not implemented"
+lambda = do
+    position <- M.getSourcePos
+    symbol "("
+    names <- M.sepBy1 identifierTypePair (symbol ",")
+    symbol ")"
+    symbol ":"
+    returnType <- typeParser
+    symbol "="
+    body <- binaryOperation
+
+    let builder :: (String, Type) -> (SourceExpression, Type) -> (SourceExpression, Type)
+        builder (argumentName, argumentType) (body, bodyType) =
+            (Function argumentType bodyType argumentName body position, FunctionType argumentType bodyType)
+
+    let (result, _) = foldr builder (body, returnType) names
+    return result
 
 variableUsage :: Parser SourceExpression
 variableUsage = do
@@ -145,7 +188,7 @@ recordMember = do
 integer :: Parser SourceExpression
 integer = do
     position <- M.getSourcePos
-    value <- L.decimal
+    value <- lexeme L.decimal
     return $ Integer value position
 
 boolean :: Parser SourceExpression
@@ -156,7 +199,7 @@ parenthesizedExpression = do
     symbol "("
     value <- expression
     symbol ")"
-    return $ value
+    atomContinuation value
 
 functionCall :: SourceExpression -> Parser SourceExpression
 functionCall base = do
@@ -164,7 +207,7 @@ functionCall base = do
 
     symbol "("
     -- we do not use full expressions to avoid ambiguity with tuples
-    arguments <- M.sepBy binaryOperation (symbol ",")
+    arguments <- M.sepBy1 binaryOperation (symbol ",")
     symbol ")"
 
     let buildCall base argument = Application base argument position
@@ -184,19 +227,26 @@ recordAccess base = do
 true :: Parser SourceExpression
 true = do
     position <- M.getSourcePos
-    symbol "true"
+    keyword "true"
     return $ Boolean True position
 
 false :: Parser SourceExpression
 false = do
     position <- M.getSourcePos
-    symbol "false"
+    keyword "false"
     return $ Boolean False position
 
 typeParser :: Parser Type
 typeParser = do
     atomic <- atomicTypes -- not a general expression because using tuples here would lead to ambiguity
     functionType atomic <|> return atomic
+
+typeWithTuple :: Parser Type
+typeWithTuple = do
+    types <- M.sepBy1 atomicTypes (symbol ",")
+    case types of
+        [t] -> return $ t
+        _ -> return $ TupleType types
 
 atomicTypes :: Parser Type
 atomicTypes = booleanType <|> integerType <|> userType <|> parenthesizedType <|> recordType
@@ -209,12 +259,12 @@ functionType argumentType = do
 
 booleanType :: Parser Type
 booleanType = do
-    symbol "boolean"
+    keyword "boolean"
     return BooleanType
 
 integerType :: Parser Type
 integerType = do
-    symbol "integer"
+    keyword "integer"
     return IntegerType
 
 userType :: Parser Type
@@ -225,32 +275,45 @@ userType = do
 parenthesizedType :: Parser Type
 parenthesizedType = do
     symbol "("
-    content <- typeParser
+    content <- tupleType
     symbol ")"
     return content
 
 recordType :: Parser Type
 recordType = do
     symbol "{"
-    members <- M.sepEndBy1 recordMemberType (symbol ",")
+    members <- M.sepEndBy1 identifierTypePair (symbol ",")
     symbol "}"
     return $ RecordType (fromList members)
 
-recordMemberType :: Parser (String, Type)
-recordMemberType = do
+identifierTypePair :: Parser (String, Type)
+identifierTypePair = do
     name <- identifier
     symbol ":"
     t <- typeParser
     return (name, t)
 
 tupleType :: Parser Type
-tupleType = error "not implemented"
+tupleType = do
+    types <- M.sepBy1 typeParser (symbol ",")
+    return $ TupleType types
 
 typeIdentifier :: Parser String
-typeIdentifier = error "not implemented"
+typeIdentifier = lexeme $ do
+    first <- C.upperChar
+    following <- M.many C.letterChar
+    return (first : following)
+
+reserved = ["if", "return", "true", "false", "boolean", "integer"]
 
 identifier :: Parser String
-identifier = error "not implemented"
+identifier = M.try $ lexeme $ do
+    first <- C.lowerChar
+    following <- M.many C.letterChar
+    let word = first : following
+    if word `elem` reserved
+        then fail $ "keyword " ++ show word ++ " used as an identifier"
+        else return word
 
 -- Helper functions
 
@@ -262,3 +325,9 @@ lexeme = L.lexeme space
 
 symbol :: String -> Parser String
 symbol = L.symbol space
+
+keyword :: String -> Parser ()
+keyword w = M.try $ lexeme $ do
+    C.string w
+    M.notFollowedBy C.alphaNumChar
+    return ()

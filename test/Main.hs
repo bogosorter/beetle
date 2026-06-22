@@ -2,9 +2,8 @@ module Main where
 
 import Parser (parseProgram)
 
-import Control.Monad (forM)
 import Control.Monad.Extra (concatMapM)
-import Data.List (isSuffixOf, sort)
+import Data.List (isSuffixOf)
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.FilePath ((</>))
 import Test.Tasty (TestTree, defaultMain, testGroup)
