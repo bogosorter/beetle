@@ -1,7 +1,7 @@
 module Main where
 
 import Parser (parseProgram)
-import TypeChecker (typeCheck)
+import TypeChecker (typeCheckProgram)
 
 import Control.Monad.Extra (concatMapM)
 import Data.List (isSuffixOf)
@@ -37,9 +37,9 @@ testTypeChecking path = do
             Right parsed -> parsed
             Left _ -> error "program should parse"
 
-    return $ testCase path $ case typeCheck parsed of
+    return $ testCase path $ case typeCheckProgram parsed of
         Right _ -> return ()
-        Left message -> assertFailure message
+        Left message -> assertFailure (show message)
 
 
 -- Utils
