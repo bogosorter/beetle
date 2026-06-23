@@ -58,7 +58,7 @@ common warnings
     ghc-options: -Wall
 
 library beetle-core
-    exposed-modules: AST, Parser
+    exposed-modules: AST, Parser, TypeChecker
     hs-source-dirs:  source
     build-depends:   base, megaparsec, containers, parser-combinators
 

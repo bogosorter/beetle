@@ -1,6 +1,7 @@
 module Main where
 
 import Parser (parseProgram)
+import TypeChecker (typeCheck)
 
 import Control.Monad.Extra (concatMapM)
 import Data.List (isSuffixOf)
@@ -12,11 +13,15 @@ import Text.Megaparsec (errorBundlePretty)
 
 main :: IO ()
 main = do
-    let runner = defaultMain . testGroup "parse"
-
     files <- getFiles "tests"
-    testResults <- mapM testParsing files
-    runner testResults
+
+    parsingTests <- mapM testParsing files
+    typeCheckingTests <- mapM testTypeChecking files
+
+    defaultMain $ testGroup "all"
+        [ testGroup "parse" parsingTests
+        , testGroup "type-check" typeCheckingTests
+        ]
 
 testParsing :: FilePath -> IO TestTree
 testParsing path = do
@@ -24,6 +29,17 @@ testParsing path = do
     return $ testCase path $ case parseProgram content of
         Right _ -> return ()
         Left error -> assertFailure (errorBundlePretty error)
+
+testTypeChecking :: FilePath -> IO TestTree
+testTypeChecking path = do
+    content <- readFile path
+    let parsed = case parseProgram content of
+            Right parsed -> parsed
+            Left _ -> error "program should parse"
+
+    return $ testCase path $ case typeCheck parsed of
+        Right _ -> return ()
+        Left message -> assertFailure message
 
 
 -- Utils
