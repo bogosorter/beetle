@@ -11,8 +11,6 @@ import qualified Control.Monad.Combinators.Expr as E
 import Control.Applicative
 import Data.Void
 import Data.Map (fromList)
-import Text.Megaparsec.Char (lowerChar)
-
 
 parseProgram :: String -> Either (M.ParseErrorBundle String Void) SourceExpression
 parseProgram input = M.parse program "" input
@@ -241,13 +239,6 @@ typeParser = do
     atomic <- atomicTypes -- not a general expression because using tuples here would lead to ambiguity
     functionType atomic <|> return atomic
 
-typeWithTuple :: Parser Type
-typeWithTuple = do
-    types <- M.sepBy1 atomicTypes (symbol ",")
-    case types of
-        [t] -> return $ t
-        _ -> return $ TupleType types
-
 atomicTypes :: Parser Type
 atomicTypes = booleanType <|> integerType <|> userType <|> parenthesizedType <|> recordType
 
@@ -304,6 +295,7 @@ typeIdentifier = lexeme $ do
     following <- M.many C.letterChar
     return (first : following)
 
+reserved :: [String]
 reserved = ["if", "return", "true", "false", "boolean", "integer"]
 
 identifier :: Parser String

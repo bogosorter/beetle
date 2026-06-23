@@ -51,7 +51,7 @@ data Expression a
         , annotation :: a
         }
     | TypeDeclaration
-        { name :: String
+        { typeName :: String
         , aliasedType :: Type
         , body :: Expression a
         , annotation :: a
