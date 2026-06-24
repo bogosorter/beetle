@@ -42,7 +42,7 @@ typeCheck env expression = case expression of
         typedBody <- typeCheck env' body
 
         unless (getType typedBody == returnType) $
-            Left $ TypeError position ("function return type does not match body type" ++ show returnType)
+            Left $ TypeError position "function return type does not match body type"
 
         Right $ Function argumentType returnType argumentName typedBody (FunctionType argumentType returnType)
 

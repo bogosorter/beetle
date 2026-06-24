@@ -287,7 +287,9 @@ identifierTypePair = do
 tupleType :: Parser Type
 tupleType = do
     types <- M.sepBy1 typeParser (symbol ",")
-    return $ TupleType types
+    case types of
+        [t] -> return t
+        _ -> return $ TupleType types
 
 typeIdentifier :: Parser String
 typeIdentifier = lexeme $ do
