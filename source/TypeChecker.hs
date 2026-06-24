@@ -99,17 +99,33 @@ typeCheck env expression = case expression of
     -- Variable shadowing is not allowed
     Assignment {} -> do
         let name = variableName expression
-        checkAvailableVariable expression env name
+        checkAvailableVariable (getPosition expression) env name
 
-        typedValue <- typeCheck env (variableValue expression)
-        let env' = insertVariableType name (getType typedValue) env
+        -- For the moment, arbitrary recursion is not allowed. For instance, a
+        -- lambda cannot refer to the variable that holds it. This can only
+        -- happen if there is an assignment whose direct child is a function
+        -- (whose type is know a priori). As such, if this is such a function
+        -- its type is inserted before evaluation, if not it is inserted after
+        -- evaluation
+        (typedValue, env') <- case (variableValue expression) of
+
+            Function { argumentType = at, returnType = rt } -> do
+                let env' = insertVariableType name (FunctionType at rt) env
+                typedValue <- typeCheck env' (variableValue expression)
+                return (typedValue, env')
+
+            _ -> do
+                typedValue <- typeCheck env (variableValue expression)
+                let env' = insertVariableType name (getType typedValue) env
+                return (typedValue, env')
+
+
         typedBody <- typeCheck env' (body expression)
-
         Right $ Assignment name typedValue typedBody (getType typedBody)
 
     TupleDestructuring {} -> do
         let names = destructuredNames expression
-        mapM_ (checkAvailableVariable expression env) names
+        mapM_ (checkAvailableVariable (getPosition expression) env) names
 
         typedTuple <- typeCheck env (tuple expression)
         memberTypes <- case getType typedTuple of
@@ -120,6 +136,11 @@ typeCheck env expression = case expression of
         typedBody <- typeCheck env' (body expression)
 
         Right $ TupleDestructuring names typedTuple typedBody (getType typedBody)
+
+checkAvailableVariable :: SourcePos -> Environment -> String -> Either TypeError ()
+checkAvailableVariable position env name = case isAvailable env name of
+    True -> Right ()
+    False -> Left $ TypeError position ("variable " ++ name ++ " has already been declared")
 
 
 -- Environment utils
@@ -155,11 +176,6 @@ insertVariableType name t env = Environment newTypes (userTypes env)
 insertUserType :: String -> Type -> Environment -> Environment
 insertUserType name t env = Environment (variableTypes env) newTypes
     where newTypes = Map.insert name t (userTypes env)
-
-checkAvailableVariable :: SourceExpression -> Environment -> String -> Either TypeError ()
-checkAvailableVariable expression env name = case isAvailable env name of
-    True -> Right ()
-    False -> Left $ TypeError (getPosition expression) ("variable " ++ name ++ " has already been declared")
 
 
 instance Show TypeError where
