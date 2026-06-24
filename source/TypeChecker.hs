@@ -35,7 +35,7 @@ typeCheck env expression = case expression of
 
     Function {} -> do
         let Function argumentType returnType argumentName body _ = expression
-        let env' = insertVariableType env argumentName argumentType
+        let env' = insertVariableType argumentName argumentType env
         typedBody <- typeCheck env' body
 
         unless (getType typedBody == returnType) $
@@ -93,7 +93,7 @@ typeCheck env expression = case expression of
         unless (isAvailable env name) $
             Left $ TypeError (getPosition expression) ("type " ++ name ++ " has already been declared")
 
-        let env' = insertUserType env (typeName expression) (aliasedType expression)
+        let env' = insertUserType (typeName expression) (aliasedType expression) env
         typeCheck env' (body expression)
 
     -- Variable shadowing is not allowed
@@ -102,7 +102,7 @@ typeCheck env expression = case expression of
         checkAvailableVariable expression env name
 
         typedValue <- typeCheck env (variableValue expression)
-        let env' = insertVariableType env name (getType typedValue)
+        let env' = insertVariableType name (getType typedValue) env
         typedBody <- typeCheck env' (body expression)
 
         Right $ Assignment name typedValue typedBody (getType typedBody)
@@ -116,11 +116,13 @@ typeCheck env expression = case expression of
             TupleType memberTypes -> Right $ memberTypes
             t -> Left $ TypeError (getPosition expression) ("attempting to destructure tuple, but got type " ++ show t)
 
-        let env' = foldr (\(n, t) -> \env -> insertVariableType env n t) env (zip names memberTypes)
+        let env' = foldr (uncurry insertVariableType) env (zip names memberTypes)
         typedBody <- typeCheck env' (body expression)
 
         Right $ TupleDestructuring names typedTuple typedBody (getType typedBody)
 
+
+-- Environment utils
 
 data Environment = Environment
     { variableTypes :: Map.Map String Type
@@ -146,12 +148,12 @@ isAvailable env name = not (Map.member name variables) && not (Map.member name t
     where variables = variableTypes env
           types = userTypes env
 
-insertVariableType :: Environment -> String -> Type -> Environment
-insertVariableType env name t = Environment newTypes (userTypes env)
+insertVariableType :: String -> Type -> Environment  -> Environment
+insertVariableType name t env = Environment newTypes (userTypes env)
     where newTypes = Map.insert name t (variableTypes env)
 
-insertUserType :: Environment -> String -> Type -> Environment
-insertUserType env name t = Environment (variableTypes env) newTypes
+insertUserType :: String -> Type -> Environment -> Environment
+insertUserType name t env = Environment (variableTypes env) newTypes
     where newTypes = Map.insert name t (userTypes env)
 
 checkAvailableVariable :: SourceExpression -> Environment -> String -> Either TypeError ()
