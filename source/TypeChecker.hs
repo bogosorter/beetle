@@ -35,23 +35,27 @@ typeCheck env expression = case expression of
 
     Function {} -> do
         let Function argumentType returnType argumentName body _ = expression
+        argumentType <- desugar position env argumentType
+        returnType <- desugar position env returnType
+
         let env' = insertVariableType argumentName argumentType env
         typedBody <- typeCheck env' body
 
         unless (getType typedBody == returnType) $
-            Left $ TypeError (getPosition expression) "function return type does not match body type"
+            Left $ TypeError position ("function return type does not match body type" ++ show returnType)
 
         Right $ Function argumentType returnType argumentName typedBody (FunctionType argumentType returnType)
 
     If {} -> do
         typedCondition <- typeCheck env (condition expression)
         unless (getType typedCondition == BooleanType) $
-            Left $ TypeError (getPosition expression) "the condition of an if must always be a boolean expression"
+            Left $ TypeError position "the condition of an if must always be a boolean expression"
 
         typedLeft <- typeCheck env (left expression)
         typedRight <- typeCheck env (right expression)
-        unless (getType typedLeft == getType typedRight) $
-            Left $ TypeError (getPosition expression) "the branches of an if expression must have the same return type"
+
+        unless (getType typedLeft == getType typedLeft) $
+            Left $ TypeError position "the branches of an if expression must have the same return type"
 
         Right $ If typedCondition typedLeft typedRight (getType typedLeft)
 
@@ -59,12 +63,15 @@ typeCheck env expression = case expression of
         typedFunction <- typeCheck env (function expression)
         (argumentType, returnType) <- case getType typedFunction of
             FunctionType argumentType returnType -> Right $ (argumentType, returnType)
-            t -> Left $ TypeError (getPosition expression) ("can only apply functions, but got type " ++ show t)
-
+            t -> Left $ TypeError position ("can only apply functions, but got type " ++ show t)
 
         typedArgument <- typeCheck env (argument expression)
-        unless (getType typedArgument == argumentType) $
-            Left $ TypeError (getPosition expression) ("expected an argument of type " ++ show argumentType ++ ", but got argument of type " ++ show (getType typedArgument))
+        -- We do not overwrite the initial variable to keep user-defined
+        -- variables in the error output
+        argumentType' <- desugar position env argumentType
+        returnType <- desugar position env returnType
+        unless (getType typedArgument == argumentType') $
+            Left $ TypeError position ("expected an argument of type " ++ show argumentType ++ ", but got argument of type " ++ show (getType typedArgument))
 
         Right $ Application typedFunction typedArgument returnType
 
@@ -72,26 +79,28 @@ typeCheck env expression = case expression of
         let name = variableName expression
         let types = variableTypes env
         case Map.lookup name types of
-            Just t -> Right $ Variable name t
-            _ -> Left $ TypeError (getPosition expression) ("couldn't find name " ++ name)
+            Just t -> do
+                t <- desugar position env t
+                Right $ Variable name t
+            _ -> Left $ TypeError position ("couldn't find name " ++ name)
 
     RecordMember {} -> do
         typedRecord <- typeCheck env (record expression)
         memberTypes <- case getType typedRecord of
             RecordType memberTypes -> Right $ memberTypes
-            t -> Left $ TypeError (getPosition expression) ("can only access members of records, but got type " ++ show t)
+            t -> Left $ TypeError position ("can only access members of records, but got type " ++ show t)
 
         let name = memberName expression
         case Map.lookup name memberTypes of
             Just t -> Right $ RecordMember typedRecord name t
-            _ -> Left $ TypeError (getPosition expression) ("trying to access inexistent member " ++ name ++ " of this record")
+            _ -> Left $ TypeError position ("trying to access inexistent member " ++ name ++ " of this record")
 
     -- Type shadowing is not allowed
     -- The type declaration is removed during type checking
     TypeDeclaration {} -> do
         let name = typeName expression
         unless (isAvailable env name) $
-            Left $ TypeError (getPosition expression) ("type " ++ name ++ " has already been declared")
+            Left $ TypeError position ("type " ++ name ++ " has already been declared")
 
         let env' = insertUserType (typeName expression) (aliasedType expression) env
         typeCheck env' (body expression)
@@ -99,7 +108,7 @@ typeCheck env expression = case expression of
     -- Variable shadowing is not allowed
     Assignment {} -> do
         let name = variableName expression
-        checkAvailableVariable (getPosition expression) env name
+        checkAvailableVariable position env name
 
         -- For the moment, arbitrary recursion is not allowed. For instance, a
         -- lambda cannot refer to the variable that holds it. This can only
@@ -125,17 +134,37 @@ typeCheck env expression = case expression of
 
     TupleDestructuring {} -> do
         let names = destructuredNames expression
-        mapM_ (checkAvailableVariable (getPosition expression) env) names
+        mapM_ (checkAvailableVariable position env) names
 
         typedTuple <- typeCheck env (tuple expression)
         memberTypes <- case getType typedTuple of
             TupleType memberTypes -> Right $ memberTypes
-            t -> Left $ TypeError (getPosition expression) ("attempting to destructure tuple, but got type " ++ show t)
+            t -> Left $ TypeError position ("attempting to destructure tuple, but got type " ++ show t)
 
         let env' = foldr (uncurry insertVariableType) env (zip names memberTypes)
         typedBody <- typeCheck env' (body expression)
 
         Right $ TupleDestructuring names typedTuple typedBody (getType typedBody)
+
+    where position = getPosition expression
+
+desugar :: SourcePos -> Environment -> Type -> Either TypeError Type
+desugar position env (UserType name) = do
+    let types = userTypes env
+    case Map.lookup name types of
+        Just t -> desugar position env t
+        Nothing -> Left $ TypeError position ("couldn't find type " ++ name)
+desugar position env (TupleType memberTypes) = do
+    desugaredMemberTypes <- mapM (desugar position env) memberTypes
+    Right $ TupleType desugaredMemberTypes
+desugar position env (RecordType memberTypes) = do
+    desugaredMemberTypes <- mapM (desugar position env) memberTypes
+    Right $ RecordType desugaredMemberTypes
+desugar position env (FunctionType argumentType returnType) = do
+    desugaredArgumentType <- desugar position env argumentType
+    desugaredReturnType <- desugar position env returnType
+    Right $ FunctionType desugaredArgumentType desugaredReturnType
+desugar _ _ t = Right $ t
 
 checkAvailableVariable :: SourcePos -> Environment -> String -> Either TypeError ()
 checkAvailableVariable position env name = case isAvailable env name of

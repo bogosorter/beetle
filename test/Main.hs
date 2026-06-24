@@ -36,7 +36,6 @@ testTypeChecking path = do
     let parsed = case parseProgram content of
             Right parsed -> parsed
             Left _ -> error "program should parse"
-
     return $ testCase path $ case typeCheckProgram parsed of
         Right _ -> return ()
         Left message -> assertFailure (show message)
