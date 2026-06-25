@@ -3,13 +3,22 @@
 module Encloser (encloseProgram) where
 
 import AST
-import qualified Closures
+import Closures (Program(..), FunctionDefinition(..))
+import qualified Closures (Type(..), Expression(..))
 
 import Data.Set (Set, singleton, empty, union, unions, delete)
 import Data.Map (elems)
+import Control.Monad.State
+
 
 encloseProgram :: TypedExpression -> Closures.Program
-encloseProgram = error "not implemented"
+encloseProgram program = Program definitions expression
+    where (expression, ClosureState {definitions = definitions}) =
+            runState (enclose emptyEnvironment program) initialState
+
+
+enclose :: Environment -> TypedExpression -> State ClosureState Closures.Expression
+enclose = error "not implemented"
 
 freeVariables :: TypedExpression -> Set String
 freeVariables expression = case expression of
@@ -41,3 +50,21 @@ freeVariables expression = case expression of
 
     TupleDestructuring { tuple = tuple, body = body} ->
         freeVariables tuple `union` freeVariables body
+
+
+
+-- State and environment utils
+
+data ClosureState = ClosureState
+    { definitions :: [FunctionDefinition]
+    }
+
+initialState :: ClosureState
+initialState = ClosureState []
+
+data Environment = Environment
+    {
+    }
+
+emptyEnvironment :: Environment
+emptyEnvironment = Environment

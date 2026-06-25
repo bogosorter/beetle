@@ -61,7 +61,7 @@ library beetle-core
     import: warnings
     exposed-modules: AST, Parser, TypeChecker, Closures, Encloser
     hs-source-dirs:  source
-    build-depends:   base, megaparsec, containers, parser-combinators
+    build-depends:   base, megaparsec, containers, parser-combinators, mtl
 
 executable beetle
     -- Import common warning flags.
