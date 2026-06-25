@@ -74,13 +74,14 @@ executable beetle
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base, containers, megaparsec, beetle-core
+    build-depends:    base, containers, megaparsec, text, errata, beetle-core
 
     -- Directories containing source files.
-    hs-source-dirs:   source
+    hs-source-dirs:   executable
 
     -- Base language which the package is written in.
     default-language: Haskell2010
+    default-extensions: OverloadedStrings
 
 test-suite parser-tests
     type:             exitcode-stdio-1.0

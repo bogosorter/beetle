@@ -1,10 +1,13 @@
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
+
 module AST (Type(..), Expression(..), SourceExpression, TypedExpression, getPosition, getType) where
 
-import Data.Map (Map)
+import qualified Data.Map as Map
+import qualified Data.List as List
 import Text.Megaparsec (SourcePos)
 
-data Type = IntegerType | BooleanType | UserType String | TupleType [Type] | RecordType (Map String Type) | FunctionType Type Type
-    deriving (Show, Eq)
+data Type = IntegerType | BooleanType | UserType String | TupleType [Type] | RecordType (Map.Map String Type) | FunctionType Type Type
+    deriving Eq
 
 data Expression a
     = Integer
@@ -20,7 +23,7 @@ data Expression a
         , annotation :: a
         }
     | Record
-        { recordMembers :: Map String (Expression a)
+        { recordMembers :: Map.Map String (Expression a)
         , annotation :: a
         }
     | Function
@@ -77,3 +80,18 @@ getPosition others = annotation others
 type TypedExpression = Expression Type
 getType :: TypedExpression -> Type
 getType others = annotation others
+
+instance Show Type where
+    show IntegerType = "integer"
+    show BooleanType = "boolean"
+    show (UserType name) = name
+    show (TupleType memberTypes) = "(" ++ List.intercalate ", " (map show memberTypes) ++ ")"
+    show (RecordType memberTypes) = "{" ++ List.intercalate ", " (map showRecordMemberType (Map.toList memberTypes)) ++ "}"
+    -- We check for a function type on the left side and add parentheses, since
+    -- function types are normally right-associative
+    show (FunctionType argumentType returnType) = case argumentType of
+        FunctionType {} -> "(" ++ show argumentType ++ ") -> " ++ show returnType
+        _ -> show argumentType ++ " -> " ++ show returnType
+
+showRecordMemberType :: (String, Type) -> String
+showRecordMemberType (name, t) = name ++ ": " ++ show t

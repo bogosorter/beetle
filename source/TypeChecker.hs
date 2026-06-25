@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
-module TypeChecker (typeCheckProgram) where
+
+module TypeChecker (typeCheckProgram, TypeError(..)) where
 
 import AST
 import Text.Megaparsec (SourcePos)
@@ -71,7 +72,7 @@ typeCheck env expression = case expression of
         argumentType' <- desugar position env argumentType
         returnType <- desugar position env returnType
         unless (getType typedArgument == argumentType') $
-            Left $ TypeError position ("expected an argument of type " ++ show argumentType ++ ", but got argument of type " ++ show (getType typedArgument))
+            Left $ TypeError (getPosition $ argument expression) ("expected an argument of type " ++ show argumentType ++ ", but got argument of type " ++ show (getType typedArgument))
 
         Right $ Application typedFunction typedArgument returnType
 
