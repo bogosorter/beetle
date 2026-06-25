@@ -1,4 +1,4 @@
-module Closures where
+module Closures (Program(..), Type(..), FunctionDefinition(..), Expression(..), getType) where
 
 data Program = Program [FunctionDefinition] Expression
 
