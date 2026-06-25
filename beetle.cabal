@@ -69,6 +69,7 @@ executable beetle
 
     -- .hs or .lhs file containing the Main module.
     main-is:          Main.hs
+    other-modules:    Errors
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
