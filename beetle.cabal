@@ -59,7 +59,7 @@ common warnings
 
 library beetle-core
     import: warnings
-    exposed-modules: AST, Parser, TypeChecker
+    exposed-modules: AST, Parser, TypeChecker, Closures
     hs-source-dirs:  source
     build-depends:   base, megaparsec, containers, parser-combinators
 
