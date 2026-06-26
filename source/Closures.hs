@@ -2,22 +2,22 @@ module Closures (Program(..), Type(..), FunctionDefinition(..), Expression(..), 
 
 data Program = Program [FunctionDefinition] Expression
 
-data Type = BooleanType | IntegerType | TupleType [Type] | ClosureType Type Type
+data Type = BooleanType | IntegerType | TupleType [Type] | ClosuredType Type Type
 
 -- While not strictly necessary, we add name as a parameter to ensure that the
 -- function is recognized in the produced LLVM Code
 data FunctionDefinition
     = FunctionDefinition
         { functionName :: String
-        , argumentType :: String
-        , returnType :: String
+        , argumentType :: Type
+        , returnType :: Type
         , closureType :: [Type]
         , functionBody :: Expression
         }
     | BuiltInFunction
         { functionName :: String
-        , argumentType :: String
-        , returnType :: String
+        , argumentType :: Type
+        , returnType :: Type
         }
 
 data Expression
@@ -25,7 +25,7 @@ data Expression
         { booleanValue :: Bool
         }
     | Integer
-        { integerValue :: Bool
+        { integerValue :: Int
         }
     | Tuple
         { members :: [Expression]
@@ -35,6 +35,9 @@ data Expression
         { definition :: FunctionDefinition
         , environment :: [Expression]
         , t :: Type
+        }
+    | Argument
+        { t :: Type
         }
     | Local
         { name :: String

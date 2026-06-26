@@ -6,16 +6,16 @@ import qualified Data.Map as Map
 import qualified Data.List as List
 import Text.Megaparsec (SourcePos)
 
-data Type = IntegerType | BooleanType | UserType String | TupleType [Type] | RecordType (Map.Map String Type) | FunctionType Type Type
+data Type = BooleanType | IntegerType | UserType String | TupleType [Type] | RecordType (Map.Map String Type) | FunctionType Type Type
     deriving Eq
 
 data Expression a
-    = Integer
-        { integerValue :: Int
+    = Boolean
+        { booleanValue :: Bool
         , annotation :: a
         }
-    | Boolean
-        { booleanValue :: Bool
+    | Integer
+        { integerValue :: Int
         , annotation :: a
         }
     | Tuple
