@@ -5,23 +5,26 @@ module Backend (compileProgram) where
 import Closures
 import LLVM
 
-import Control.Monad.State (State, evalState, get, put)
+import Control.Monad.State (State, runState, get, put)
 
 compileProgram :: Closures.Program -> LLVM.Program
 compileProgram program = LLVM.Program [] (s, e, llvmType $ getType mainExpression)
     where mainExpression = Closures.main program
-          (s, e) = evalState (compileExpression mainExpression) initialState
+          (e, CompilationState _ s) = runState (compileExpression mainExpression) initialState
 
 -- Returns the statements required to obtain the expression and the register
 -- where its value is stored
-compileExpression :: Expression -> State CompilationState ([Statement], Operand)
+compileExpression :: Expression -> State CompilationState Operand
 compileExpression expression = case expression of
     Integer n -> do
         register <- reserveRegister
-        return ([integerLiteral register n], register)
+        addStatement $ integerLiteral register n
+        return register
     Boolean b -> do
         register <- reserveRegister
-        return ([booleanLiteral register b], register)
+        addStatement $ booleanLiteral register b
+        return register
+
     _ -> error "not implemented"
 
 integerLiteral :: Operand -> Int -> Statement
@@ -35,12 +38,13 @@ booleanLiteral operand n = Operation operand (typeOperand LLVM.BooleanType) Add 
 
 -- State utils
 
-data CompilationState = CompileState
+data CompilationState = CompilationState
     { register :: Int
+    , statements :: [Statement]
     }
 
 initialState :: CompilationState
-initialState = CompileState 0
+initialState = CompilationState 0 []
 
 reserveRegister :: State CompilationState Operand
 reserveRegister = do
@@ -48,6 +52,12 @@ reserveRegister = do
     let registerNumber = register state + 1
     put state { register = registerNumber }
     return $ registerOperand registerNumber
+
+addStatement :: Statement -> State CompilationState ()
+addStatement s = do
+    state <- get
+    put state { statements = statements state ++ [s] }
+
 
 -- Type utils
 
