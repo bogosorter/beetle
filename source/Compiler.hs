@@ -25,8 +25,6 @@ compile input output = do
     let enclosedProgram = encloseProgram typedProgram
     let llvm = Backend.compileProgram enclosedProgram
 
-    writeFile output (show llvm)
-
     (code, _, stderr) <- readProcessWithExitCode "clang" ["-x" ,"ir", "-", "-o", output] (show llvm)
     case code of
         ExitFailure _ -> print stderr

@@ -1,13 +1,19 @@
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
+
 module LLVM (Program(..), Function(..), Statement(..), Type(..), Operand, OpCode(..), integerOperand, typeOperand, registerOperand) where
 
 import Text.Printf (printf)
 import Data.List (intercalate)
 
+data Type
+    = IntegerType
+    | BooleanType
+
 data Program = Program
     { definitions :: [Function]
     -- statements needed to compute the value of the program and the register
-    -- holding the final value
-    , main :: ([Statement], Operand)
+    -- holding the final value, as well as its value
+    , main :: ([Statement], Operand, Type)
     }
 
 data Function = Function
@@ -28,9 +34,6 @@ data Statement
         , right :: Operand
         }
 
-data Type
-    = IntegerType
-
 integerOperand :: Int -> Operand
 integerOperand n = Operand (show n)
 
@@ -44,7 +47,7 @@ newtype Operand = Operand String
 data OpCode = Add | Sub | Eq | Slt | Sgt | Sle | Sge
 
 instance Show Program where
-    show (Program _ (statements, register)) = printf
+    show (Program _ (statements, register, resultType)) = printf
             "target triple = \"x86_64-pc-linux-gnu\"\n\
             \@fmt = private constant [4 x i8] c\"%%d\\0A\\00\"\n\
             \declare i32 @printf(i8*, ...)\n\
@@ -54,11 +57,12 @@ instance Show Program where
             \    %s\n\
             \\n\
             \    %%fmt = getelementptr [4 x i8], [4 x i8]* @fmt, i64 0, i64 0\n\
-            \    call i32 (i8*, ...) @printf(i8* %%fmt, i32 %s)\n\
+            \    call i32 (i8*, ...) @printf(i8* %%fmt, %s %s)\n\
             \    ret i32 0\n\
             \}\n\
             \"
             (intercalate "\n    " $ map show statements)
+            (show resultType)
             (show register)
 
 instance Show Statement where
@@ -73,6 +77,8 @@ instance Show Statement where
 
 instance Show Type where
     show IntegerType = "i32"
+    show BooleanType = "i1"
+
 
 instance Show Operand where
     show (Operand s) = s
