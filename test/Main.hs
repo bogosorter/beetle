@@ -1,14 +1,18 @@
+-- Somewhat vibe-coded
+
 module Main where
 
 import Parser (parseProgram)
 import TypeChecker (typeCheckProgram)
+import Compiler (compile)
 
 import Control.Monad.Extra (concatMapM)
 import Data.List (isSuffixOf)
 import System.Directory (doesDirectoryExist, listDirectory)
-import System.FilePath ((</>))
+import System.FilePath ((</>), replaceExtension)
+import System.Process (readProcess)
 import Test.Tasty (TestTree, defaultMain, testGroup)
-import Test.Tasty.HUnit (testCase, assertFailure)
+import Test.Tasty.HUnit (testCase, assertFailure, (@?=))
 import Text.Megaparsec (errorBundlePretty)
 
 main :: IO ()
@@ -17,10 +21,12 @@ main = do
 
     parsingTests <- mapM testParsing files
     typeCheckingTests <- mapM testTypeChecking files
+    executionTests <- mapM testExecution files
 
     defaultMain $ testGroup "all"
         [ testGroup "parse" parsingTests
         , testGroup "type-check" typeCheckingTests
+        , testGroup "execute" executionTests
         ]
 
 testParsing :: FilePath -> IO TestTree
@@ -40,6 +46,15 @@ testTypeChecking path = do
         Right _ -> return ()
         Left message -> assertFailure (show message)
 
+testExecution :: FilePath -> IO TestTree
+testExecution path = do
+    let executablePath = replaceExtension path ""
+    let expectedPath = replaceExtension path "out"
+    expected <- readFile expectedPath
+    return $ testCase path $ do
+        compile path executablePath
+        actual <- readProcess executablePath [] ""
+        actual @?= expected
 
 -- Utils
 

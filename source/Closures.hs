@@ -1,6 +1,9 @@
 module Closures (Program(..), Type(..), FunctionDefinition(..), Expression(..), getType) where
 
-data Program = Program [FunctionDefinition] Expression
+data Program = Program
+    { definitions :: [FunctionDefinition]
+    , main :: Expression
+    }
 
 data Type = BooleanType | IntegerType | TupleType [Type] | ClosuredType Type Type
 

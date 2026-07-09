@@ -1,2 +1,6 @@
 dist-newstyle
 test.btl
+tests/**
+!tests/**/
+!tests/**/*.btl
+!tests/**/*.out

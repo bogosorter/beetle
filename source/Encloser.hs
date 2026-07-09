@@ -15,7 +15,7 @@ import Control.Monad.State
 
 encloseProgram :: TypedExpression -> Closures.Program
 encloseProgram program = Program definitions expression
-    where (expression, ClosureState {definitions = definitions}) =
+    where (expression, ClosureState {Encloser.definitions = definitions}) =
             runState (enclose emptyEnvironment program) initialState
 
 

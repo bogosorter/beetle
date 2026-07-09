@@ -8,6 +8,7 @@
 # v3.3.0
 
 - Prevent conflits on variable naming
+- Ensure that functions with the same name on different scopes do not collide
 - Variable shadowing
 
 # v3.4.0
@@ -20,6 +21,7 @@
 # v3.5.0
 
 - Sum types
+- Option type
 
 # v3.6.0
 
@@ -28,7 +30,12 @@
 
 # v.X.X.X
 
+- Arbitrary type position
+- Enums
+- Mutual recursion
 - Full recursiveness (i.e., let lambdas refer to themselves)
+- List comprehensions
+- Ascriptions
 - Spread operator
 - Generic types
 - Garbage collection
