@@ -35,14 +35,19 @@ compileExpression expression = case expression of
         conditionRegister <- compileExpression condition
         putStatement $ Branch conditionRegister leftLabel rightLabel
 
+        putBasicBlock leftLabel
         putStatement $ Label leftLabel
         leftRegister <- compileExpression left
+        leftLabel <- getBasicBlock
         putStatement $ Jump mergeLabel
 
+        putBasicBlock rightLabel
         putStatement $ Label rightLabel
         rightRegister <- compileExpression right
+        rightLabel <- getBasicBlock
         putStatement $ Jump mergeLabel
 
+        putBasicBlock mergeLabel
         register <- reserveRegister
         putStatement $ Label mergeLabel
         putStatement $ Phi register (llvmType t) leftRegister leftLabel rightRegister rightLabel
@@ -96,11 +101,12 @@ booleanLiteral operand n = Operation operand LLVM.BooleanType Add (integerOperan
 data CompilationState = CompilationState
     { register :: Int
     , branch :: Int
+    , basicBlock :: Label
     , statements :: [Statement]
     }
 
 initialState :: CompilationState
-initialState = CompilationState 0 0 []
+initialState = CompilationState 0 0 (MakeLabel "entry") []
 
 reserveRegister :: State CompilationState Operand
 reserveRegister = do
@@ -120,6 +126,16 @@ createBranch = do
         mergeLabel = MakeLabel $ "merge" ++ show branchCount
 
     return (leftLabel, rightLabel, mergeLabel)
+
+putBasicBlock :: Label -> State CompilationState ()
+putBasicBlock bb = do
+    state <- get
+    put state { basicBlock = bb }
+
+getBasicBlock :: State CompilationState Label
+getBasicBlock = do
+    state <- get
+    return $ basicBlock state
 
 putStatement :: Statement -> State CompilationState ()
 putStatement s = do
