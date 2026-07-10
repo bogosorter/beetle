@@ -1,5 +1,6 @@
 dist-newstyle
 test.btl
+test.ll
 tests/**
 !tests/**/
 !tests/**/*.btl
