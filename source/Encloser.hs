@@ -63,9 +63,9 @@ enclose env expression = case expression of
     RecordMember {} -> do
         enclosedRecord <- enclose env $ record expression
         let name = memberName expression
-            memberTypes = case getType expression of
+            memberTypes = case getType (record expression) of
                 RecordType memberTypes -> memberTypes
-                _ -> error "record member access on a variable whose type is not record"
+                t -> error ("record member access on a variable whose type is " ++ show t)
             index = findIndex name memberTypes
             t = encloseType (memberTypes ! name)
 
