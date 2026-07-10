@@ -9,19 +9,13 @@ data Type = BooleanType | IntegerType | TupleType [Type] | ClosuredType Type Typ
 
 -- While not strictly necessary, we add name as a parameter to ensure that the
 -- function is recognized in the produced LLVM Code
-data FunctionDefinition
-    = FunctionDefinition
-        { functionName :: String
-        , argumentType :: Type
-        , returnType :: Type
-        , closureType :: [Type]
-        , functionBody :: Expression
-        }
-    | BuiltInFunction
-        { functionName :: String
-        , argumentType :: Type
-        , returnType :: Type
-        }
+data FunctionDefinition = FunctionDefinition
+    { functionName :: String
+    , argumentType :: Type
+    , returnType :: Type
+    , closureType :: [Type]
+    , functionBody :: Expression
+    }
 
 data Expression
     = Boolean
@@ -70,6 +64,10 @@ data Expression
         { name :: String
         , value :: Expression
         , body :: Expression
+        , t :: Type
+        }
+    | BuiltInFunction
+        { name :: String
         , t :: Type
         }
 

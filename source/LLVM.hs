@@ -28,7 +28,7 @@ data Function = Function
 data Statement
     = Operation
         { destination :: Operand
-        , resultType :: Operand
+        , resultType :: Type
         , opCode :: OpCode
         , left :: Operand
         , right :: Operand

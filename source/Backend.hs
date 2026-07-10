@@ -29,6 +29,25 @@ compileExpression expression = case expression of
     Local name _ -> do
         return $ variableOperand name
 
+    -- Built-in function calls
+    Application (Application (BuiltInFunction name _) left _) right _ -> do
+        leftRegister <- compileExpression left
+        rightRegister <- compileExpression right
+
+        register <- reserveRegister
+        let opCode = case name of
+                "+" -> Add
+                "-" -> Sub
+                "<" -> Slt
+                ">" -> Sgt
+                "<=" -> Sle
+                ">=" -> Sge
+                "==" -> Eq
+                _ -> error ("unrecognized built-in operator " ++ name)
+
+        addStatement $ Operation register (llvmType $ getType expression) opCode leftRegister rightRegister
+        return register
+
     Let name value body t -> do
         valueRegister <- compileExpression value
 
@@ -40,10 +59,10 @@ compileExpression expression = case expression of
     _ -> error "not implemented"
 
 integerLiteral :: Operand -> Int -> Statement
-integerLiteral operand n = Operation operand (typeOperand LLVM.IntegerType) Add (integerOperand 0) (integerOperand n)
+integerLiteral operand n = Operation operand LLVM.IntegerType Add (integerOperand 0) (integerOperand n)
 
 booleanLiteral :: Operand -> Bool -> Statement
-booleanLiteral operand n = Operation operand (typeOperand LLVM.BooleanType) Add (integerOperand 0) (booleanOperand n)
+booleanLiteral operand n = Operation operand LLVM.BooleanType Add (integerOperand 0) (booleanOperand n)
     where booleanOperand False = integerOperand 0
           booleanOperand True = integerOperand 1
 

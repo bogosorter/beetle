@@ -27,9 +27,12 @@ enclose env expression = case expression of
     Variable {} -> do
         let name = variableName expression
         let vars = variables env
+
         case Map.lookup name vars of
             Just result -> return result
-            Nothing -> error "variable should have been added to environment"
+            Nothing -> case lookup name builtInFunctions of
+                Just result -> return result
+                Nothing -> error "variable should have been added to environment"
 
     Tuple {} -> do
         let members = tupleMembers expression
@@ -239,3 +242,17 @@ insertVariable name variable env = env { variables = variables' }
 
 getVariable :: Environment -> String -> Closures.Expression
 getVariable env name = variables env ! name
+
+builtInFunctions :: [(String, Closures.Expression)]
+builtInFunctions =
+    [ makeBuiltInFunction "+" Closures.IntegerType Closures.IntegerType Closures.IntegerType
+    , makeBuiltInFunction "-" Closures.IntegerType Closures.IntegerType Closures.IntegerType
+    , makeBuiltInFunction "<" Closures.IntegerType Closures.IntegerType Closures.BooleanType
+    , makeBuiltInFunction ">" Closures.IntegerType Closures.IntegerType Closures.BooleanType
+    , makeBuiltInFunction "<=" Closures.IntegerType Closures.IntegerType Closures.BooleanType
+    , makeBuiltInFunction ">=" Closures.IntegerType Closures.IntegerType Closures.BooleanType
+    , makeBuiltInFunction "==" Closures.IntegerType Closures.IntegerType Closures.BooleanType
+    ]
+
+makeBuiltInFunction :: String -> Closures.Type -> Closures.Type -> Closures.Type -> (String, Closures.Expression)
+makeBuiltInFunction name left right result = (name, Closures.BuiltInFunction name (Closures.ClosuredType left (Closures.ClosuredType right result)))
