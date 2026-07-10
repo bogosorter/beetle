@@ -20,10 +20,22 @@ compileExpression expression = case expression of
         register <- reserveRegister
         addStatement $ integerLiteral register n
         return register
+
     Boolean b -> do
         register <- reserveRegister
         addStatement $ booleanLiteral register b
         return register
+
+    Local name _ -> do
+        return $ variableOperand name
+
+    Let name value body t -> do
+        valueRegister <- compileExpression value
+
+        let variable = variableOperand name
+        addStatement $ Bitcast variable (llvmType t) valueRegister (llvmType t)
+
+        compileExpression body
 
     _ -> error "not implemented"
 

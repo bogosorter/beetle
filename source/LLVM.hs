@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
-module LLVM (Program(..), Function(..), Statement(..), Type(..), Operand, OpCode(..), integerOperand, typeOperand, registerOperand) where
+module LLVM (Program(..), Function(..), Statement(..), Type(..), Operand, OpCode(..), integerOperand, typeOperand, registerOperand, variableOperand) where
 
 import Text.Printf (printf)
 import Data.List (intercalate)
@@ -33,12 +33,21 @@ data Statement
         , left :: Operand
         , right :: Operand
         }
+    | Bitcast
+        { destination :: Operand
+        , destinationType :: Type
+        , source :: Operand
+        , sourceType :: Type
+        }
 
 integerOperand :: Int -> Operand
 integerOperand n = Operand (show n)
 
 registerOperand :: Int -> Operand
 registerOperand n = Operand ("%" ++ show n)
+
+variableOperand :: String -> Operand
+variableOperand s = Operand ("%" ++ s)
 
 typeOperand :: Type -> Operand
 typeOperand t = Operand (show t)
@@ -66,19 +75,23 @@ instance Show Program where
             (show register)
 
 instance Show Statement where
-    show operation = printf "%s = %s %s %s, %s"
-            (show $ destination operation)
-            (show $ opCode operation)
-            (show $ resultType operation)
-            (show $ left operation)
-            (show $ right operation)
-
+    show statement = case statement of
+        Operation {} -> printf "%s = %s %s %s, %s"
+            (show $ destination statement)
+            (show $ opCode statement)
+            (show $ resultType statement)
+            (show $ left statement)
+            (show $ right statement)
+        Bitcast {} -> printf "%s = bitcast %s %s to %s"
+            (show $ destination statement)
+            (show $ sourceType statement)
+            (show $ source statement)
+            (show $ destinationType statement)
 
 
 instance Show Type where
     show IntegerType = "i32"
     show BooleanType = "i1"
-
 
 instance Show Operand where
     show (Operand s) = s
