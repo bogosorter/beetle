@@ -8,9 +8,9 @@ import LLVM
 import Control.Monad.State (State, runState, get, put)
 
 compileProgram :: Closures.Program -> LLVM.Program
-compileProgram program = LLVM.Program [] (s, e, llvmType $ getType mainExpression)
+compileProgram program = LLVM.Program [] (statements s, e, llvmType $ getType mainExpression)
     where mainExpression = Closures.main program
-          (e, CompilationState _ s) = runState (compileExpression mainExpression) initialState
+          (e, s) = runState (compileExpression mainExpression) initialState
 
 -- Returns the statements required to obtain the expression and the register
 -- where its value is stored
@@ -18,19 +18,39 @@ compileExpression :: Expression -> State CompilationState Operand
 compileExpression expression = case expression of
     Integer n -> do
         register <- reserveRegister
-        addStatement $ integerLiteral register n
+        putStatement $ integerLiteral register n
         return register
 
     Boolean b -> do
         register <- reserveRegister
-        addStatement $ booleanLiteral register b
+        putStatement $ booleanLiteral register b
         return register
 
     Local name _ -> do
         return $ variableOperand name
 
+    If condition left right t -> do
+        (leftLabel, rightLabel, mergeLabel) <- createBranch
+
+        conditionRegister <- compileExpression condition
+        putStatement $ Branch conditionRegister leftLabel rightLabel
+
+        putStatement $ Label leftLabel
+        leftRegister <- compileExpression left
+        putStatement $ Jump mergeLabel
+
+        putStatement $ Label rightLabel
+        rightRegister <- compileExpression right
+        putStatement $ Jump mergeLabel
+
+        register <- reserveRegister
+        putStatement $ Label mergeLabel
+        putStatement $ Phi register (llvmType t) leftRegister leftLabel rightRegister rightLabel
+
+        return register
+
     -- Built-in function calls
-    Application (Application (BuiltInFunction name _) left _) right _ -> do
+    Application (Application f@(BuiltInFunction name _) left _) right _ -> do
         leftRegister <- compileExpression left
         rightRegister <- compileExpression right
 
@@ -45,14 +65,18 @@ compileExpression expression = case expression of
                 "==" -> Eq
                 _ -> error ("unrecognized built-in operator " ++ name)
 
-        addStatement $ Operation register (llvmType $ getType expression) opCode leftRegister rightRegister
+        let argumentType = case getType f of
+                ClosuredType argumentType _ -> argumentType
+                _ -> error "found a built-in function whose type is not a closured type"
+
+        putStatement $ Operation register (llvmType $ argumentType) opCode leftRegister rightRegister
         return register
 
     Let name value body t -> do
         valueRegister <- compileExpression value
 
         let variable = variableOperand name
-        addStatement $ Bitcast variable (llvmType t) valueRegister (llvmType t)
+        putStatement $ Bitcast variable (llvmType t) valueRegister (llvmType t)
 
         compileExpression body
 
@@ -71,11 +95,12 @@ booleanLiteral operand n = Operation operand LLVM.BooleanType Add (integerOperan
 
 data CompilationState = CompilationState
     { register :: Int
+    , branch :: Int
     , statements :: [Statement]
     }
 
 initialState :: CompilationState
-initialState = CompilationState 0 []
+initialState = CompilationState 0 0 []
 
 reserveRegister :: State CompilationState Operand
 reserveRegister = do
@@ -84,8 +109,20 @@ reserveRegister = do
     put state { register = registerNumber }
     return $ registerOperand registerNumber
 
-addStatement :: Statement -> State CompilationState ()
-addStatement s = do
+createBranch :: State CompilationState (Label, Label, Label)
+createBranch = do
+    state <- get
+    let branchCount = branch state + 1
+    put state { branch = branchCount }
+
+    let leftLabel = MakeLabel $ "left" ++ show branchCount
+        rightLabel = MakeLabel $ "right" ++ show branchCount
+        mergeLabel = MakeLabel $ "merge" ++ show branchCount
+
+    return (leftLabel, rightLabel, mergeLabel)
+
+putStatement :: Statement -> State CompilationState ()
+putStatement s = do
     state <- get
     put state { statements = statements state ++ [s] }
 

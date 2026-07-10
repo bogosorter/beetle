@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
-module LLVM (Program(..), Function(..), Statement(..), Type(..), Operand, OpCode(..), integerOperand, typeOperand, registerOperand, variableOperand) where
+module LLVM (Program(..), Function(..), Statement(..), Type(..), Operand, Label(..), OpCode(..), integerOperand, typeOperand, registerOperand, variableOperand) where
 
 import Text.Printf (printf)
 import Data.List (intercalate)
@@ -30,8 +30,8 @@ data Statement
         { destination :: Operand
         , resultType :: Type
         , opCode :: OpCode
-        , left :: Operand
-        , right :: Operand
+        , leftOperand :: Operand
+        , rightOperand :: Operand
         }
     | Bitcast
         { destination :: Operand
@@ -39,6 +39,29 @@ data Statement
         , source :: Operand
         , sourceType :: Type
         }
+    | Label
+        { label :: Label
+        }
+    | Jump
+        { label :: Label
+        }
+    | Branch
+        { condition :: Operand
+        , leftLabel :: Label
+        , rightLabel :: Label
+        }
+    | Phi
+        { destination :: Operand
+        , destinationType :: Type
+        , leftOperand :: Operand
+        , leftLabel :: Label
+        , rightOperand :: Operand
+        , rightLabel :: Label
+        }
+
+newtype Operand = Operand String
+newtype Label = MakeLabel String
+data OpCode = Add | Sub | Eq | Slt | Sgt | Sle | Sge
 
 integerOperand :: Int -> Operand
 integerOperand n = Operand (show n)
@@ -51,9 +74,6 @@ variableOperand s = Operand ("%" ++ s)
 
 typeOperand :: Type -> Operand
 typeOperand t = Operand (show t)
-
-newtype Operand = Operand String
-data OpCode = Add | Sub | Eq | Slt | Sgt | Sle | Sge
 
 instance Show Program where
     show (Program _ (statements, register, resultType)) = printf
@@ -76,17 +96,40 @@ instance Show Program where
 
 instance Show Statement where
     show statement = case statement of
-        Operation {} -> printf "%s = %s %s %s, %s"
+        Operation {} ->
+            printf "%s = %s %s %s, %s"
             (show $ destination statement)
             (show $ opCode statement)
             (show $ resultType statement)
-            (show $ left statement)
-            (show $ right statement)
+            (show $ leftOperand statement)
+            (show $ rightOperand statement)
+
         Bitcast {} -> printf "%s = bitcast %s %s to %s"
             (show $ destination statement)
             (show $ sourceType statement)
             (show $ source statement)
             (show $ destinationType statement)
+
+        Label label ->
+            printf "%s:" (show label)
+
+        Jump label ->
+            printf "br label %%%s" (show label)
+
+        Branch {} ->
+            printf "br i1 %s, label %%%s, label %%%s"
+            (show $ condition statement)
+            (show $ leftLabel statement)
+            (show $ rightLabel statement)
+
+        Phi {} ->
+            printf "%s = phi %s [%s, %%%s], [%s, %%%s]"
+            (show $ destination statement)
+            (show $ destinationType statement)
+            (show $ leftOperand statement)
+            (show $ leftLabel statement)
+            (show $ rightOperand statement)
+            (show $ rightLabel statement)
 
 
 instance Show Type where
@@ -96,11 +139,14 @@ instance Show Type where
 instance Show Operand where
     show (Operand s) = s
 
+instance Show Label where
+    show (MakeLabel s) = s
+
 instance Show OpCode where
     show Add = "add"
     show Sub = "sub"
-    show Eq = "eq"
-    show Slt = "slt"
-    show Sgt = "sgt"
-    show Sle = "sle"
-    show Sge = "sge"
+    show Eq = "icmp eq"
+    show Slt = "icmp slt"
+    show Sgt = "icmp sgt"
+    show Sle = "icmp sle"
+    show Sge = "icmp sge"
