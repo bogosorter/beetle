@@ -118,10 +118,10 @@ enclose env expression = case expression of
 
         -- Create the enclosing tuple access statements
         let createLet name access body = Closures.Let name access body bodyType
-            accesses = map (\(index, t) -> Closures.TupleMember index tempReference t) (zip [1..] memberTypes)
-            enclosedBody = foldr (uncurry createLet) enclosedBody (zip names accesses)
+            accesses = map (\(index, t) -> Closures.TupleMember index tempReference t) (zip [0..] memberTypes)
+            enclosedBody' = foldr (uncurry createLet) enclosedBody (zip names accesses)
 
-        return enclosedBody
+        return $ Closures.Let temporary enclosedTuple enclosedBody' bodyType
 
     TypeDeclaration {} -> error "type variables should have been removed in type checking"
 

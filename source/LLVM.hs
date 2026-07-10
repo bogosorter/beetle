@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
-module LLVM (Program(..), Function(..), Statement(..), Type(..), Operand, Label(..), OpCode(..), integerOperand, typeOperand, registerOperand, variableOperand) where
+module LLVM (Program(..), Function(..), Statement(..), Type(..), Operand, Label(..), OpCode(..), integerOperand, typeOperand, registerOperand, variableOperand, LLVM.null) where
 
 import Text.Printf (printf)
 import Data.List (intercalate)
@@ -8,6 +8,8 @@ import Data.List (intercalate)
 data Type
     = IntegerType
     | BooleanType
+    | TupleType [Type]
+    | PointerType
 
 data Program = Program
     { definitions :: [Function]
@@ -26,7 +28,7 @@ data Function = Function
     }
 
 data Statement
-    = Operation
+    = BinaryOperation
         { destination :: Operand
         , resultType :: Type
         , opCode :: OpCode
@@ -58,6 +60,31 @@ data Statement
         , rightOperand :: Operand
         , rightLabel :: Label
         }
+    | GetElementPointer
+        { destination :: Operand
+        , t :: Type
+        , base :: Operand
+        , index :: Operand
+        , member :: Operand
+        }
+    | PointerToInt
+        { destination :: Operand
+        , source :: Operand
+        }
+    | Malloc
+        { destination :: Operand
+        , size :: Operand
+        }
+    | Load
+        { destination :: Operand
+        , destinationType :: Type
+        , address :: Operand
+        }
+    | Store
+        { source :: Operand
+        , sourceType :: Type
+        , address :: Operand
+        }
 
 newtype Operand = Operand String
 newtype Label = MakeLabel String
@@ -74,6 +101,9 @@ variableOperand s = Operand ("%" ++ s)
 
 typeOperand :: Type -> Operand
 typeOperand t = Operand (show t)
+
+null :: Operand
+null = Operand "null"
 
 instance Show Program where
     show (Program _ (statements, register, resultType)) = printf
@@ -96,7 +126,7 @@ instance Show Program where
 
 instance Show Statement where
     show statement = case statement of
-        Operation {} ->
+        BinaryOperation {} ->
             printf "%s = %s %s %s, %s"
             (show $ destination statement)
             (show $ opCode statement)
@@ -131,10 +161,42 @@ instance Show Statement where
             (show $ rightOperand statement)
             (show $ rightLabel statement)
 
+        GetElementPointer {} ->
+            printf "%s = getelementptr %s, ptr %s, i32 %s, i32 %s"
+            (show $ destination statement)
+            (show $ t statement)
+            (show $ base statement)
+            (show $ index statement)
+            (show $ member statement)
+
+        PointerToInt {} ->
+            printf "%s = ptrtoint ptr %s to i64"
+            (show $ destination statement)
+            (show $ source statement)
+
+        Malloc {} ->
+            printf "%s = call ptr @malloc(i64 %s)"
+            (show $ destination statement)
+            (show $ size statement)
+
+        Load {} ->
+            printf "%s = load %s, ptr %s"
+            (show $ destination statement)
+            (show $ destinationType statement)
+            (show $ address statement)
+
+        Store {} ->
+            printf "store %s %s, ptr %s"
+            (show $ sourceType statement)
+            (show $ source statement)
+            (show $ address statement)
+
 
 instance Show Type where
     show IntegerType = "i32"
     show BooleanType = "i1"
+    show (TupleType ts) = "{" ++ (intercalate ", " $ map show ts) ++ "}"
+    show PointerType = "ptr"
 
 instance Show Operand where
     show (Operand s) = s

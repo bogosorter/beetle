@@ -26,8 +26,33 @@ compileExpression expression = case expression of
         putStatement $ booleanLiteral register b
         return register
 
+    Tuple members t -> do
+        register <- allocate t
+
+        let insertMember :: (Int, Closures.Expression) -> State CompilationState ()
+            insertMember (index, member) = do
+                let memberType = llvmType $ getType member
+                memberRegister <- compileExpression member
+
+                positionRegister <- reserveRegister
+                putStatement $ GetElementPointer positionRegister (llvmTupleType t) register (integerOperand 0) (integerOperand index)
+                putStatement $ Store memberRegister memberType positionRegister
+
+        mapM_ insertMember (zip [0..] members)
+        return register
+
     Local name _ -> do
         return $ variableOperand name
+
+    TupleMember index tuple t -> do
+        tupleRegister <- compileExpression tuple
+
+        positionRegister <- reserveRegister
+        putStatement $ GetElementPointer positionRegister (llvmTupleType $ getType tuple) tupleRegister (integerOperand 0) (integerOperand index)
+
+        resultRegister <- reserveRegister
+        putStatement $ Load resultRegister (llvmType t) positionRegister
+        return resultRegister
 
     If condition left right t -> do
         (leftLabel, rightLabel, mergeLabel) <- createBranch
@@ -74,24 +99,37 @@ compileExpression expression = case expression of
                 ClosuredType argumentType _ -> argumentType
                 _ -> error "found a built-in function whose type is not a closured type"
 
-        putStatement $ Operation register (llvmType $ argumentType) opCode leftRegister rightRegister
+        putStatement $ BinaryOperation register (llvmType $ argumentType) opCode leftRegister rightRegister
         return register
 
-    Let name value body t -> do
+    Let name value body _ -> do
         valueRegister <- compileExpression value
 
         let variable = variableOperand name
-        putStatement $ Bitcast variable (llvmType t) valueRegister (llvmType t)
+        putStatement $ Bitcast variable (llvmType $ getType value) valueRegister (llvmType $ getType value)
 
         compileExpression body
 
     _ -> error "not implemented"
 
+allocate :: Closures.Type -> State CompilationState Operand
+allocate t = do
+    sizePointerRegister <- reserveRegister
+    putStatement $ GetElementPointer sizePointerRegister (llvmTupleType t) LLVM.null (integerOperand 1) (integerOperand 0)
+
+    sizeRegister <- reserveRegister
+    putStatement $ PointerToInt sizeRegister sizePointerRegister
+
+    resultRegister <- reserveRegister
+    putStatement $ Malloc resultRegister sizeRegister
+
+    return resultRegister
+
 integerLiteral :: Operand -> Int -> Statement
-integerLiteral operand n = Operation operand LLVM.IntegerType Add (integerOperand 0) (integerOperand n)
+integerLiteral operand n = BinaryOperation operand LLVM.IntegerType Add (integerOperand 0) (integerOperand n)
 
 booleanLiteral :: Operand -> Bool -> Statement
-booleanLiteral operand n = Operation operand LLVM.BooleanType Add (integerOperand 0) (booleanOperand n)
+booleanLiteral operand n = BinaryOperation operand LLVM.BooleanType Add (integerOperand 0) (booleanOperand n)
     where booleanOperand False = integerOperand 0
           booleanOperand True = integerOperand 1
 
@@ -145,6 +183,17 @@ putStatement s = do
 
 -- Type utils
 
+-- Converts a type to its LLVM representation. Tuples in the high-level code are
+-- represented as pointers in the LLVM IR.
 llvmType :: Closures.Type -> LLVM.Type
 llvmType Closures.IntegerType = LLVM.IntegerType
 llvmType Closures.BooleanType = LLVM.BooleanType
+llvmType (Closures.TupleType _) = LLVM.PointerType
+
+-- Despite the fact that variables holding tuples are represented with pointers
+-- in the LLVM IR, to allocate them we need to use their tuple representation as
+-- an argument to the get element pointer instruction. This function provides
+-- the corresponding representation.
+llvmTupleType :: Closures.Type -> LLVM.Type
+llvmTupleType (Closures.TupleType ts) = LLVM.TupleType (map llvmType ts)
+llvmTupleType _ = error "llvmTupleType should only be called on tuple types"
