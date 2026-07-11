@@ -12,6 +12,8 @@ import Data.Map (Map, insert, findIndex, (!))
 import qualified Data.Map as Map (lookup, empty, elems, fromList)
 import Control.Monad.State
 
+import Debug.Trace
+
 
 encloseProgram :: TypedExpression -> Closures.Program
 encloseProgram program = Program functions expression
@@ -78,17 +80,16 @@ enclose env expression = case expression of
             variable = Closures.Local (variableName expression) (encloseType . getType . variableValue $ expression)
             name = variableName expression
 
-        enclosedValue <- enclose env' (variableValue expression)
-
         -- If we are assigning a function, we want to give a name to it in the
         -- LLVM code, for it to be identifiable. We have to do it here, though,
         -- and not inside the function case, because this is where the
         -- information about the funtion name is
-        let expressionBody = body expression
-        enclosedBody <- case expressionBody of
-            AST.Function {} -> encloseFunction env' expressionBody (Just name)
-            _ -> enclose env' expressionBody
+        let expressionValue = variableValue expression
+        enclosedValue <- case expressionValue of
+            AST.Function {} -> encloseFunction env' expressionValue (Just name)
+            _ -> enclose env' (variableValue expression)
 
+        enclosedBody <- enclose env' $ body expression
         return $ Closures.Let name enclosedValue enclosedBody (Closures.getType enclosedBody)
 
     TupleDestructuring {} -> do
