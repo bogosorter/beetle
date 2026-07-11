@@ -6,12 +6,13 @@ import Closures
 import LLVM
 
 import Control.Monad.State (State, runState, get, put)
+import Data.Map (Map, insert, lookup, empty)
 
 compileProgram :: Closures.Program -> LLVM.Program
 compileProgram program = LLVM.Program functions (statements s, e, llvmType $ getType mainExpression)
     where functions = map compileFunction (Closures.functions program)
           mainExpression = Closures.main program
-          (e, s) = runState (compileExpression mainExpression) initialState
+          (e, s) = runState (compileExpression initialEnvironment mainExpression) initialState
 
 compileFunction :: Closures.Function -> LLVM.Function
 compileFunction function = LLVM.Function name argumentType returnType body
@@ -19,12 +20,13 @@ compileFunction function = LLVM.Function name argumentType returnType body
           argumentType = llvmType (Closures.argumentType function)
           returnType = llvmType (Closures.returnType function)
           body = statements state ++ [Return register returnType]
-          (register, state) = runState (compileExpression $ functionBody function) (initialStateWithEnvironment env)
-          env = LLVM.TupleType $ map llvmType (Closures.environmentType function)
+          (register, state) = runState (compileExpression env $ functionBody function) initialState
+          env = initialEnvironmentWithType envType
+          envType = LLVM.TupleType $ map llvmType (Closures.environmentType function)
 
 
-compileExpression :: Expression -> State CompilationState Operand
-compileExpression expression = case expression of
+compileExpression :: CompilationEnvironment -> Expression -> State CompilationState Operand
+compileExpression env expression = case expression of
     Integer n -> do
         register <- reserveRegister
         putStatement $ integerLiteral register n
@@ -41,7 +43,7 @@ compileExpression expression = case expression of
         let insertMember :: (Int, Closures.Expression) -> State CompilationState ()
             insertMember (index, member) = do
                 let memberType = llvmType $ getType member
-                memberRegister <- compileExpression member
+                memberRegister <- compileExpression env member
 
                 positionRegister <- reserveRegister
                 putStatement $ GetElementPointer positionRegister (llvmTupleType t) register (integerOperand 0) (integerOperand index)
@@ -51,56 +53,70 @@ compileExpression expression = case expression of
         return register
 
     Closure definition environment _ -> do
-        register <- allocate $ Backend.closureType
+        putStatement $ EmptyLine
+        putStatement $ Comment ("Create a closure for " ++ show (globalOperand $ functionName definition))
+        putStatement $ EmptyLine
 
-        -- Insert the function into the closure
+        putStatement $ Comment "Allocate the necessary space"
+        register <- allocate $ Backend.closureType
+        let env' = case innermostLet env of
+                Just s -> insertOverride s register env
+                Nothing -> env
+        putStatement $ EmptyLine
+
+        putStatement $ Comment "Insert the function into the closure"
         positionRegister <- reserveRegister
         putStatement $ GetElementPointer positionRegister Backend.closureType register (integerOperand 0) (integerOperand 0)
         putStatement $ Store (globalOperand $ functionName definition) PointerType positionRegister
+        putStatement $ EmptyLine
 
-        -- Create the closure environment, which is essentially a tuple
+        -- The closure environment is essentially a tuple
+        putStatement $ Comment "Create the closure environment"
         let tupleType = Closures.TupleType (map getType environment)
-        environmentRegister <- compileExpression (Tuple environment tupleType)
+        environmentRegister <- compileExpression env' (Tuple environment tupleType)
+        putStatement $ EmptyLine
 
-        -- Insert the environment into the closure
+        putStatement $ Comment "Insert the function into the closure"
         positionRegister <- reserveRegister
         putStatement $ GetElementPointer positionRegister Backend.closureType register (integerOperand 0) (integerOperand 1)
         putStatement $ Store environmentRegister PointerType positionRegister
+        putStatement $ EmptyLine
 
         return register
 
-    Argument _ -> do
+    Argument _ ->
         return $ variableOperand "_argument"
 
     Local name _ -> do
-        return $ variableOperand name
+        case Data.Map.lookup name (letOverrides env) of
+            Just o -> return o
+            Nothing -> return $ variableOperand name
 
     -- Retrieving a variable from the closure environment is essentially
     -- accessing a member of a special tuple
     Captured index t -> do
         let environment = variableOperand "_env"
-        environmentType <- getEnvironmentType
-        tupleMember environment environmentType index (llvmType t)
+        tupleMember environment (Backend.environmentType env) index (llvmType t)
 
     TupleMember index tuple t -> do
-        tupleRegister <- compileExpression tuple
+        tupleRegister <- compileExpression env tuple
         tupleMember tupleRegister (llvmTupleType $ getType tuple) index (llvmType t)
 
     If condition left right t -> do
         (leftLabel, rightLabel, mergeLabel) <- createBranch
 
-        conditionRegister <- compileExpression condition
+        conditionRegister <- compileExpression env condition
         putStatement $ Branch conditionRegister leftLabel rightLabel
 
         putBasicBlock leftLabel
         putStatement $ Label leftLabel
-        leftRegister <- compileExpression left
+        leftRegister <- compileExpression env left
         leftLabel <- getBasicBlock
         putStatement $ Jump mergeLabel
 
         putBasicBlock rightLabel
         putStatement $ Label rightLabel
-        rightRegister <- compileExpression right
+        rightRegister <- compileExpression env right
         rightLabel <- getBasicBlock
         putStatement $ Jump mergeLabel
 
@@ -113,8 +129,8 @@ compileExpression expression = case expression of
 
     -- Built-in function calls
     Application (Application f@(BuiltInFunction name _) left _) right _ -> do
-        leftRegister <- compileExpression left
-        rightRegister <- compileExpression right
+        leftRegister <- compileExpression env left
+        rightRegister <- compileExpression env right
 
         register <- reserveRegister
         let opCode = case name of
@@ -135,7 +151,7 @@ compileExpression expression = case expression of
         return register
 
     Application closure argument t -> do
-        closureRegister <- compileExpression closure
+        closureRegister <- compileExpression env closure
 
         -- Load the function from the closure
         positionRegister <- reserveRegister
@@ -149,19 +165,20 @@ compileExpression expression = case expression of
         environmentRegister <- reserveRegister
         putStatement $ Load environmentRegister PointerType positionRegister
 
-        argumentRegister <- compileExpression argument
+        argumentRegister <- compileExpression env argument
 
         resultRegister <- reserveRegister
         putStatement $ Call resultRegister (llvmType t) functionRegister environmentRegister argumentRegister (llvmType $ getType argument)
         return resultRegister
 
     Let name value body _ -> do
-        valueRegister <- compileExpression value
+        let env' = insertLet name env
+        valueRegister <- compileExpression env' value
 
         let variable = variableOperand name
         putStatement $ Bitcast variable (llvmType $ getType value) valueRegister (llvmType $ getType value)
 
-        compileExpression body
+        compileExpression env body
 
     _ -> error ("unexpected expression " ++ show expression)
 
@@ -196,25 +213,17 @@ booleanLiteral operand n = BinaryOperation operand LLVM.BooleanType Add (integer
           booleanOperand True = integerOperand 1
 
 
--- State utils
+-- State and environment utils
 
 data CompilationState = CompilationState
     { register :: Int
     , branch :: Int
     , basicBlock :: Label
-    -- The environment type, which is used in closures, is actually only set at
-    -- the beginning of the expression compilation, and never changes. It should
-    -- thus not be in the state, strictly speaking, but it is used here to avoid
-    -- sprinkling another argument through all the calls to compileExpression
-    , environmentType :: LLVM.Type
     , statements :: [Statement]
     }
 
 initialState :: CompilationState
-initialState = CompilationState 0 0 (MakeLabel "entry") VoidType []
-
-initialStateWithEnvironment :: LLVM.Type -> CompilationState
-initialStateWithEnvironment env = CompilationState 0 0 (MakeLabel "entry") env []
+initialState = CompilationState 0 0 (MakeLabel "entry") []
 
 reserveRegister :: State CompilationState Operand
 reserveRegister = do
@@ -245,16 +254,34 @@ getBasicBlock = do
     state <- get
     return $ basicBlock state
 
-getEnvironmentType :: State CompilationState LLVM.Type
-getEnvironmentType = do
-    state <- get
-    return $ Backend.environmentType state
-
 putStatement :: Statement -> State CompilationState ()
 putStatement s = do
     state <- get
     put state { statements = statements state ++ [s] }
 
+data CompilationEnvironment = CompilationEnvironment
+    { environmentType :: LLVM.Type -- the type of the function closure environment
+    -- When compiling a recursive function, we need to refer to the function's
+    -- closure before the function has been assigned to the final local
+    -- variable. As such, whenever there is a let the innermostLet variable is
+    -- set, and it will be used when a closure is created to point to the
+    -- already existing register rather than the final local variable
+    , innermostLet :: Maybe String
+    , letOverrides :: Map String Operand
+    }
+
+initialEnvironment :: CompilationEnvironment
+initialEnvironment = CompilationEnvironment LLVM.VoidType Nothing empty
+
+initialEnvironmentWithType :: LLVM.Type -> CompilationEnvironment
+initialEnvironmentWithType t = CompilationEnvironment t Nothing empty
+
+insertLet :: String -> CompilationEnvironment -> CompilationEnvironment
+insertLet s env = env { innermostLet = Just s }
+
+insertOverride :: String -> Operand -> CompilationEnvironment -> CompilationEnvironment
+insertOverride s o env = env { letOverrides = insert s o overrides }
+    where overrides = letOverrides env
 
 -- Type utils
 

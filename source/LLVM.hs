@@ -102,6 +102,10 @@ data Statement
         { source :: Operand
         , sourceType :: Type
         }
+    | Comment
+        { content :: String
+        }
+    | EmptyLine
 
 newtype Operand = Operand String
 newtype Label = MakeLabel String
@@ -246,6 +250,13 @@ instance Show Statement where
             printf "ret %s %s"
             (show $ sourceType statement)
             (show $ source statement)
+
+        Comment {} ->
+            printf "; %s"
+            (content statement)
+
+        EmptyLine {} ->
+            ""
 
 
 instance Show Type where

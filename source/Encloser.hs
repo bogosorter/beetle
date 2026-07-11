@@ -133,7 +133,7 @@ encloseFunction env expression functionName = do
             freeTypes = map Closures.getType freeValues
 
             -- The variables as they will be seen from within the closure
-            variables = [Closures.Captured i t | (i, t) <- zip [1..] freeTypes]
+            variables = [Closures.Captured i t | (i, t) <- zip [0..] freeTypes]
             closureEnvironment = fromVariables $ fromList (zip freeNames variables)
 
             -- The argument must also be added to the environment
