@@ -3,7 +3,7 @@
 module Encloser (encloseProgram) where
 
 import AST
-import Closures (Program(..), FunctionDefinition(..))
+import Closures (Program(..), Function(..))
 import qualified Closures (Type(..), Expression(..), getType)
 
 import Data.Set (Set, singleton, union, unions, delete)
@@ -14,8 +14,8 @@ import Control.Monad.State
 
 
 encloseProgram :: TypedExpression -> Closures.Program
-encloseProgram program = Program definitions expression
-    where (expression, ClosureState {Encloser.definitions = definitions}) =
+encloseProgram program = Program functions expression
+    where (expression, ClosureState {Encloser.functions = functions}) =
             runState (enclose emptyEnvironment program) initialState
 
 
@@ -46,7 +46,7 @@ enclose env expression = case expression of
         let enclosedType = Closures.TupleType $ map Closures.getType enclosedMembers
         return $ Closures.Tuple enclosedMembers enclosedType
 
-    Function {} -> encloseFunction env expression Nothing
+    AST.Function {} -> encloseFunction env expression Nothing
 
     If {} -> do
         enclosedCondition <- enclose env (condition expression)
@@ -86,7 +86,7 @@ enclose env expression = case expression of
         -- information about the funtion name is
         let expressionBody = body expression
         enclosedBody <- case expressionBody of
-            Function {} -> encloseFunction env' expressionBody (Just name)
+            AST.Function {} -> encloseFunction env' expressionBody (Just name)
             _ -> enclose env' expressionBody
 
         return $ Closures.Let name enclosedValue enclosedBody (Closures.getType enclosedBody)
@@ -149,13 +149,14 @@ encloseFunction env expression functionName = do
 
         enclosedBody <- enclose closureEnvironment' (body expression)
 
-        let definition = FunctionDefinition
+        let definition = Closures.Function
                 name
                 argType
                 retType
                 freeTypes
                 enclosedBody
 
+        putFunction definition
         return $ Closures.Closure definition freeValues (encloseType $ getType expression)
 
 
@@ -164,7 +165,7 @@ freeVariables expression = case expression of
 
     Boolean {} -> Set.empty
     Integer {} -> Set.empty
-    Variable { variableName = name } -> singleton name
+    Variable { variableName = name } -> if name `elem` (map fst builtInFunctions) then Set.empty else singleton name
 
     Tuple { tupleMembers = members } ->
         unions $ map freeVariables members
@@ -172,7 +173,7 @@ freeVariables expression = case expression of
     Record { recordMembers = members } ->
         unions $ map freeVariables (Map.elems members)
 
-    Function { argumentName = argument, body = body } ->
+    AST.Function { argumentName = argument, body = body } ->
         delete argument $ freeVariables body
 
     If { condition = condition, left = left, right = right} ->
@@ -189,7 +190,7 @@ freeVariables expression = case expression of
     TupleDestructuring { tuple = tuple, body = body} ->
         freeVariables tuple `union` freeVariables body
 
-    TypeDeclaration { } -> error "type variables should have been removed in type checking"
+    TypeDeclaration {} -> error "type variables should have been removed in type checking"
 
 
 encloseType :: Type -> Closures.Type
@@ -197,14 +198,14 @@ encloseType BooleanType = Closures.BooleanType
 encloseType IntegerType = Closures.IntegerType
 encloseType (TupleType memberTypes) = Closures.TupleType (map encloseType memberTypes)
 encloseType (RecordType memberTypes) = Closures.TupleType (map encloseType $ Map.elems memberTypes)
-encloseType (FunctionType argumentType returnType) = Closures.ClosuredType (encloseType argumentType) (encloseType returnType)
+encloseType (FunctionType argumentType returnType) = Closures.ClosureType (encloseType argumentType) (encloseType returnType)
 encloseType (UserType _) = error "type variables should have been removed in type checking"
 
 
 -- State and environment utils
 
 data ClosureState = ClosureState
-    { definitions :: [FunctionDefinition]
+    { functions :: [Function]
     , temporary :: Int
     , lambda :: Int
     }
@@ -216,7 +217,7 @@ createTemporary :: State ClosureState String
 createTemporary = do
     state <- get
     let result = temporary state
-    put $ state { temporary = result + 1}
+    put state { temporary = result + 1}
     return $ "_tmp" ++ show result
 
 createLambda :: State ClosureState String
@@ -224,7 +225,13 @@ createLambda = do
     state <- get
     let result = lambda state
     put $ state { lambda = result + 1}
-    return $ "_tmp" ++ show result
+    return $ "_lambda" ++ show result
+
+putFunction :: Function -> State ClosureState ()
+putFunction f = do
+    state <- get
+    let fs = Encloser.functions state
+    put state { Encloser.functions = f : fs }
 
 data Environment = Environment
     { variables :: Map String Closures.Expression
@@ -255,4 +262,4 @@ builtInFunctions =
     ]
 
 makeBuiltInFunction :: String -> Closures.Type -> Closures.Type -> Closures.Type -> (String, Closures.Expression)
-makeBuiltInFunction name left right result = (name, Closures.BuiltInFunction name (Closures.ClosuredType left (Closures.ClosuredType right result)))
+makeBuiltInFunction name left right result = (name, Closures.BuiltInFunction name (Closures.ClosureType left (Closures.ClosureType right result)))

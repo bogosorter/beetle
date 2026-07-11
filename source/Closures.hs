@@ -1,21 +1,24 @@
-module Closures (Program(..), Type(..), FunctionDefinition(..), Expression(..), getType) where
+module Closures (Program(..), Type(..), Function(..), Expression(..), getType) where
 
 data Program = Program
-    { definitions :: [FunctionDefinition]
+    { functions :: [Function]
     , main :: Expression
     }
+    deriving Show
 
-data Type = BooleanType | IntegerType | TupleType [Type] | ClosuredType Type Type
+data Type = BooleanType | IntegerType | TupleType [Type] | ClosureType Type Type
+    deriving Show
 
 -- While not strictly necessary, we add name as a parameter to ensure that the
 -- function is recognized in the produced LLVM Code
-data FunctionDefinition = FunctionDefinition
+data Function = Function
     { functionName :: String
     , argumentType :: Type
     , returnType :: Type
-    , closureType :: [Type]
+    , environmentType :: [Type]
     , functionBody :: Expression
     }
+    deriving Show
 
 data Expression
     = Boolean
@@ -29,7 +32,7 @@ data Expression
         , t :: Type
         }
     | Closure
-        { definition :: FunctionDefinition
+        { definition :: Function
         , environment :: [Expression]
         , t :: Type
         }
@@ -56,7 +59,7 @@ data Expression
         , t :: Type
         }
     | Application
-        { function :: Expression
+        { closure :: Expression
         , argument :: Expression
         , t :: Type
         }
@@ -70,6 +73,7 @@ data Expression
         { name :: String
         , t :: Type
         }
+    deriving Show
 
 getType :: Expression -> Type
 getType (Integer {}) = IntegerType

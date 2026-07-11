@@ -1,12 +1,13 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
-module LLVM (Program(..), Function(..), Statement(..), Type(..), Operand, Label(..), OpCode(..), integerOperand, typeOperand, registerOperand, variableOperand, LLVM.null) where
+module LLVM (Program(..), Function(..), Statement(..), Type(..), Operand, Label(..), OpCode(..), integerOperand, typeOperand, registerOperand, variableOperand, globalOperand, LLVM.null) where
 
 import Text.Printf (printf)
 import Data.List (intercalate)
 
 data Type
-    = IntegerType
+    = VoidType
+    | IntegerType
     | BooleanType
     | TupleType [Type]
     | PointerType
@@ -19,11 +20,9 @@ data Program = Program
     }
 
 data Function = Function
-    { returnType :: Operand
-    , name :: Operand
-    , environmentType :: Operand
-    , argument :: Operand
-    , argumentType :: Operand
+    { name :: Operand
+    , argumentType :: Type
+    , returnType :: Type
     , body :: [Statement]
     }
 
@@ -67,6 +66,12 @@ data Statement
         , index :: Operand
         , member :: Operand
         }
+    | GetElementPointerSimple
+        { destination :: Operand
+        , t :: Type
+        , base :: Operand
+        , index :: Operand
+        }
     | PointerToInt
         { destination :: Operand
         , source :: Operand
@@ -85,6 +90,18 @@ data Statement
         , sourceType :: Type
         , address :: Operand
         }
+    | Call
+        { destination :: Operand
+        , destinationType :: Type
+        , function :: Operand
+        , environment :: Operand
+        , argument :: Operand
+        , callArgumentType :: Type
+        }
+    | Return
+        { source :: Operand
+        , sourceType :: Type
+        }
 
 newtype Operand = Operand String
 newtype Label = MakeLabel String
@@ -102,27 +119,45 @@ variableOperand s = Operand ("%" ++ s)
 typeOperand :: Type -> Operand
 typeOperand t = Operand (show t)
 
+globalOperand :: String -> Operand
+globalOperand s = Operand ("@" ++ s)
+
 null :: Operand
 null = Operand "null"
 
 instance Show Program where
-    show (Program _ (statements, register, resultType)) = printf
+    show (Program functions (statements, register, resultType)) = printf
             "target triple = \"x86_64-pc-linux-gnu\"\n\
             \@fmt = private constant [4 x i8] c\"%%d\\0A\\00\"\n\
             \declare i32 @printf(i8*, ...)\n\
             \declare ptr @malloc(i64)\n\
             \\n\
+            \%s\
+            \\n\
+            \\n\
             \define i32 @main() {\n\
             \    %s\n\
             \\n\
-            \    %%fmt = getelementptr [4 x i8], [4 x i8]* @fmt, i64 0, i64 0\n\
-            \    call i32 (i8*, ...) @printf(i8* %%fmt, %s %s)\n\
+            \    %%_fmt = getelementptr [4 x i8], [4 x i8]* @fmt, i64 0, i64 0\n\
+            \    call i32 (i8*, ...) @printf(i8* %%_fmt, %s %s)\n\
             \    ret i32 0\n\
             \}\n\
             \"
+            (intercalate "\n\n" $ map show functions)
             (intercalate "\n    " $ map show statements)
             (show resultType)
             (show register)
+
+instance Show Function where
+    show function = printf
+        "define %s %s(ptr %%_env, %s %%_argument) {\n\
+        \    %s\n\
+        \}"
+        (show $ returnType function)
+        (show $ name function)
+        (show $ argumentType function)
+        (intercalate "\n    " $ map show (body function))
+
 
 instance Show Statement where
     show statement = case statement of
@@ -169,6 +204,13 @@ instance Show Statement where
             (show $ index statement)
             (show $ member statement)
 
+        GetElementPointerSimple {} ->
+            printf "%s = getelementptr %s, ptr %s, i32 %s"
+            (show $ destination statement)
+            (show $ t statement)
+            (show $ base statement)
+            (show $ index statement)
+
         PointerToInt {} ->
             printf "%s = ptrtoint ptr %s to i64"
             (show $ destination statement)
@@ -191,8 +233,23 @@ instance Show Statement where
             (show $ source statement)
             (show $ address statement)
 
+        Call {} ->
+            printf "%s = call %s %s(ptr %s, %s %s)"
+            (show $ destination statement)
+            (show $ destinationType statement)
+            (show $ function statement)
+            (show $ environment statement)
+            (show $ callArgumentType statement)
+            (show $ argument statement)
+
+        Return {} ->
+            printf "ret %s %s"
+            (show $ sourceType statement)
+            (show $ source statement)
+
 
 instance Show Type where
+    show VoidType = "void"
     show IntegerType = "i32"
     show BooleanType = "i1"
     show (TupleType ts) = "{" ++ (intercalate ", " $ map show ts) ++ "}"

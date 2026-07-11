@@ -8,12 +8,21 @@ import LLVM
 import Control.Monad.State (State, runState, get, put)
 
 compileProgram :: Closures.Program -> LLVM.Program
-compileProgram program = LLVM.Program [] (statements s, e, llvmType $ getType mainExpression)
-    where mainExpression = Closures.main program
+compileProgram program = LLVM.Program functions (statements s, e, llvmType $ getType mainExpression)
+    where functions = map compileFunction (Closures.functions program)
+          mainExpression = Closures.main program
           (e, s) = runState (compileExpression mainExpression) initialState
 
--- Returns the statements required to obtain the expression and the register
--- where its value is stored
+compileFunction :: Closures.Function -> LLVM.Function
+compileFunction function = LLVM.Function name argumentType returnType body
+    where name = globalOperand (functionName function)
+          argumentType = llvmType (Closures.argumentType function)
+          returnType = llvmType (Closures.returnType function)
+          body = statements state ++ [Return register returnType]
+          (register, state) = runState (compileExpression $ functionBody function) (initialStateWithEnvironment env)
+          env = LLVM.TupleType $ map llvmType (Closures.environmentType function)
+
+
 compileExpression :: Expression -> State CompilationState Operand
 compileExpression expression = case expression of
     Integer n -> do
@@ -27,7 +36,7 @@ compileExpression expression = case expression of
         return register
 
     Tuple members t -> do
-        register <- allocate t
+        register <- allocate $ llvmTupleType t
 
         let insertMember :: (Int, Closures.Expression) -> State CompilationState ()
             insertMember (index, member) = do
@@ -41,18 +50,41 @@ compileExpression expression = case expression of
         mapM_ insertMember (zip [0..] members)
         return register
 
+    Closure definition environment _ -> do
+        register <- allocate $ Backend.closureType
+
+        -- Insert the function into the closure
+        positionRegister <- reserveRegister
+        putStatement $ GetElementPointer positionRegister Backend.closureType register (integerOperand 0) (integerOperand 0)
+        putStatement $ Store (globalOperand $ functionName definition) PointerType positionRegister
+
+        -- Create the closure environment, which is essentially a tuple
+        let tupleType = Closures.TupleType (map getType environment)
+        environmentRegister <- compileExpression (Tuple environment tupleType)
+
+        -- Insert the environment into the closure
+        positionRegister <- reserveRegister
+        putStatement $ GetElementPointer positionRegister Backend.closureType register (integerOperand 0) (integerOperand 1)
+        putStatement $ Store environmentRegister PointerType positionRegister
+
+        return register
+
+    Argument _ -> do
+        return $ variableOperand "_argument"
+
     Local name _ -> do
         return $ variableOperand name
 
+    -- Retrieving a variable from the closure environment is essentially
+    -- accessing a member of a special tuple
+    Captured index t -> do
+        let environment = variableOperand "_env"
+        environmentType <- getEnvironmentType
+        tupleMember environment environmentType index (llvmType t)
+
     TupleMember index tuple t -> do
         tupleRegister <- compileExpression tuple
-
-        positionRegister <- reserveRegister
-        putStatement $ GetElementPointer positionRegister (llvmTupleType $ getType tuple) tupleRegister (integerOperand 0) (integerOperand index)
-
-        resultRegister <- reserveRegister
-        putStatement $ Load resultRegister (llvmType t) positionRegister
-        return resultRegister
+        tupleMember tupleRegister (llvmTupleType $ getType tuple) index (llvmType t)
 
     If condition left right t -> do
         (leftLabel, rightLabel, mergeLabel) <- createBranch
@@ -96,11 +128,32 @@ compileExpression expression = case expression of
                 _ -> error ("unrecognized built-in operator " ++ name)
 
         let argumentType = case getType f of
-                ClosuredType argumentType _ -> argumentType
+                ClosureType argumentType _ -> argumentType
                 _ -> error "found a built-in function whose type is not a closured type"
 
         putStatement $ BinaryOperation register (llvmType $ argumentType) opCode leftRegister rightRegister
         return register
+
+    Application closure argument t -> do
+        closureRegister <- compileExpression closure
+
+        -- Load the function from the closure
+        positionRegister <- reserveRegister
+        putStatement $ GetElementPointer positionRegister Backend.closureType closureRegister (integerOperand 0) (integerOperand 0)
+        functionRegister <- reserveRegister
+        putStatement $ Load functionRegister PointerType positionRegister
+
+        -- Insert the environment into the closure
+        positionRegister <- reserveRegister
+        putStatement $ GetElementPointer positionRegister Backend.closureType closureRegister (integerOperand 0) (integerOperand 1)
+        environmentRegister <- reserveRegister
+        putStatement $ Load environmentRegister PointerType positionRegister
+
+        argumentRegister <- compileExpression argument
+
+        resultRegister <- reserveRegister
+        putStatement $ Call resultRegister (llvmType t) functionRegister environmentRegister argumentRegister (llvmType $ getType argument)
+        return resultRegister
 
     Let name value body _ -> do
         valueRegister <- compileExpression value
@@ -110,12 +163,12 @@ compileExpression expression = case expression of
 
         compileExpression body
 
-    _ -> error "not implemented"
+    _ -> error ("unexpected expression " ++ show expression)
 
-allocate :: Closures.Type -> State CompilationState Operand
+allocate :: LLVM.Type -> State CompilationState Operand
 allocate t = do
     sizePointerRegister <- reserveRegister
-    putStatement $ GetElementPointer sizePointerRegister (llvmTupleType t) LLVM.null (integerOperand 1) (integerOperand 0)
+    putStatement $ GetElementPointerSimple sizePointerRegister t LLVM.null (integerOperand 1)
 
     sizeRegister <- reserveRegister
     putStatement $ PointerToInt sizeRegister sizePointerRegister
@@ -123,6 +176,15 @@ allocate t = do
     resultRegister <- reserveRegister
     putStatement $ Malloc resultRegister sizeRegister
 
+    return resultRegister
+
+tupleMember :: Operand -> LLVM.Type -> Int -> LLVM.Type -> State CompilationState Operand
+tupleMember tuple tupleType index t = do
+    positionRegister <- reserveRegister
+    putStatement $ GetElementPointer positionRegister tupleType tuple (integerOperand 0) (integerOperand index)
+
+    resultRegister <- reserveRegister
+    putStatement $ Load resultRegister t positionRegister
     return resultRegister
 
 integerLiteral :: Operand -> Int -> Statement
@@ -140,11 +202,19 @@ data CompilationState = CompilationState
     { register :: Int
     , branch :: Int
     , basicBlock :: Label
+    -- The environment type, which is used in closures, is actually only set at
+    -- the beginning of the expression compilation, and never changes. It should
+    -- thus not be in the state, strictly speaking, but it is used here to avoid
+    -- sprinkling another argument through all the calls to compileExpression
+    , environmentType :: LLVM.Type
     , statements :: [Statement]
     }
 
 initialState :: CompilationState
-initialState = CompilationState 0 0 (MakeLabel "entry") []
+initialState = CompilationState 0 0 (MakeLabel "entry") VoidType []
+
+initialStateWithEnvironment :: LLVM.Type -> CompilationState
+initialStateWithEnvironment env = CompilationState 0 0 (MakeLabel "entry") env []
 
 reserveRegister :: State CompilationState Operand
 reserveRegister = do
@@ -175,6 +245,11 @@ getBasicBlock = do
     state <- get
     return $ basicBlock state
 
+getEnvironmentType :: State CompilationState LLVM.Type
+getEnvironmentType = do
+    state <- get
+    return $ Backend.environmentType state
+
 putStatement :: Statement -> State CompilationState ()
 putStatement s = do
     state <- get
@@ -189,6 +264,7 @@ llvmType :: Closures.Type -> LLVM.Type
 llvmType Closures.IntegerType = LLVM.IntegerType
 llvmType Closures.BooleanType = LLVM.BooleanType
 llvmType (Closures.TupleType _) = LLVM.PointerType
+llvmType (Closures.ClosureType _ _) = LLVM.PointerType
 
 -- Despite the fact that variables holding tuples are represented with pointers
 -- in the LLVM IR, to allocate them we need to use their tuple representation as
@@ -197,3 +273,6 @@ llvmType (Closures.TupleType _) = LLVM.PointerType
 llvmTupleType :: Closures.Type -> LLVM.Type
 llvmTupleType (Closures.TupleType ts) = LLVM.TupleType (map llvmType ts)
 llvmTupleType _ = error "llvmTupleType should only be called on tuple types"
+
+closureType :: LLVM.Type
+closureType = LLVM.TupleType [PointerType, PointerType]
