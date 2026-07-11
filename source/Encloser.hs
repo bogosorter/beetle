@@ -184,8 +184,8 @@ freeVariables expression = case expression of
 
     RecordMember { record = record } -> freeVariables record
 
-    Assignment { variableValue = value, body = body} ->
-        freeVariables value `union` freeVariables body
+    Assignment { variableName = name, variableValue = value, body = body} ->
+        delete name (freeVariables value `union` freeVariables body)
 
     TupleDestructuring { destructuredNames = names, tuple = tuple, body = body} ->
         (freeVariables tuple `union` freeVariables body) `difference` (Set.fromList names)
