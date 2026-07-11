@@ -55,26 +55,22 @@ compileExpression env expression = case expression of
     Closure definition environment _ -> do
         putStatement $ EmptyLine
         putStatement $ Comment ("Create a closure for " ++ show (globalOperand $ functionName definition))
-        putStatement $ EmptyLine
 
         putStatement $ Comment "Allocate the necessary space"
         register <- allocate $ Backend.closureType
         let env' = case innermostLet env of
                 Just s -> insertOverride s register env
                 Nothing -> env
-        putStatement $ EmptyLine
 
         putStatement $ Comment "Insert the function into the closure"
         positionRegister <- reserveRegister
         putStatement $ GetElementPointer positionRegister Backend.closureType register (integerOperand 0) (integerOperand 0)
         putStatement $ Store (globalOperand $ functionName definition) PointerType positionRegister
-        putStatement $ EmptyLine
 
         -- The closure environment is essentially a tuple
         putStatement $ Comment "Create the closure environment"
         let tupleType = Closures.TupleType (map getType environment)
         environmentRegister <- compileExpression env' (Tuple environment tupleType)
-        putStatement $ EmptyLine
 
         putStatement $ Comment "Insert the function into the closure"
         positionRegister <- reserveRegister
@@ -96,7 +92,8 @@ compileExpression env expression = case expression of
     -- accessing a member of a special tuple
     Captured index t -> do
         let environment = variableOperand "_env"
-        tupleMember environment (Backend.environmentType env) index (llvmType t)
+        result <- tupleMember environment (Backend.environmentType env) index (llvmType t)
+        return result
 
     TupleMember index tuple t -> do
         tupleRegister <- compileExpression env tuple
@@ -107,23 +104,27 @@ compileExpression env expression = case expression of
 
         conditionRegister <- compileExpression env condition
         putStatement $ Branch conditionRegister leftLabel rightLabel
+        putStatement $ EmptyLine
 
         putBasicBlock leftLabel
         putStatement $ Label leftLabel
         leftRegister <- compileExpression env left
         leftLabel <- getBasicBlock
         putStatement $ Jump mergeLabel
+        putStatement $ EmptyLine
 
         putBasicBlock rightLabel
         putStatement $ Label rightLabel
         rightRegister <- compileExpression env right
         rightLabel <- getBasicBlock
         putStatement $ Jump mergeLabel
+        putStatement $ EmptyLine
 
         putBasicBlock mergeLabel
         register <- reserveRegister
         putStatement $ Label mergeLabel
         putStatement $ Phi register (llvmType t) leftRegister leftLabel rightRegister rightLabel
+        putStatement $ EmptyLine
 
         return register
 
@@ -151,24 +152,30 @@ compileExpression env expression = case expression of
         return register
 
     Application closure argument t -> do
+        putStatement $ Comment "Function Application"
+
         closureRegister <- compileExpression env closure
 
-        -- Load the function from the closure
+        putStatement $ Comment "Load the function from the closure"
         positionRegister <- reserveRegister
         putStatement $ GetElementPointer positionRegister Backend.closureType closureRegister (integerOperand 0) (integerOperand 0)
         functionRegister <- reserveRegister
         putStatement $ Load functionRegister PointerType positionRegister
 
-        -- Insert the environment into the closure
+        putStatement $ Comment "Load the environment from the closure"
         positionRegister <- reserveRegister
         putStatement $ GetElementPointer positionRegister Backend.closureType closureRegister (integerOperand 0) (integerOperand 1)
         environmentRegister <- reserveRegister
         putStatement $ Load environmentRegister PointerType positionRegister
 
+        putStatement $ Comment "Calculate the argument"
         argumentRegister <- compileExpression env argument
 
         resultRegister <- reserveRegister
+        putStatement $ Comment "Perform the function call"
         putStatement $ Call resultRegister (llvmType t) functionRegister environmentRegister argumentRegister (llvmType $ getType argument)
+        putStatement $ EmptyLine
+
         return resultRegister
 
     Let name value body _ -> do
