@@ -6,10 +6,10 @@ import AST
 import Closures (Program(..), Function(..))
 import qualified Closures (Type(..), Expression(..), getType)
 
-import Data.Set (Set, singleton, union, unions, delete)
-import qualified Data.Set as Set (empty, elems)
-import Data.Map (Map, insert, findIndex, (!), fromList)
-import qualified Data.Map as Map (lookup, empty, elems)
+import Data.Set (Set, singleton, union, unions, difference, delete)
+import qualified Data.Set as Set (empty, elems, fromList)
+import Data.Map (Map, insert, findIndex, (!))
+import qualified Data.Map as Map (lookup, empty, elems, fromList)
 import Control.Monad.State
 
 
@@ -134,7 +134,7 @@ encloseFunction env expression functionName = do
 
             -- The variables as they will be seen from within the closure
             variables = [Closures.Captured i t | (i, t) <- zip [0..] freeTypes]
-            closureEnvironment = fromVariables $ fromList (zip freeNames variables)
+            closureEnvironment = fromVariables $ Map.fromList (zip freeNames variables)
 
             -- The argument must also be added to the environment
             argName = argumentName expression
@@ -187,8 +187,8 @@ freeVariables expression = case expression of
     Assignment { variableValue = value, body = body} ->
         freeVariables value `union` freeVariables body
 
-    TupleDestructuring { tuple = tuple, body = body} ->
-        freeVariables tuple `union` freeVariables body
+    TupleDestructuring { destructuredNames = names, tuple = tuple, body = body} ->
+        (freeVariables tuple `union` freeVariables body) `difference` (Set.fromList names)
 
     TypeDeclaration {} -> error "type variables should have been removed in type checking"
 
