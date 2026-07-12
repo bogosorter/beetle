@@ -1,9 +1,5 @@
 # Roadmap
 
-# v3.2.1
-
-- Check if clang is installed
-
 # v3.3.0
 
 - Prevent conflits on variable naming
