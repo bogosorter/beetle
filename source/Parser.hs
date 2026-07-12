@@ -65,7 +65,7 @@ typeDeclaration = do
 assignment :: Parser (SourceExpression -> SourceExpression)
 assignment = do
     position <- M.getSourcePos
-    names <- M.sepBy1 identifier (symbol ",")
+    names <- M.sepBy1 (identifier <|> hole) (symbol ",")
     case names of
         [name] -> singleAssignment position name <|> functionDefinition position name
         _ -> tupleAssignment position names
@@ -307,6 +307,9 @@ identifier = M.try $ lexeme $ do
     if word `elem` reserved
         then fail $ "keyword " ++ show word ++ " used as an identifier"
         else return word
+
+hole :: Parser String
+hole = symbol "_"
 
 -- Helper functions
 
