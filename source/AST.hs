@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
-
 module AST (Type(..), Expression(..), SourceExpression, TypedExpression, getPosition, getType) where
 
 import qualified Data.Map as Map

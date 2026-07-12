@@ -2,8 +2,6 @@
 
 module Main where
 
-import Parser (parseProgram)
-import TypeChecker (typeCheckProgram)
 import SimpleCompiler (compile)
 
 import Control.Monad.Extra (concatMapM)
@@ -12,8 +10,7 @@ import System.Directory (doesDirectoryExist, listDirectory)
 import System.FilePath ((</>), replaceExtension)
 import System.Process (readProcess)
 import Test.Tasty (TestTree, defaultMain, testGroup)
-import Test.Tasty.HUnit (testCase, assertFailure, (@?=))
-import Text.Megaparsec (errorBundlePretty)
+import Test.Tasty.HUnit (testCase, (@?=))
 
 main :: IO ()
 main = do

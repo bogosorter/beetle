@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
-
 module TypeChecker (typeCheckProgram, TypeError(..)) where
 
 import AST

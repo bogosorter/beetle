@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
-
 module LLVM (Program(..), Function(..), Statement(..), Type(..), Operand, Label(..), OpCode(..), integerOperand, typeOperand, registerOperand, variableOperand, globalOperand, LLVM.null) where
 
 import Text.Printf (printf)

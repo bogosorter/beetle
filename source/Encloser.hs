@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
-
 module Encloser (encloseProgram) where
 
 import AST
@@ -11,9 +9,6 @@ import qualified Data.Set as Set (empty, elems, fromList)
 import Data.Map (Map, insert, findIndex, (!))
 import qualified Data.Map as Map (lookup, empty, elems, fromList)
 import Control.Monad.State
-
-import Debug.Trace
-
 
 encloseProgram :: TypedExpression -> Closures.Program
 encloseProgram program = Program functions expression

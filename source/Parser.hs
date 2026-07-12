@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module Parser (parseProgram) where
 
