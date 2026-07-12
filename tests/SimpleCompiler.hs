@@ -1,4 +1,4 @@
-module SimpleCompiler (compile) where
+module SimpleCompiler (compile, compileWithTypeErrors) where
 
 import Parser
 import TypeChecker
@@ -27,3 +27,15 @@ compile input output = do
     case code of
         ExitFailure _ -> print stderr
         ExitSuccess -> return ()
+
+compileWithTypeErrors :: String -> IO (Maybe ())
+compileWithTypeErrors input = do
+    content <- readFile input
+
+    let program = case parseProgram content of
+            Left message -> error (show message)
+            Right program -> program
+
+    case typeCheckProgram program of
+        Left _ -> return $ Just ()
+        Right _ -> return Nothing

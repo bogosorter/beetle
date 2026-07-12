@@ -2,10 +2,10 @@
 
 module Main where
 
-import SimpleCompiler (compile)
+import SimpleCompiler
 
 import Control.Monad.Extra (concatMapM)
-import Data.List (isSuffixOf)
+import Data.List (isPrefixOf, isSuffixOf)
 import System.Directory (doesDirectoryExist, listDirectory)
 import System.FilePath ((</>), replaceExtension)
 import System.Process (readProcess)
@@ -22,11 +22,16 @@ testExecution :: FilePath -> IO TestTree
 testExecution path = do
     let executablePath = replaceExtension path ""
     let expectedPath = replaceExtension path "out"
-    expected <- readFile expectedPath
-    return $ testCase path $ do
-        compile path executablePath
-        actual <- readProcess executablePath [] ""
-        actual @?= expected
+
+    if "tests/errors/" `isPrefixOf` path
+        then return $ testCase path $ do
+            result <- compileWithTypeErrors path
+            result @?= Just ()
+        else return $ testCase path $ do
+            expected <- readFile expectedPath
+            compile path executablePath
+            actual <- readProcess executablePath [] ""
+            actual @?= expected
 
 -- Utils
 
