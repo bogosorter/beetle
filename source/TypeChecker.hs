@@ -3,7 +3,7 @@ module TypeChecker (typeCheckProgram, TypeError(..)) where
 import AST
 import Text.Megaparsec (SourcePos)
 import qualified Data.Map as Map
-import Control.Monad (unless)
+import Control.Monad (unless, when)
 
 
 data TypeError = TypeError SourcePos String
@@ -106,6 +106,8 @@ typeCheck env expression = case expression of
 
     Assignment {} -> do
         let name = variableName expression
+        when (name == "_") $
+            Left $ TypeError position ("assigning to a hole")
 
         -- For the moment, arbitrary recursion is not allowed. For instance, a
         -- lambda cannot refer to the variable that holds it. This can only
