@@ -23,18 +23,17 @@ return tiles(5);
 
 Other examples can be found under the `tests` directory (the most relevant examples are under `tests/complete` and `tests/functions`).
 
-## Building & Running
+## Installing & Running
 
-For Linux users, a `build.sh` file is provided. Please note that it will add an executable file named `beetle` to the `~/.local/bin/` directory. Usage example:
+Executables for Linux users can be found under the [releases page](https://github.com/bogosorter/beetle/releases). An example usage follows:
 
 ```
-$ ./build.sh
 $ beetle fibonacci.btl
 $ ./fibonacci
 13
 ```
 
-The `-o` flag can be used to specify an output file, and the flags `-t`, `-ast`, `-ir` and `-ll` can be used to generate files with the Tokens, AST, Intermediate Representation and LLVM codes.
+The `-o` flag can be used to specify an output file, and the flags `-ast`, `-tc`, `-ir` and `-ll` can be used to generate files with the AST, type-checked AST, Intermediate Representation and LLVM codes.
 
 ## Details
 

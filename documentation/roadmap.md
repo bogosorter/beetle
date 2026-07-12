@@ -2,7 +2,6 @@
 
 # v3.2.1
 
-- General code review
 - Check if clang is installed
 
 # v3.3.0
