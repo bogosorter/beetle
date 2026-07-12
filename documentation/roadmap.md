@@ -5,7 +5,6 @@
 - AND, OR and NOT operators
 - Multiplication and division operators
 - Tuple deconstruct holes
-- Floating point numbers
 
 # v3.5.0
 
@@ -19,6 +18,7 @@
 
 # v.X.X.X
 
+- Floating point numbers
 - Arbitrary type position
 - Enums
 - Mutual recursion
