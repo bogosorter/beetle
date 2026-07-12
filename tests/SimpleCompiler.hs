@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
-module Compiler (Compiler.compile) where
+module SimpleCompiler (compile) where
 
 import Parser
 import TypeChecker

@@ -8,6 +8,7 @@ test.ll
 test
 tests/**
 !tests/Main.hs
+!tests/SimpleCompiler.hs
 !tests/**/
 !tests/**/*.btl
 !tests/**/*.out

@@ -4,7 +4,7 @@ module Main where
 
 import Parser (parseProgram)
 import TypeChecker (typeCheckProgram)
-import Compiler (compile)
+import SimpleCompiler (compile)
 
 import Control.Monad.Extra (concatMapM)
 import Data.List (isSuffixOf)

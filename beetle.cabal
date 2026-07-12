@@ -56,7 +56,7 @@ common warnings
 
 library beetle-core
     import: warnings
-    exposed-modules: Compiler, AST, Parser, TypeChecker, Closures, Encloser, LLVM, Backend
+    exposed-modules: AST, Parser, TypeChecker, Closures, Encloser, LLVM, Backend
     hs-source-dirs:  source
     build-depends:   base, process, megaparsec, containers, parser-combinators, mtl
 
@@ -84,5 +84,6 @@ executable beetle
 test-suite compiler-tests
     type:             exitcode-stdio-1.0
     main-is:          Main.hs
+    other-modules:    SimpleCompiler
     hs-source-dirs:   tests
     build-depends:    base, process, tasty, tasty-hunit, megaparsec, directory, filepath, extra, beetle-core
