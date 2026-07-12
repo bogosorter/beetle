@@ -4,7 +4,7 @@ import Closures
 import LLVM
 
 import Control.Monad.State (State, runState, get, put)
-import Data.Map (Map, insert, lookup, empty)
+import Data.Map (Map, insert, empty, (!), findWithDefault)
 
 compileProgram :: Closures.Program -> LLVM.Program
 compileProgram program = LLVM.Program functions (statements s, e, llvmType $ getType mainExpression)
@@ -57,7 +57,7 @@ compileExpression env expression = case expression of
         putStatement $ Comment "Allocate the necessary space"
         register <- allocate $ Backend.closureType
         let env' = case innermostLet env of
-                Just s -> insertOverride s register env
+                Just s -> insertVariable s register env
                 Nothing -> env
 
         putStatement $ Comment "Insert the function into the closure"
@@ -81,10 +81,8 @@ compileExpression env expression = case expression of
     Argument _ ->
         return $ variableOperand "_argument"
 
-    Local name _ -> do
-        case Data.Map.lookup name (letOverrides env) of
-            Just o -> return o
-            Nothing -> return $ variableOperand name
+    Local name _ ->
+        return $ variableOperands env ! name
 
     -- Retrieving a variable from the closure environment is essentially
     -- accessing a member of a special tuple
@@ -180,10 +178,11 @@ compileExpression env expression = case expression of
         let env' = insertLet name env
         valueRegister <- compileExpression env' value
 
-        let variable = variableOperand name
+        variable <- createVariable name
         putStatement $ Bitcast variable (llvmType $ getType value) valueRegister (llvmType $ getType value)
+        let env' = insertVariable name variable env
 
-        compileExpression env body
+        compileExpression env' body
 
     _ -> error ("unexpected expression " ++ show expression)
 
@@ -221,14 +220,15 @@ booleanLiteral operand n = BinaryOperation operand LLVM.BooleanType Add (integer
 -- State and environment utils
 
 data CompilationState = CompilationState
-    { register :: Int
-    , branch :: Int
-    , basicBlock :: Label
+    { register :: Int -- the last register to have been used
+    , branch :: Int -- a counter for the number of branches in this expression
+    , basicBlock :: Label -- the current basic block
+    , variableCounter :: Map String Int -- used to provide a fresh variable name for shadowing
     , statements :: [Statement]
     }
 
 initialState :: CompilationState
-initialState = CompilationState 0 0 (MakeLabel "entry") []
+initialState = CompilationState 0 0 (MakeLabel "entry") empty []
 
 reserveRegister :: State CompilationState Operand
 reserveRegister = do
@@ -259,6 +259,14 @@ getBasicBlock = do
     state <- get
     return $ basicBlock state
 
+createVariable :: String -> State CompilationState Operand
+createVariable name = do
+    state <- get
+    let counter = variableCounter state
+    let variableCount = findWithDefault 0 name counter + 1
+    put state { variableCounter = insert name variableCount counter }
+    return $ variableOperand (name ++ "_" ++ show variableCount)
+
 putStatement :: Statement -> State CompilationState ()
 putStatement s = do
     state <- get
@@ -266,27 +274,27 @@ putStatement s = do
 
 data CompilationEnvironment = CompilationEnvironment
     { environmentType :: LLVM.Type -- the type of the function closure environment
+    , variableOperands :: Map String Operand
     -- When compiling a recursive function, we need to refer to the function's
     -- closure before the function has been assigned to the final local
     -- variable. As such, whenever there is a let the innermostLet variable is
     -- set, and it will be used when a closure is created to point to the
     -- already existing register rather than the final local variable
     , innermostLet :: Maybe String
-    , letOverrides :: Map String Operand
     }
 
 initialEnvironment :: CompilationEnvironment
-initialEnvironment = CompilationEnvironment LLVM.VoidType Nothing empty
+initialEnvironment = CompilationEnvironment LLVM.VoidType empty Nothing
 
 initialEnvironmentWithType :: LLVM.Type -> CompilationEnvironment
-initialEnvironmentWithType t = CompilationEnvironment t Nothing empty
+initialEnvironmentWithType t = CompilationEnvironment t empty Nothing
+
+insertVariable :: String -> Operand -> CompilationEnvironment -> CompilationEnvironment
+insertVariable s o env = env { variableOperands = insert s o operands }
+    where operands = variableOperands env
 
 insertLet :: String -> CompilationEnvironment -> CompilationEnvironment
 insertLet s env = env { innermostLet = Just s }
-
-insertOverride :: String -> Operand -> CompilationEnvironment -> CompilationEnvironment
-insertOverride s o env = env { letOverrides = insert s o overrides }
-    where overrides = letOverrides env
 
 -- Type utils
 

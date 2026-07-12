@@ -104,10 +104,8 @@ typeCheck env expression = case expression of
         let env' = insertUserType (typeName expression) (aliasedType expression) env
         typeCheck env' (body expression)
 
-    -- Variable shadowing is not allowed
     Assignment {} -> do
         let name = variableName expression
-        checkAvailableVariable position env name
 
         -- For the moment, arbitrary recursion is not allowed. For instance, a
         -- lambda cannot refer to the variable that holds it. This can only
@@ -133,7 +131,6 @@ typeCheck env expression = case expression of
 
     TupleDestructuring {} -> do
         let names = destructuredNames expression
-        mapM_ (checkAvailableVariable position env) names
 
         typedTuple <- typeCheck env (tuple expression)
         memberTypes <- case getType typedTuple of
@@ -164,11 +161,6 @@ desugar position env (FunctionType argumentType returnType) = do
     desugaredReturnType <- desugar position env returnType
     Right $ FunctionType desugaredArgumentType desugaredReturnType
 desugar _ _ t = Right $ t
-
-checkAvailableVariable :: SourcePos -> Environment -> String -> Either TypeError ()
-checkAvailableVariable position env name = case isAvailable env name of
-    True -> Right ()
-    False -> Left $ TypeError position ("variable " ++ name ++ " has already been declared")
 
 
 -- Environment utils
