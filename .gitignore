@@ -12,3 +12,6 @@ tests/**
 !tests/**/
 !tests/**/*.btl
 !tests/**/*.out
+
+test.sh
+install.sh
