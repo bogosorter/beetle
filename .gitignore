@@ -1,5 +1,7 @@
 dist-newstyle
 test.btl
+test.ast
+test.tc
 test.ir
 test.ll
 tests/**
