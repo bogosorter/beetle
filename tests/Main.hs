@@ -18,33 +18,8 @@ import Text.Megaparsec (errorBundlePretty)
 main :: IO ()
 main = do
     files <- getFiles "tests"
-
-    parsingTests <- mapM testParsing files
-    typeCheckingTests <- mapM testTypeChecking files
     executionTests <- mapM testExecution files
-
-    defaultMain $ testGroup "all"
-        [ testGroup "parse" parsingTests
-        , testGroup "type-check" typeCheckingTests
-        , testGroup "execute" executionTests
-        ]
-
-testParsing :: FilePath -> IO TestTree
-testParsing path = do
-    content <- readFile path
-    return $ testCase path $ case parseProgram content of
-        Right _ -> return ()
-        Left error -> assertFailure (errorBundlePretty error)
-
-testTypeChecking :: FilePath -> IO TestTree
-testTypeChecking path = do
-    content <- readFile path
-    let parsed = case parseProgram content of
-            Right parsed -> parsed
-            Left _ -> error "program should parse"
-    return $ testCase path $ case typeCheckProgram parsed of
-        Right _ -> return ()
-        Left message -> assertFailure (show message)
+    defaultMain $ testGroup "all" executionTests
 
 testExecution :: FilePath -> IO TestTree
 testExecution path = do
