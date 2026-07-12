@@ -1,0 +1,5 @@
+f(x: integer): integer =
+    x = 1;
+    return x + 1;
+
+return f(0);

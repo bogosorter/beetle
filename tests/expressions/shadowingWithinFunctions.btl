@@ -1,0 +1,6 @@
+s(x: integer): integer =
+    y = 0;
+    y = 1;
+    return x + y;
+
+return f(0);
