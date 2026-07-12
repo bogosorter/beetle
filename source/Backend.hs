@@ -36,7 +36,10 @@ compileExpression env expression = case expression of
         return register
 
     Tuple members t -> do
+        putStatement $ Comment "Allocating space for tuple"
         register <- allocate $ llvmTupleType t
+
+        putStatement $ Comment "Calculating and inserting members"
 
         let insertMember :: (Int, Closures.Expression) -> State CompilationState ()
             insertMember (index, member) = do
@@ -92,6 +95,7 @@ compileExpression env expression = case expression of
         return result
 
     TupleMember index tuple t -> do
+        putStatement $ Comment "Accessing tuple member"
         tupleRegister <- compileExpression env tuple
         tupleMember tupleRegister (llvmTupleType $ getType tuple) index (llvmType t)
 

@@ -29,7 +29,7 @@ enclose env expression = case expression of
             Just result -> return result
             Nothing -> case lookup name builtInFunctions of
                 Just result -> return result
-                Nothing -> error "variable should have been added to environment"
+                Nothing -> error ("variable " ++ name ++ " should have been added to environment")
 
     Tuple {} -> do
         let members = tupleMembers expression
@@ -105,8 +105,9 @@ enclose env expression = case expression of
             memberTypes = case Closures.getType enclosedTuple of
                 Closures.TupleType memberTypes -> memberTypes
                 _ -> error "tuples should only have tuple types"
-            variables = map (\(name, t) -> Closures.Local name t) (zip names memberTypes)
-            env' = foldr (uncurry insertVariable) env (zip names variables)
+            -- Holes should not be added to the environment
+            variables = [Closures.Local name t | (name, t) <- zip names memberTypes]
+            env' = foldr (uncurry insertVariable) env [pair | pair@(name, _) <- zip names variables, name /= "_"]
 
         -- Create the final value
         enclosedBody <- enclose env' (body expression)
@@ -114,8 +115,9 @@ enclose env expression = case expression of
 
         -- Create the enclosing tuple access statements
         let createLet name access body = Closures.Let name access body bodyType
-            accesses = map (\(index, t) -> Closures.TupleMember index tempReference t) (zip [0..] memberTypes)
-            enclosedBody' = foldr (uncurry createLet) enclosedBody (zip names accesses)
+            accesses = [Closures.TupleMember index tempReference t | (index, t) <- zip [0..] memberTypes]
+            -- Accesses corresponding to holes should not be performed
+            enclosedBody' = foldr (uncurry createLet) enclosedBody [pair | pair@(name, _) <- zip names accesses, name /= "_"]
 
         return $ Closures.Let temporary enclosedTuple enclosedBody' bodyType
 
