@@ -4,7 +4,6 @@
 
 - Prevent conflits on variable naming
 - Ensure that functions with the same name on different scopes do not collide
-- Variable shadowing
 
 # v3.4.0
 
