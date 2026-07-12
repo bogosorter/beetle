@@ -1,0 +1,3 @@
+f(x: integer): integer = return x;
+f(x: integer): integer = return x + 1;
+return f(0);

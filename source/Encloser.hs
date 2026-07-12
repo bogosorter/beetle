@@ -6,7 +6,7 @@ import qualified Closures (Type(..), Expression(..), getType)
 
 import Data.Set (Set, singleton, union, unions, difference, delete)
 import qualified Data.Set as Set (empty, elems, fromList)
-import Data.Map (Map, insert, findIndex, (!))
+import Data.Map (Map, insert, findIndex, (!), findWithDefault)
 import qualified Data.Map as Map (lookup, empty, elems, fromList)
 import Control.Monad.State
 
@@ -140,8 +140,8 @@ encloseFunction env expression functionName = do
 
         -- If name is nothing, we are enclosing a lambda
         name <- case functionName of
-            Just n -> return n
-            Nothing -> createLambda
+            Just name -> createFunction name
+            Nothing -> createFunction "lambda"
 
         enclosedBody <- enclose closureEnvironment' (body expression)
 
@@ -202,12 +202,12 @@ encloseType (UserType _) = error "type variables should have been removed in typ
 
 data ClosureState = ClosureState
     { functions :: [Function]
+    , functionCounter :: Map String Int
     , temporary :: Int
-    , lambda :: Int
     }
 
 initialState :: ClosureState
-initialState = ClosureState [] 0 0
+initialState = ClosureState [] Map.empty 0
 
 createTemporary :: State ClosureState String
 createTemporary = do
@@ -216,18 +216,19 @@ createTemporary = do
     put state { temporary = result + 1}
     return $ "_tmp" ++ show result
 
-createLambda :: State ClosureState String
-createLambda = do
+createFunction :: String -> State ClosureState String
+createFunction name = do
     state <- get
-    let result = lambda state
-    put $ state { lambda = result + 1}
-    return $ "_lambda" ++ show result
+    let counter = functionCounter state
+    let functionCount = findWithDefault 0 name counter + 1
+    put $ state { functionCounter = insert name functionCount counter }
+    return $ name ++ "_" ++ show functionCount
 
 putFunction :: Function -> State ClosureState ()
 putFunction f = do
     state <- get
     let fs = Encloser.functions state
-    put state { Encloser.functions = f : fs }
+    put state { Encloser.functions = fs ++ [f] }
 
 data Environment = Environment
     { variables :: Map String Closures.Expression

@@ -1,10 +1,5 @@
 # Roadmap
 
-# v3.3.0
-
-- Prevent conflits on variable naming
-- Ensure that functions with the same name on different scopes do not collide
-
 # v3.4.0
 
 - AND, OR and NOT operators
