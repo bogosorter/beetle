@@ -25,7 +25,7 @@ Other examples can be found under the `tests` directory (the most relevant examp
 
 ## Installing & Running
 
-Executables for Linux users can be found under the [releases page](https://github.com/bogosorter/beetle/releases). An example usage follows:
+Executables for Linux users can be found under the [releases page](https://github.com/bogosorter/beetle/releases). [`clang`](https://clang.llvm.org/) is required. An example usage follows:
 
 ```
 $ beetle fibonacci.btl

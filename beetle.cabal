@@ -30,7 +30,7 @@ executable beetle
     hs-source-dirs: app
     main-is: Main.hs
     other-modules: Errors, Arguments
-    build-depends: base, containers, process, filepath, megaparsec, text, errata, core
+    build-depends: base, containers, process, filepath, directory, megaparsec, text, errata, core
     default-extensions: OverloadedStrings
 
 test-suite tests

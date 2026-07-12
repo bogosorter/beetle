@@ -10,6 +10,7 @@ import Backend
 
 import System.Exit (ExitCode(..), exitFailure, exitSuccess)
 import System.Process (readProcessWithExitCode)
+import System.Directory (findExecutable)
 import Control.Monad (when)
 
 
@@ -44,6 +45,11 @@ main = do
 
     let compiledProgram = compileProgram enclosedProgram
     checkpoint LLVM parsedArguments compiledProgram
+
+    hasClang <- findExecutable "clang"
+    when (hasClang == Nothing) $ do
+        putStrLn "please install clang before compiling with beetle"
+        exitFailure
 
     (code, _, stderr) <- readProcessWithExitCode "clang" ["-x" ,"ir", "-", "-o", outputFile parsedArguments] (show compiledProgram)
     case code of
