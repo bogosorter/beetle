@@ -20,7 +20,8 @@ assignment = typeSymbol '=' type
 expression = logical
            | logical (',' logical) -- tuple creation
 logical = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
-arithmetic = atom (('+' | '-') atom)*
+arithmetic = factor (('+' | '-') factor)*
+factor = atom (('*' | '/' | 'mod' | 'rem') atom)*
 atom = symbol expressionCall
      | symbol structAccess
      | '-' atom -- unary minus
