@@ -251,7 +251,11 @@ getVariable env name = variables env ! name
 
 builtInFunctions :: [(String, Closures.Expression)]
 builtInFunctions =
-    [ makeBuiltInFunction "+" Closures.IntegerType Closures.IntegerType Closures.IntegerType
+    [ makeBuiltInFunction "*" Closures.IntegerType Closures.IntegerType Closures.IntegerType
+    , makeBuiltInFunction "/" Closures.IntegerType Closures.IntegerType Closures.IntegerType
+    , makeBuiltInFunction "mod" Closures.IntegerType Closures.IntegerType Closures.IntegerType
+    , makeBuiltInFunction "rem" Closures.IntegerType Closures.IntegerType Closures.IntegerType
+    , makeBuiltInFunction "+" Closures.IntegerType Closures.IntegerType Closures.IntegerType
     , makeBuiltInFunction "-" Closures.IntegerType Closures.IntegerType Closures.IntegerType
     , makeBuiltInFunction "<" Closures.IntegerType Closures.IntegerType Closures.BooleanType
     , makeBuiltInFunction ">" Closures.IntegerType Closures.IntegerType Closures.BooleanType
