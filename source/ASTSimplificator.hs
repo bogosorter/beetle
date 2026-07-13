@@ -13,6 +13,15 @@ simplify expression = case expression of
     Function {} -> expression { body = simplify $ body expression }
     If condition left right t -> If (simplify condition) (simplify left) (simplify right) t
 
+    -- Since the LLVM does not provide a true modulo operator, it is complicated
+    -- (ehem, simplified) to only use the remainder
+    -- a mod b = (a rem b + b) rem b
+    Application (Application (Variable "mod" _) left _) right _ ->
+        let abRem = Application (Application (Variable "rem" IntegerType) left IntegerType) right IntegerType
+            bPlus = Application (Application (Variable "+" IntegerType) abRem IntegerType) right IntegerType
+            bRem = Application (Application (Variable "rem" IntegerType) bPlus IntegerType) right IntegerType
+        in simplify $ bRem
+
     -- and is simplified to an if expression
     Application (Application (Variable "and" _) left _) right _ ->
         simplify $ If left right (Boolean False BooleanType) BooleanType
