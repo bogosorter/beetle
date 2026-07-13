@@ -114,6 +114,12 @@ binaryOperation = do
 
     where table position =
             [
+                [ E.InfixL (builder position <$> symbol "*")
+                , E.InfixL (builder position <$> symbol "/")
+                , E.InfixL (builder position <$> symbol "mod")
+                , E.InfixL (builder position <$> symbol "rem")
+                ]
+            ,
                 [ E.InfixL (builder position <$> symbol "+")
                 , E.InfixL (builder position <$> symbol "-")
                 ]
@@ -297,7 +303,7 @@ typeIdentifier = lexeme $ do
     return (first : following)
 
 reserved :: [String]
-reserved = ["if", "return", "true", "false", "boolean", "integer"]
+reserved = ["if", "return", "true", "false", "boolean", "integer", "mod", "rem"]
 
 identifier :: Parser String
 identifier = M.try $ lexeme $ do
