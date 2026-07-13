@@ -96,12 +96,12 @@ typeCheck env expression = case expression of
 
     -- Type shadowing is not allowed
     -- The type declaration is removed during type checking
-    TypeDeclaration {} -> do
+    TypeAssignment {} -> do
         let name = typeName expression
         unless (isAvailable env name) $
             Left $ TypeError position ("type " ++ name ++ " has already been declared")
 
-        let env' = insertUserType (typeName expression) (aliasedType expression) env
+        let env' = insertUserType (typeName expression) (assignedType expression) env
         typeCheck env' (body expression)
 
     Assignment {} -> do
@@ -147,7 +147,7 @@ typeCheck env expression = case expression of
     where position = getPosition expression
 
 desugar :: SourcePos -> Environment -> Type -> Either TypeError Type
-desugar position env (UserType name) = do
+desugar position env (TypeAlias name) = do
     let types = userTypes env
     case Map.lookup name types of
         Just t -> desugar position env t

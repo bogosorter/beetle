@@ -4,7 +4,14 @@ import qualified Data.Map as Map
 import qualified Data.List as List
 import Text.Megaparsec (SourcePos)
 
-data Type = BooleanType | IntegerType | UserType String | TupleType [Type] | RecordType (Map.Map String Type) | FunctionType Type Type
+data Type
+    = BooleanType
+    | IntegerType
+    | TupleType [Type]
+    | RecordType (Map.Map String Type)
+    | FunctionType Type Type
+    | TypeAlias String
+    | SumType (Map.Map String Type)
     deriving Eq
 
 data Expression a
@@ -51,9 +58,9 @@ data Expression a
         , memberName :: String
         , annotation :: a
         }
-    | TypeDeclaration
+    | TypeAssignment
         { typeName :: String
-        , aliasedType :: Type
+        , assignedType :: Type
         , body :: Expression a
         , annotation :: a
         }
@@ -82,7 +89,6 @@ getType others = annotation others
 instance Show Type where
     show IntegerType = "integer"
     show BooleanType = "boolean"
-    show (UserType name) = name
     show (TupleType memberTypes) = "(" ++ List.intercalate ", " (map show memberTypes) ++ ")"
     show (RecordType memberTypes) = "{" ++ List.intercalate ", " (map showRecordMemberType (Map.toList memberTypes)) ++ "}"
     -- We check for a function type on the left side and add parentheses, since
@@ -90,6 +96,8 @@ instance Show Type where
     show (FunctionType argumentType returnType) = case argumentType of
         FunctionType {} -> "(" ++ show argumentType ++ ") -> " ++ show returnType
         _ -> show argumentType ++ " -> " ++ show returnType
+    show (TypeAlias name) = name
+    show (SumType constructors) = List.intercalate " | " [constructor ++ " " ++ show t | (constructor, t) <- Map.toList constructors]
 
 showRecordMemberType :: (String, Type) -> String
 showRecordMemberType (name, t) = name ++ ": " ++ show t

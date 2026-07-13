@@ -3,6 +3,7 @@
 module Parser (parseProgram) where
 
 import AST
+
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as C
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -32,7 +33,7 @@ returnExpression = binding <|> ifExpression <|> returnValue
 -- of ensuing expression from assignments and type declarations.
 binding :: Parser SourceExpression
 binding = do
-    expressionBuilder <- typeDeclaration <|> assignment
+    expressionBuilder <- typeAssignment <|> assignment
     symbol ";"
     body <- returnExpression
     return $ expressionBuilder body
@@ -54,13 +55,30 @@ returnValue = do
     value <- expression
     return value
 
-typeDeclaration :: Parser (SourceExpression -> SourceExpression)
-typeDeclaration = do
+typeAssignment :: Parser (SourceExpression -> SourceExpression)
+typeAssignment = do
     position <- M.getSourcePos
     name <- typeIdentifier
     symbol "="
-    aliasedType <- typeParser
-    return $ \body -> TypeDeclaration name aliasedType body position
+    t <- typeParser
+
+    finalType <- case t of
+        TypeAlias constructor -> attemptSumType constructor <|> return t
+        _ -> return t
+    return $ \body -> TypeAssignment name finalType body position
+
+attemptSumType :: String -> Parser Type
+attemptSumType firstConstructor = do
+    firstType <- typeParser
+    symbol "|"
+
+    additionalConstructors <- M.sepBy1 (do
+            constructor <- typeIdentifier
+            t <- typeParser
+            return (constructor, t)
+        ) (symbol "|")
+
+    return $ SumType (fromList $ (firstConstructor, firstType) : additionalConstructors)
 
 assignment :: Parser (SourceExpression -> SourceExpression)
 assignment = do
@@ -279,7 +297,7 @@ integerType = do
 userType :: Parser Type
 userType = do
     name <- typeIdentifier
-    return $ UserType name
+    return $ TypeAlias name
 
 parenthesizedType :: Parser Type
 parenthesizedType = do

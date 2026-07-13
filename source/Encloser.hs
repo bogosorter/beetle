@@ -121,7 +121,7 @@ enclose env expression = case expression of
 
         return $ Closures.Let temporary enclosedTuple enclosedBody' bodyType
 
-    TypeDeclaration {} -> error "type variables should have been removed in type checking"
+    TypeAssignment {} -> error "type variables should have been removed in type checking"
 
 
 encloseFunction :: Environment -> TypedExpression -> Maybe String -> State ClosureState Closures.Expression
@@ -188,7 +188,7 @@ freeVariables expression = case expression of
     TupleDestructuring { destructuredNames = names, tuple = tuple, body = body} ->
         (freeVariables tuple `union` freeVariables body) `difference` (Set.fromList names)
 
-    TypeDeclaration {} -> error "type variables should have been removed in type checking"
+    TypeAssignment {} -> error "type variables should have been removed in type checking"
 
 
 encloseType :: Type -> Closures.Type
@@ -197,7 +197,7 @@ encloseType IntegerType = Closures.IntegerType
 encloseType (TupleType memberTypes) = Closures.TupleType (map encloseType memberTypes)
 encloseType (RecordType memberTypes) = Closures.TupleType (map encloseType $ Map.elems memberTypes)
 encloseType (FunctionType argumentType returnType) = Closures.ClosureType (encloseType argumentType) (encloseType returnType)
-encloseType (UserType _) = error "type variables should have been removed in type checking"
+encloseType (TypeAlias _) = error "type variables should have been removed in type checking"
 
 
 -- State and environment utils

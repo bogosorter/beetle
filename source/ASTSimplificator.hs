@@ -38,4 +38,4 @@ simplify expression = case expression of
     Assignment name value body t -> Assignment name (simplify value) (simplify body) t
     TupleDestructuring names tuple body t -> TupleDestructuring names (simplify tuple) (simplify body) t
 
-    TypeDeclaration {} -> error "type checked AST should not have type declarations"
+    TypeAssignment {} -> error "type checked AST should not have type declarations"

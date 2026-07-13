@@ -12,10 +12,12 @@ returnExpression = assignment ';' returnExpression
                  | 'if' expression ':' returnExpression ';' returnExpression
                  | 'return' expression
 
-assignment = typeSymbol '=' type
+assignment = typeAssignment
            | symbol '=' expression
            | symbol function
            | symbol (',' symbol)+ '=' expression -- tuple assignment
+typeAssignment = typeSymbol '=' type
+               | typeSymbol '=' typeSymbol type ('|' typeSymbol type)+
 
 expression = logical
            | logical (',' logical) -- tuple creation
