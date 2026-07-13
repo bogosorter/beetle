@@ -4,7 +4,6 @@
 
 - AND, OR and NOT operators
 - Multiplication and division operators
-- Tuple deconstruct holes
 
 # v3.5.0
 
