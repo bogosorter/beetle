@@ -5,6 +5,7 @@ import Errors
 
 import Parser
 import TypeChecker
+import ASTSimplificator
 import Encloser
 import Backend
 
@@ -40,7 +41,10 @@ main = do
             exitFailure
     checkpoint TypeChecked parsedArguments typedProgram
 
-    let enclosedProgram = encloseProgram typedProgram
+    let simplifiedProgram = simplify typedProgram
+    checkpoint Simplified parsedArguments simplifiedProgram
+
+    let enclosedProgram = encloseProgram simplifiedProgram
     checkpoint IR parsedArguments enclosedProgram
 
     let compiledProgram = compileProgram enclosedProgram

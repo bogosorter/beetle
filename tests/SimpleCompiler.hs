@@ -2,6 +2,7 @@ module SimpleCompiler (compile, compileWithTypeErrors) where
 
 import Parser
 import TypeChecker
+import ASTSimplificator
 import Encloser
 import Backend
 
@@ -20,8 +21,10 @@ compile input output = do
             Left message -> error (show message)
             Right typedProgram -> typedProgram
 
-    let enclosedProgram = encloseProgram typedProgram
-    let llvm = Backend.compileProgram enclosedProgram
+
+    let simplifiedProram = simplify typedProgram
+        enclosedProgram = encloseProgram simplifiedProram
+        llvm = Backend.compileProgram enclosedProgram
 
     (code, _, stderr) <- readProcessWithExitCode "clang" ["-x" ,"ir", "-", "-o", output] (show llvm)
     case code of

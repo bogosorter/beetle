@@ -3,6 +3,7 @@ dist-newstyle
 test.btl
 test.ast
 test.tc
+test.s
 test.ir
 test.ll
 test

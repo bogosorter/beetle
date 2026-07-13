@@ -12,7 +12,7 @@ data Arguments = Arguments
     , outputType :: OutputType
     }
 
-data OutputType = AST | TypeChecked | IR | LLVM | Binary deriving Eq
+data OutputType = AST | TypeChecked | Simplified | IR | LLVM | Binary deriving Eq
 
 
 parseArguments :: IO (Maybe Arguments)
@@ -29,6 +29,7 @@ tokenize [] = []
 tokenize ("-o":f:rest) = OutputFile f : tokenize rest
 tokenize ("-ast":rest) = OutputTypeToken AST : tokenize rest
 tokenize ("-tc":rest) = OutputTypeToken TypeChecked : tokenize rest
+tokenize ("-s":rest) = OutputTypeToken Simplified : tokenize rest
 tokenize ("-ir":rest) = OutputTypeToken IR : tokenize rest
 tokenize ("-ll":rest) = OutputTypeToken LLVM : tokenize rest
 tokenize (f:rest) = InputFile f : tokenize rest
@@ -71,6 +72,7 @@ retrieveOutputFile inputFile outputType (t:tokens) = (outputFile, t : tokens')
 outputTypeExtension :: OutputType -> String
 outputTypeExtension AST = ".ast"
 outputTypeExtension TypeChecked = ".tc"
+outputTypeExtension Simplified = ".s"
 outputTypeExtension IR = ".ir"
 outputTypeExtension LLVM = ".ll"
 outputTypeExtension Binary = ""
