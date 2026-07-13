@@ -1,8 +1,10 @@
 module TypeChecker (typeCheckProgram, TypeError(..)) where
 
 import AST
-import Text.Megaparsec (SourcePos)
+import Text.Megaparsec (SourcePos, Stream (take1_))
 import qualified Data.Map as Map
+import Data.Map ((!))
+import qualified Data.Set as Set
 import Control.Monad (unless, when)
 
 
@@ -32,6 +34,25 @@ typeCheck env expression = case expression of
         let tupleType = RecordType $ Map.map getType typedMembers
         Right $ Record typedMembers tupleType
 
+    Constructor {} -> do
+        let name = constructor expression
+        case Map.lookup name (userTypes env) of
+            Just (ConstructorType _ sumType@(SumType constructors)) -> do
+                typedValue <- typeCheck env (value expression)
+
+                let expectedValueType = constructors ! name
+                    valueType = getType typedValue
+
+                desugaredExpectedType <- desugar position env expectedValueType
+                when (desugaredExpectedType /= valueType) $
+                    Left $ TypeError (getPosition $ value expression) ("expected type " ++ show expectedValueType ++ ", but got value of type " ++ show valueType)
+
+                desugaredSumType <- desugar position env sumType
+                return $ Constructor name typedValue desugaredSumType
+
+            Just t -> Left $ TypeError position (name ++ " is not a constructor (the type of " ++ name ++ " is " ++ show t ++ ")")
+            Nothing -> Left $ TypeError position ("couldn't find constructor " ++ name)
+
     Function {} -> do
         let Function argumentType returnType argumentName body _ = expression
         argumentType <- desugar position env argumentType
@@ -57,6 +78,45 @@ typeCheck env expression = case expression of
             Left $ TypeError position "the branches of an if expression must have the same return type"
 
         Right $ If typedCondition typedLeft typedRight (getType typedLeft)
+
+    Case {} -> do
+        typedScrutinee <- typeCheck env (scrutinee expression)
+        constructors <- case getType typedScrutinee of
+            SumType constructors -> return constructors
+            t -> Left $ TypeError (getPosition $ scrutinee expression) ("the scrutinee of a case expression must be a sum type, but got type " ++ show t)
+
+        -- The three conditions asserted below are also enough to prove that
+        -- every possible case is covered:
+        --     - The constructors in the case branches cannot have duplicates
+        --     - The number of branches must be equal to the number of
+        --       constructors of the sum type
+        --     - Every constructor in the branches must belong to the sum type
+        --       of the scrutinee
+
+        let branchConstructors = [constructor | (constructor, _, _) <- branches expression]
+        when (hasDuplicates branchConstructors) $
+            Left $ TypeError position "case branches have duplicate constructors"
+        unless (length branchConstructors == Map.size constructors) $
+            Left $ TypeError position "cannot have less branches in a case expression than constructors in the sum type"
+
+        let typeCheckBranch :: (String, String, SourceExpression) -> Either TypeError (String, String, TypedExpression)
+            typeCheckBranch (constructor, introducedVariable, value) = do
+                unless (Map.member constructor constructors) $
+                    Left $ TypeError position ("constructor " ++ show constructor ++ " does not exist in type " ++ show (getType typedScrutinee))
+
+                let introducedType = constructors ! constructor
+                    env' = insertVariableType introducedVariable introducedType env
+
+                typedValue <- typeCheck env' value
+                return (constructor, introducedVariable, typedValue)
+
+        typedBranches <- mapM typeCheckBranch (branches expression)
+        let branchValueTypes = [getType value | (_, _, value) <- typedBranches]
+
+        unless (allEqual branchValueTypes) $
+            Left $ TypeError position "all the return types of a case expression's branches must be equal"
+
+        return $ Case typedScrutinee typedBranches (branchValueTypes !! 0)
 
     Application {} -> do
         typedFunction <- typeCheck env (function expression)
@@ -101,8 +161,15 @@ typeCheck env expression = case expression of
         unless (isAvailable env name) $
             Left $ TypeError position ("type " ++ name ++ " has already been declared")
 
-        let env' = insertUserType (typeName expression) (assignedType expression) env
-        typeCheck env' (body expression)
+        let t = assignedType expression
+            env' = insertUserType (typeName expression) t env
+            env'' = case assignedType expression of
+                SumType constructors ->
+                    let constructorTypes = [(constructor, ConstructorType constructor t) | (constructor, _) <- Map.toList constructors]
+                    in Prelude.foldr (uncurry insertUserType) env' constructorTypes
+                _ -> env'
+
+        typeCheck env'' (body expression)
 
     Assignment {} -> do
         let name = variableName expression
@@ -198,7 +265,7 @@ isAvailable env name = not (Map.member name variables) && not (Map.member name t
     where variables = variableTypes env
           types = userTypes env
 
-insertVariableType :: String -> Type -> Environment  -> Environment
+insertVariableType :: String -> Type -> Environment -> Environment
 insertVariableType name t env = Environment newTypes (userTypes env)
     where newTypes = Map.insert name t (variableTypes env)
 
@@ -209,3 +276,12 @@ insertUserType name t env = Environment (variableTypes env) newTypes
 
 instance Show TypeError where
     show (TypeError _ e) = e
+
+
+hasDuplicates :: Ord a => [a] -> Bool
+hasDuplicates list = length list > Set.size (Set.fromList list)
+
+allEqual :: Eq a => [a] -> Bool
+allEqual [] = False
+allEqual [_] = False
+allEqual (x:y:xs) = if x == y then True else allEqual (y:xs)
