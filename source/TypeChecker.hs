@@ -188,6 +188,9 @@ defaultFunctions = Map.fromList
     , ("<=", FunctionType IntegerType (FunctionType IntegerType BooleanType))
     , (">", FunctionType IntegerType (FunctionType IntegerType BooleanType))
     , ("<", FunctionType IntegerType (FunctionType IntegerType BooleanType))
+    , ("not", FunctionType BooleanType BooleanType)
+    , ("and", FunctionType BooleanType (FunctionType BooleanType BooleanType))
+    , ("or", FunctionType BooleanType (FunctionType BooleanType BooleanType))
     ]
 
 isAvailable :: Environment -> String -> Bool
