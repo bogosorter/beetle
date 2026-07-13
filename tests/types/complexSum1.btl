@@ -1,0 +1,14 @@
+Sum = Left integer | Middle {x: integer, y: integer} | Right (integer, integer)
+
+a = Left 1;
+b = Middle {x: 1, y: 2};
+
+case a of
+    Left n -> case b of
+        Middle p ->
+            return n + p.y;
+        Right t ->
+            a, b = t
+            return n + b;
+        _ -> return -2;
+    _ -> return -1;

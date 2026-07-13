@@ -1,0 +1,9 @@
+Sum = Left integer | Right {};
+
+f(b: boolean, n: integer): Sum =
+    if b: return Left n;
+    return Right {};
+
+case f(true, 1) of
+    Left n -> return n;
+    Rigt {} -> return -1;

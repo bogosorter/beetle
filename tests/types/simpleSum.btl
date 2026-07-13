@@ -1,0 +1,6 @@
+Sum = Left integer | Right integer;
+
+value = Left 1;
+case value of
+    Left n -> return n;
+    Right n -> return n;

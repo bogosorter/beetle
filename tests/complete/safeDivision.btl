@@ -1,0 +1,10 @@
+Result = Result integer | Error {};
+
+safeDivision(a: integer, b: integer): Result =
+    if b == 0: return Error {};
+    return Result (a / b);
+
+result = safeDivision(3, 0);
+case result of
+    Result n -> return n;
+    Error _ -> return -1;
