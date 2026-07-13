@@ -33,56 +33,10 @@ $ ./fibonacci
 13
 ```
 
-The `-o` flag can be used to specify an output file, and the flags `-ast`, `-tc`, `-ir` and `-ll` can be used to generate files with the AST, type-checked AST, Intermediate Representation and LLVM codes.
+The `-o` flag can be used to specify an output file, and the flags `-ast`, `-tc`, `-s`, `-ir` and `-ll` can be used to generate files with the AST, type-checked AST, simplified AST, Intermediate Representation and LLVM codes.
 
 ## Details
 
 *beetle* is a tiny language. It is strictly typed, with the only supported primitive types being integers and booleans. These may be composed using tuples or structs. Closures enable higher-order functions and multiple-argument functions (which are desugared into chains of single-argument functions). Single-line comments start with `--`.
 
-The language's grammar is displayed below. A curious particularity, which I have not yet seen in any other language, is that there are two different types of expressions, `returnExpressions` and plain `expressions`. Since this is a functional language, pretty much everything is an expression, but `returnExpressions` also allow the definitions of variables, `if` usage and must terminate with a `return`. This allows a clean syntax (similar to Python's, without cluttering from curly braces and `let` statements) while avoiding whitespace sensitivity. I must admit I'm quite proud of it.
-
-> The factored, non-left-recursive grammar can be found under `grammar.md`
-
-```
--- The grammar distinguishes between expressions and return expressions. The
--- former can only represent simple arithmetic expressions, while the later can
--- also contain assignments and if expressions, and produced expression (which
--- comes with last) must start with the keyword 'return' to disambiguate. In the
--- AST, though, there is no difference between the two.
-
-program = returnExpression ';'
-
-returnExpression = assignment ';' returnExpression
-                 -- The if statement has an implicit else
-                 | 'if' expression ':' returnExpression ';' returnExpression
-                 | 'return' expression
-
-assignment = typeSymbol '=' type
-           | symbol '=' expression
-           | symbol function
-           | symbol (',' symbol)+ '=' expression -- tuple assignment
-
-expression = logical
-           | logical (',' logical) -- tuple creation
-logical = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
-arithmetic = factor (('+' | '-') factor)*
-factor = atom (('*' | '/' | 'mod' | 'rem') atom)*
-atom = symbol
-     | atom '(' logical (',' logical)* ')' -- call
-     | atom '.' symbol -- struct access
-     | '-' atom -- unary minus
-     | '{' symbol ':' logical (',' symbol ':' logical)* ','? '}' -- struct constructor
-     | '(' expression ')'
-     | - atom
-     | lambda
-     | integer
-     | boolean
-     
-function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' returnExpression
-lambda = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' logical
-
-type = 'integer' | 'boolean' | typeSymbol | '(' type (',' type)+ ')' | '{' symbol ':' type (',' symbol ':' type)* ','? '}' | type ('->' type)*;
-
-symbol = ['a'-'z']['a'-'z''A'-'Z']*;
-typeSymbol = ['A'-'Z']['a'-'z''A'-'Z']*;
-```
+The language's grammar is under `documentation/grammar.md`. A curious particularity, which I have not yet seen in any other language, is that there are two different types of expressions, `returnExpressions` and plain `expressions`. Since this is a functional language, pretty much everything is an expression, but `returnExpressions` also allow the definitions of variables, `if` usage and must terminate with a `return`. This allows a clean syntax (similar to Python's, without cluttering from curly braces and `let` statements) while avoiding whitespace sensitivity. I must admit I'm quite proud of it.

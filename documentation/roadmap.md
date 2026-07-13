@@ -1,10 +1,5 @@
 # Roadmap
 
-# v3.4.0
-
-- AND, OR and NOT operators
-- Multiplication and division operators
-
 # v3.5.0
 
 - Sum types
