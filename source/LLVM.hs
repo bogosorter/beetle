@@ -107,7 +107,7 @@ data Statement
 
 newtype Operand = Operand String
 newtype Label = MakeLabel String
-data OpCode = Add | Sub | Eq | Slt | Sgt | Sle | Sge
+data OpCode = Mul | Div | Rem | Add | Sub | Eq | Slt | Sgt | Sle | Sge
 
 integerOperand :: Int -> Operand
 integerOperand n = Operand (show n)
@@ -271,6 +271,9 @@ instance Show Label where
     show (MakeLabel s) = s
 
 instance Show OpCode where
+    show Mul = "mul"
+    show Div = "sdiv"
+    show Rem = "srem"
     show Add = "add"
     show Sub = "sub"
     show Eq = "icmp eq"

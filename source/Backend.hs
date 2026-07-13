@@ -135,6 +135,9 @@ compileExpression env expression = case expression of
 
         register <- reserveRegister
         let opCode = case name of
+                "*" -> Mul
+                "/" -> Div
+                "rem" -> Rem
                 "+" -> Add
                 "-" -> Sub
                 "<" -> Slt
