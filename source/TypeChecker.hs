@@ -177,7 +177,11 @@ emptyEnvironment = Environment defaultFunctions Map.empty
 
 defaultFunctions :: Map.Map String Type
 defaultFunctions = Map.fromList
-    [ ("+", FunctionType IntegerType (FunctionType IntegerType IntegerType))
+    [ ("*", FunctionType IntegerType (FunctionType IntegerType IntegerType))
+    , ("/", FunctionType IntegerType (FunctionType IntegerType IntegerType))
+    , ("mod", FunctionType IntegerType (FunctionType IntegerType IntegerType))
+    , ("rem", FunctionType IntegerType (FunctionType IntegerType IntegerType))
+    , ("+", FunctionType IntegerType (FunctionType IntegerType IntegerType))
     , ("-", FunctionType IntegerType (FunctionType IntegerType IntegerType))
     , ("==", FunctionType IntegerType (FunctionType IntegerType BooleanType))
     , (">=", FunctionType IntegerType (FunctionType IntegerType BooleanType))
