@@ -12,7 +12,18 @@ simplify expression = case expression of
     Record members t -> Record (Data.Map.map simplify members) t
     Function {} -> expression { body = simplify $ body expression }
     If condition left right t -> If (simplify condition) (simplify left) (simplify right) t
+
+    -- and is simplified to an if expression
+    Application (Application (Variable "and" _) left _) right _ ->
+        simplify $ If left right (Boolean False BooleanType) BooleanType
+
+    -- or is simplified to an if expression
+    Application (Application (Variable "or" _) left _) right _ ->
+        simplify $ If left (Boolean True BooleanType) right BooleanType
+
+    -- Other applications are left untouched
     Application function argument t -> Application (simplify function) (simplify argument) t
+
     RecordMember {} -> expression { record = simplify $ record expression }
     Variable {} -> expression
     Assignment name value body t -> Assignment name (simplify value) (simplify body) t
