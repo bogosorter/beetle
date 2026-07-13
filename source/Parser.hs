@@ -27,7 +27,7 @@ program = do
     return content
 
 returnExpression :: Parser SourceExpression
-returnExpression = binding <|> ifExpression <|> returnValue
+returnExpression = binding <|> ifExpression <|> caseExpression <|> returnValue
 
 -- This parser is used to abstract the logic of parsing a ";" and a collection
 -- of ensuing expression from assignments and type declarations.
@@ -48,6 +48,27 @@ ifExpression = do
     symbol ";"
     right <- returnExpression
     return $ If condition left right position
+
+caseExpression :: Parser SourceExpression
+caseExpression = do
+    position <- M.getSourcePos
+    symbol "case"
+    scrutinee <- expression
+    symbol "of"
+    bs <- branches
+    return $ Case scrutinee bs position
+
+    where branches = do
+            b <- branch
+            branches <- M.option [] (M.try $ symbol ";" >> branches)
+            return $ b : branches
+
+          branch = do
+            constructor <- typeIdentifier
+            introducedVariable <- identifier
+            symbol "->"
+            value <- returnExpression
+            return (constructor, introducedVariable, value)
 
 returnValue :: Parser SourceExpression
 returnValue = do
@@ -158,7 +179,7 @@ binaryOperation = do
           builder position operation left right = Application (Application (Variable operation position) left position) right position
 
 atom :: Parser SourceExpression
-atom = M.try lambda <|> variableUsage <|> unaryMinus <|> logicalNot <|> recordParser <|> integer <|> boolean <|> parenthesizedExpression
+atom = M.try lambda <|> variableUsage <|> unaryMinus <|> logicalNot <|> constructorParser <|> recordParser <|> integer <|> boolean <|> parenthesizedExpression
 
 -- This takes care of things that might continue atoms, such as expression calls
 -- and member access
@@ -201,7 +222,14 @@ logicalNot = do
     position <- M.getSourcePos
     symbol "not"
     inner <- atom
-    return $ (Application (Variable "not" position) inner position)
+    return $ Application (Variable "not" position) inner position
+
+constructorParser :: Parser SourceExpression
+constructorParser = do
+    position <- M.getSourcePos
+    constructor <- typeIdentifier
+    value <- atom
+    return $ Constructor constructor value position
 
 recordParser :: Parser SourceExpression
 recordParser = do
@@ -334,7 +362,7 @@ typeIdentifier = lexeme $ do
     return (first : following)
 
 reserved :: [String]
-reserved = ["if", "return", "true", "false", "boolean", "integer", "mod", "rem", "not", "and", "or"]
+reserved = ["if", "case", "of", "return", "true", "false", "boolean", "integer", "mod", "rem", "not", "and", "or"]
 
 identifier :: Parser String
 identifier = M.try $ lexeme $ do

@@ -31,6 +31,11 @@ data Expression a
         { recordMembers :: Map.Map String (Expression a)
         , annotation :: a
         }
+    | Constructor
+        { constructor :: String
+        , value :: Expression a
+        , annotation :: a
+        }
     | Function
         { argumentType :: Type
         , returnType :: Type
@@ -42,6 +47,11 @@ data Expression a
         { condition :: Expression a
         , left :: Expression a
         , right :: Expression a
+        , annotation :: a
+        }
+    | Case
+        { scrutinee :: Expression a
+        , branches :: [(String, String, Expression a)] -- constructor, introduced variable name and the value
         , annotation :: a
         }
     | Application
