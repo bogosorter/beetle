@@ -128,6 +128,14 @@ compileExpression env expression = case expression of
 
         return register
 
+    -- Built-in not function call
+    Application (BuiltInFunction "not" _) argument _ -> do
+        argumentRegister <- compileExpression env argument
+
+        register <- reserveRegister
+        putStatement $ BinaryOperation register LLVM.BooleanType Xor argumentRegister (integerOperand (-1))
+        return register
+
     -- Built-in function calls
     Application (Application f@(BuiltInFunction name _) left _) right _ -> do
         leftRegister <- compileExpression env left

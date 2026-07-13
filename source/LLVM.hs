@@ -9,6 +9,7 @@ data Type
     | BooleanType
     | TupleType [Type]
     | PointerType
+    deriving Eq
 
 data Program = Program
     { definitions :: [Function]
@@ -107,7 +108,7 @@ data Statement
 
 newtype Operand = Operand String
 newtype Label = MakeLabel String
-data OpCode = Mul | Div | Rem | Add | Sub | Eq | Slt | Sgt | Sle | Sge
+data OpCode = Mul | Div | Rem | Add | Sub | Eq | Slt | Sgt | Sle | Sge | Xor
 
 integerOperand :: Int -> Operand
 integerOperand n = Operand (show n)
@@ -128,7 +129,7 @@ null :: Operand
 null = Operand "null"
 
 instance Show Program where
-    show (Program functions (statements, register, resultType)) = printf
+    show (Program functions (statements, resultRegister, resultType)) = printf
             "target triple = \"x86_64-pc-linux-gnu\"\n\
             \@fmt = private constant [4 x i8] c\"%%d\\0A\\00\"\n\
             \declare i32 @printf(i8*, ...)\n\
@@ -141,14 +142,28 @@ instance Show Program where
             \    %s\n\
             \\n\
             \    %%_fmt = getelementptr [4 x i8], [4 x i8]* @fmt, i64 0, i64 0\n\
-            \    call i32 (i8*, ...) @printf(i8* %%_fmt, %s %s)\n\
+            \%s\n\
             \    ret i32 0\n\
             \}\n\
             \"
             (intercalate "\n\n" $ map show functions)
             (intercalate "\n    " $ map show statements)
-            (show resultType)
-            (show register)
+            (showPrint resultType resultRegister)
+
+        where showPrint :: Type -> Operand -> String
+              showPrint resultType resultRegister
+                | resultType == BooleanType = printf
+                    "    ; the result is zero-extended to prevent printf from reading garbage\n\
+                    \    ; values when printing booleans\n\
+                    \    %%_extended_result = zext %s %s to i32\n\
+                    \    call i32 (i8*, ...) @printf(i8* %%_fmt, i32 %%_extended_result)\n"
+                    (show resultType)
+                    (show resultRegister)
+                | resultType == IntegerType = printf
+                    "    call i32 (i8*, ...) @printf(i8* %%_fmt, %s %s)\n"
+                    (show resultType)
+                    (show resultRegister)
+                | otherwise = error "got a result type that is neither a string nor a boolean"
 
 instance Show Function where
     show function = printf
@@ -281,3 +296,4 @@ instance Show OpCode where
     show Sgt = "icmp sgt"
     show Sle = "icmp sle"
     show Sge = "icmp sge"
+    show Xor = "xor"
