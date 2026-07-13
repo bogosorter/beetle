@@ -19,12 +19,15 @@ assignment = typeSymbol '=' type
 
 expression = logical
            | logical (',' logical) -- tuple creation
-logical = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
+logical = logical' ('and' logical')?
+logical' = logical'' ('or' logical'')?
+logical'' = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
 arithmetic = factor (('+' | '-') factor)*
 factor = atom (('*' | '/' | 'mod' | 'rem') atom)*
 atom = symbol expressionCall
      | symbol structAccess
      | '-' atom -- unary minus
+     | 'not' atom
      | '(' expression ')' expressionCall
      | '{' symbol ':' logical (',' symbol ':' logical)* ','? '}' -- struct constructor
      | lambda

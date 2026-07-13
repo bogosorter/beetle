@@ -130,11 +130,17 @@ binaryOperation = do
                 , E.InfixL (builder position <$> symbol "<")
                 , E.InfixL (builder position <$> symbol ">")
                 ]
+            ,
+                [ E.InfixL (builder position <$> symbol "and")
+                ]
+            ,
+                [ E.InfixL (builder position <$> symbol "or")
+                ]
             ]
           builder position operation left right = Application (Application (Variable operation position) left position) right position
 
 atom :: Parser SourceExpression
-atom = M.try lambda <|> variableUsage <|> unaryMinus <|> recordParser <|> integer <|> boolean <|> parenthesizedExpression
+atom = M.try lambda <|> variableUsage <|> unaryMinus <|> logicalNot <|> recordParser <|> integer <|> boolean <|> parenthesizedExpression
 
 -- This takes care of things that might continue atoms, such as expression calls
 -- and member access
@@ -171,6 +177,13 @@ unaryMinus = do
     symbol "-"
     inner <- atom
     return $ Application (Application (Variable "-" position) (Integer 0 position) position) inner position
+
+logicalNot :: Parser SourceExpression
+logicalNot = do
+    position <- M.getSourcePos
+    symbol "not"
+    inner <- atom
+    return $ (Application (Variable "not" position) inner position)
 
 recordParser :: Parser SourceExpression
 recordParser = do
@@ -303,7 +316,7 @@ typeIdentifier = lexeme $ do
     return (first : following)
 
 reserved :: [String]
-reserved = ["if", "return", "true", "false", "boolean", "integer", "mod", "rem"]
+reserved = ["if", "return", "true", "false", "boolean", "integer", "mod", "rem", "not", "and", "or"]
 
 identifier :: Parser String
 identifier = M.try $ lexeme $ do
