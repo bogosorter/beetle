@@ -1,7 +1,7 @@
 module TypeChecker (typeCheckProgram, TypeError(..)) where
 
 import AST
-import Text.Megaparsec (SourcePos, Stream (take1_))
+import Text.Megaparsec (SourcePos)
 import qualified Data.Map as Map
 import Data.Map ((!))
 import qualified Data.Set as Set
