@@ -6,7 +6,13 @@ data Program = Program
     }
     deriving Show
 
-data Type = BooleanType | IntegerType | TupleType [Type] | ClosureType Type Type
+data Type
+    = BooleanType
+    | IntegerType
+    | TupleType [Type]
+    | ClosureType Type Type
+    | SumType [Type]
+    | ConstructorType Type
     deriving Show
 
 -- While not strictly necessary, we add name as a parameter to ensure that the
@@ -52,10 +58,20 @@ data Expression
         , tuple :: Expression
         , t :: Type
         }
+    | Constructor
+        { index :: Int
+        , value :: Expression
+        , t :: Type
+        }
     | If
         { condition :: Expression
         , left :: Expression
         , right :: Expression
+        , t :: Type
+        }
+    | Case
+        { scrutinee :: Expression
+        , branches :: [(Int, Expression)]
         , t :: Type
         }
     | Application

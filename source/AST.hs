@@ -52,7 +52,7 @@ data Expression a
         }
     | Case
         { scrutinee :: Expression a
-        , branches :: [(String, String, Expression a)] -- constructor, introduced variable name and the value
+        , branches :: [(String, String, Expression a)] -- constructor, introduced variable name and body
         , annotation :: a
         }
     | Application

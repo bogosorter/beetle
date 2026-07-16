@@ -4,6 +4,7 @@ import AST
 import Closures (Program(..), Function(..))
 import qualified Closures (Type(..), Expression(..), getType)
 
+import Data.List (sortBy)
 import Data.Set (Set, singleton, union, unions, difference, delete)
 import qualified Data.Set as Set (empty, elems, fromList)
 import Data.Map (Map, insert, findIndex, (!), findWithDefault)
@@ -43,6 +44,18 @@ enclose env expression = case expression of
         let enclosedType = Closures.TupleType $ map Closures.getType enclosedMembers
         return $ Closures.Tuple enclosedMembers enclosedType
 
+    Constructor {} -> do
+        let sumType = AST.getType expression
+            enclosedType = encloseType sumType
+
+            constructors = case sumType of
+                SumType constructors -> constructors
+                _ -> error "got a constructor whose type is not a sum type"
+            index = findIndex (constructor expression) constructors
+
+        enclosedValue <- enclose env $ value expression
+        return $ Closures.Constructor index enclosedValue enclosedType
+
     AST.Function {} -> encloseFunction env expression Nothing
 
     If {} -> do
@@ -50,6 +63,31 @@ enclose env expression = case expression of
         enclosedLeft <- enclose env (left expression)
         enclosedRight <- enclose env (right expression)
         return $ Closures.If enclosedCondition enclosedLeft enclosedRight (Closures.getType enclosedLeft)
+
+    Case {} -> do
+        let sumType = AST.getType $ scrutinee expression
+            enclosedType = encloseType sumType
+
+            constructors = case sumType of
+                SumType constructors -> constructors
+                _ -> error "got a constructor whose type is not a sum type"
+
+            encloseBranch :: (String, String, TypedExpression) -> State ClosureState (Int, Closures.Expression)
+            encloseBranch (branchConstructor, introducedName, body) = do
+                let index = findIndex branchConstructor constructors
+                    introducedType = encloseType $ constructors ! branchConstructor
+                    introducedVariable = Closures.Local introducedName introducedType
+                    env' = insertVariable introducedName introducedVariable env
+
+                enclosedBody <- enclose env' body
+                return $ (index, enclosedBody)
+
+            compareBranches :: (String, String, TypedExpression) -> (String, String, TypedExpression) -> Ordering
+            compareBranches (a, _, _) (b, _, _) = compare a b
+
+        enclosedScrutinee <- enclose env $ scrutinee expression
+        enclosedBranches <- mapM encloseBranch (sortBy compareBranches $ branches expression)
+        return $ Closures.Case enclosedScrutinee enclosedBranches enclosedType
 
     Application {} -> do
         enclosedFunction <- enclose env (function expression)
@@ -165,17 +203,23 @@ freeVariables expression = case expression of
     Integer {} -> Set.empty
     Variable { variableName = name } -> if name `elem` (map fst builtInFunctions) then Set.empty else singleton name
 
-    Tuple { tupleMembers = members } ->
-        unions $ map freeVariables members
+    Tuple {} ->
+        unions $ map freeVariables (tupleMembers expression)
 
     Record { recordMembers = members } ->
         unions $ map freeVariables (Map.elems members)
+
+    Constructor {} -> freeVariables (value expression)
 
     AST.Function { argumentName = argument, body = body } ->
         delete argument $ freeVariables body
 
     If { condition = condition, left = left, right = right} ->
         freeVariables condition `union` freeVariables left `union` freeVariables right
+
+    Case {} ->
+        let freeInBranch (_, introduced, body) free = (delete introduced $ freeVariables body) `union` free
+        in foldr freeInBranch (freeVariables $ scrutinee expression) (branches expression)
 
     Application { function = function, argument = argument} ->
         freeVariables function `union` freeVariables argument
@@ -198,6 +242,9 @@ encloseType (TupleType memberTypes) = Closures.TupleType (map encloseType member
 encloseType (RecordType memberTypes) = Closures.TupleType (map encloseType $ Map.elems memberTypes)
 encloseType (FunctionType argumentType returnType) = Closures.ClosureType (encloseType argumentType) (encloseType returnType)
 encloseType (TypeAlias _) = error "type variables should have been removed in type checking"
+encloseType (SumType constructors) = Closures.SumType $ [encloseType t | t <- Map.elems constructors]
+encloseType (ConstructorType name (SumType constructors)) = Closures.ConstructorType (encloseType $ constructors ! name)
+encloseType (ConstructorType _ _) = error "encloseType called on constructor whose type is not sum type"
 
 
 -- State and environment utils
