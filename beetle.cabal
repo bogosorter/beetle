@@ -13,6 +13,7 @@ build-type:         Simple
 
 common configuration
     default-language: Haskell2010
+    default-extensions: OverloadedStrings
     ghc-options:
         -Wall
         -Wno-name-shadowing
@@ -21,17 +22,16 @@ library core
     import: configuration
 
     hs-source-dirs: source
-    exposed-modules: AST, Parser, TypeChecker, ASTSimplificator, Closures, Encloser, LLVM, Backend
-    build-depends: base, process, megaparsec, containers, parser-combinators, mtl
+    exposed-modules: AST, Parser, TypeChecker, ASTSimplificator, Closures, Encloser, LLVM, Backend, Errors
+    build-depends: base, process, megaparsec, containers, parser-combinators, mtl, text, errata
 
 executable beetle
     import: configuration
 
     hs-source-dirs: app
     main-is: Main.hs
-    other-modules: Errors, Arguments
-    build-depends: base, containers, process, filepath, directory, megaparsec, text, errata, core
-    default-extensions: OverloadedStrings
+    other-modules: Arguments
+    build-depends: base, containers, process, filepath, directory, megaparsec, core
 
 test-suite tests
     import: configuration

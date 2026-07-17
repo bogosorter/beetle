@@ -2,18 +2,18 @@ module Errors (showParseError, showTypeError) where
 
 import Data.Void
 import qualified Data.Text as T
-import qualified Data.Text.Lazy.IO as TL
+import qualified Data.Text.Lazy as TL
 import Errata
 import Errata.Styles
 import Text.Megaparsec
 import TypeChecker
 import qualified Data.List.NonEmpty as NE
 
-showParseError :: FilePath -> String -> ParseErrorBundle String Void -> IO ()
-showParseError path content e = TL.putStrLn $ prettyErrors (T.pack content) (parseErrorToErrata path e)
+showParseError :: FilePath -> String -> ParseErrorBundle String Void -> String
+showParseError path content e = TL.unpack $ prettyErrors (T.pack content) (parseErrorToErrata path e)
 
-showTypeError :: FilePath -> String -> TypeError -> IO ()
-showTypeError path content e = TL.putStrLn $ prettyErrors (T.pack content) [typeErrorToErrata path e]
+showTypeError :: FilePath -> String -> TypeError -> String
+showTypeError path content e = TL.unpack $ prettyErrors (T.pack content) [typeErrorToErrata path e]
 
 typeErrorToErrata :: FilePath -> TypeError -> Errata
 typeErrorToErrata path (TypeError pos msg) =

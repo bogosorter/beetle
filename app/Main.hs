@@ -30,14 +30,14 @@ main = do
     parsedProgram <- case parseProgram content of
         Right program -> return program
         Left e -> do
-            showParseError path content e
+            putStrLn $ showParseError path content e
             exitFailure
     checkpoint AST parsedArguments parsedProgram
 
     typedProgram <- case typeCheckProgram parsedProgram of
         Right program -> return program
         Left e -> do
-            showTypeError path content e
+            putStrLn $ showTypeError path content e
             exitFailure
     checkpoint TypeChecked parsedArguments typedProgram
 

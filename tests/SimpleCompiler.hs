@@ -1,5 +1,6 @@
 module SimpleCompiler (compile, compileWithTypeErrors) where
 
+import Errors
 import Parser
 import TypeChecker
 import ASTSimplificator
@@ -14,11 +15,11 @@ compile input output = do
     content <- readFile input
 
     let program = case parseProgram content of
-            Left message -> error (show message)
+            Left e -> error (showParseError input content e)
             Right program -> program
 
     let typedProgram = case typeCheckProgram program of
-            Left message -> error (show message)
+            Left e -> error (showTypeError input content e)
             Right typedProgram -> typedProgram
 
 

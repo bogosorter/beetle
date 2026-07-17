@@ -3,6 +3,6 @@ Sum = Left integer | Right {};
 f(s: Sum): integer =
     case s of
         Left n -> return n;
-        Right {} -> return 0;
+        Right _ -> return 0;
 
 return f(Right {});

@@ -235,7 +235,7 @@ recordParser :: Parser SourceExpression
 recordParser = do
     position <- M.getSourcePos
     symbol "{"
-    members <- M.sepEndBy1 recordMember (symbol ",")
+    members <- M.sepEndBy recordMember (symbol ",")
     symbol "}"
 
     return $ Record (fromList members) position
@@ -337,7 +337,7 @@ parenthesizedType = do
 recordType :: Parser Type
 recordType = do
     symbol "{"
-    members <- M.sepEndBy1 identifierTypePair (symbol ",")
+    members <- M.sepEndBy identifierTypePair (symbol ",")
     symbol "}"
     return $ RecordType (fromList members)
 
