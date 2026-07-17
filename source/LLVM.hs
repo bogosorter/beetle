@@ -50,13 +50,15 @@ data Statement
         , leftLabel :: Label
         , rightLabel :: Label
         }
+    | Switch
+        { source :: Operand
+        , defaultLabel :: Label
+        , destinations :: [(Operand, Label)]
+        }
     | Phi
         { destination :: Operand
         , destinationType :: Type
-        , leftOperand :: Operand
-        , leftLabel :: Label
-        , rightOperand :: Operand
-        , rightLabel :: Label
+        , sources :: [(Operand, Label)]
         }
     | GetElementPointer
         { destination :: Operand
@@ -204,14 +206,21 @@ instance Show Statement where
             (show $ leftLabel statement)
             (show $ rightLabel statement)
 
+        Switch {} ->
+            let showDestination :: (Operand, Label) -> String
+                showDestination (operand, label) = printf "i32 %s, label %%%s" (show operand) (show label)
+            in printf "switch i32 %s, label %%%s [\n        %s\n    ]"
+            (show $ source statement)
+            (show $ defaultLabel statement)
+            (intercalate "\n        " $ map showDestination (destinations statement))
+
         Phi {} ->
-            printf "%s = phi %s [%s, %%%s], [%s, %%%s]"
+            let showSource :: (Operand, Label) -> String
+                showSource (operand, label) = printf "[%s, %%%s]" (show operand) (show label)
+            in printf "%s = phi %s %s"
             (show $ destination statement)
             (show $ destinationType statement)
-            (show $ leftOperand statement)
-            (show $ leftLabel statement)
-            (show $ rightOperand statement)
-            (show $ rightLabel statement)
+            (intercalate ", " $ map showSource (sources statement))
 
         GetElementPointer {} ->
             printf "%s = getelementptr %s, ptr %s, i32 %s, i32 %s"

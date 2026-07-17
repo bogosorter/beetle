@@ -66,21 +66,20 @@ enclose env expression = case expression of
 
     Case {} -> do
         let sumType = AST.getType $ scrutinee expression
-            enclosedType = encloseType sumType
+            enclosedType = encloseType $ getType expression
 
             constructors = case sumType of
                 SumType constructors -> constructors
                 _ -> error "got a constructor whose type is not a sum type"
 
-            encloseBranch :: (String, String, TypedExpression) -> State ClosureState (Int, Closures.Expression)
+            encloseBranch :: (String, String, TypedExpression) -> State ClosureState (String, Closures.Type, Closures.Expression)
             encloseBranch (branchConstructor, introducedName, body) = do
-                let index = findIndex branchConstructor constructors
-                    introducedType = encloseType $ constructors ! branchConstructor
+                let introducedType = encloseType $ constructors ! branchConstructor
                     introducedVariable = Closures.Local introducedName introducedType
                     env' = insertVariable introducedName introducedVariable env
 
                 enclosedBody <- enclose env' body
-                return $ (index, enclosedBody)
+                return $ (introducedName, introducedType, enclosedBody)
 
             compareBranches :: (String, String, TypedExpression) -> (String, String, TypedExpression) -> Ordering
             compareBranches (a, _, _) (b, _, _) = compare a b

@@ -71,7 +71,7 @@ data Expression
         }
     | Case
         { scrutinee :: Expression
-        , branches :: [(Int, Expression)]
+        , branches :: [(String, Type, Expression)]
         , t :: Type
         }
     | Application

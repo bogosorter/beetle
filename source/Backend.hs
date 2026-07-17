@@ -99,6 +99,22 @@ compileExpression env expression = case expression of
         tupleRegister <- compileExpression env tuple
         tupleMember tupleRegister (llvmTupleType $ getType tuple) index (llvmType t)
 
+    Constructor index value _ -> do
+        valueRegister <- compileExpression env value
+
+        putStatement $ Comment "Lifting to sum type"
+        resultRegister <- allocate sumType
+
+        constructorRegister <- reserveRegister
+        putStatement $ GetElementPointer constructorRegister sumType resultRegister (integerOperand 0) (integerOperand 0)
+        putStatement $ Store (integerOperand index) LLVM.IntegerType constructorRegister
+
+        positionRegister <- reserveRegister
+        putStatement $ GetElementPointer positionRegister sumType resultRegister (integerOperand 0) (integerOperand 1)
+        putStatement $ Store valueRegister (llvmType $ getType value) positionRegister
+
+        return resultRegister
+
     If condition left right t -> do
         (leftLabel, rightLabel, mergeLabel) <- createBranch
 
@@ -106,27 +122,71 @@ compileExpression env expression = case expression of
         putStatement $ Branch conditionRegister leftLabel rightLabel
         putStatement $ EmptyLine
 
-        putBasicBlock leftLabel
-        putStatement $ Label leftLabel
+        putLabel leftLabel
         leftRegister <- compileExpression env left
         leftLabel <- getBasicBlock
         putStatement $ Jump mergeLabel
         putStatement $ EmptyLine
 
-        putBasicBlock rightLabel
-        putStatement $ Label rightLabel
+        putLabel rightLabel
         rightRegister <- compileExpression env right
         rightLabel <- getBasicBlock
         putStatement $ Jump mergeLabel
         putStatement $ EmptyLine
 
-        putBasicBlock mergeLabel
+        putLabel mergeLabel
         register <- reserveRegister
-        putStatement $ Label mergeLabel
-        putStatement $ Phi register (llvmType t) leftRegister leftLabel rightRegister rightLabel
+        putStatement $ Phi register (llvmType t) [(leftRegister, leftLabel), (rightRegister, rightLabel)]
         putStatement $ EmptyLine
 
         return register
+
+    Case scrutinee branches t -> do
+        (labels, defaultLabel, mergeLabel) <- createSwitch (length branches)
+
+        scrutineeRegister <- compileExpression env scrutinee
+
+        putStatement $ Comment "Extracting the constructor of a sum type"
+        constructorPosition <- reserveRegister
+        constructor <- reserveRegister
+        putStatement $ GetElementPointer constructorPosition sumType scrutineeRegister (integerOperand 0) (integerOperand 0)
+        putStatement $ Load constructor LLVM.IntegerType constructorPosition
+
+        putStatement $ Switch constructor defaultLabel [(integerOperand i, label) | (i, label) <- zip [0..] labels]
+        putStatement $ EmptyLine
+
+        let encloseBranch :: Label -> (String, Closures.Type, Expression) -> State CompilationState Operand
+            encloseBranch label (name, varType, body) = do
+                putLabel label
+
+                putStatement $ Comment "Loading and casting the value of the new variable"
+                positionRegister <- reserveRegister
+                putStatement $ GetElementPointer positionRegister sumType scrutineeRegister (integerOperand 0) (integerOperand 1)
+                variable <- createVariable name
+                putStatement $ Load variable (llvmType varType) positionRegister
+                let env' = insertVariable name variable env
+
+                putStatement $ Comment "Case branch body"
+                bodyRegister <- compileExpression env' body
+                putStatement $ Jump mergeLabel
+                putStatement $ EmptyLine
+
+                return bodyRegister
+
+        branchOperands <- mapM (uncurry encloseBranch) (zip labels branches)
+
+        putStatement $ Comment "The default label is required but never reached"
+        putLabel defaultLabel
+        defaultRegister <- reserveRegister
+        putStatement $ Bitcast defaultRegister (llvmType t) (integerOperand 0) LLVM.IntegerType
+        putStatement $ Jump mergeLabel
+        putStatement $ EmptyLine
+
+        putLabel mergeLabel
+        let phiSources = (zip branchOperands labels) ++ [(defaultRegister, defaultLabel)]
+        resultRegister <- reserveRegister
+        putStatement $ Phi resultRegister (llvmType t) phiSources
+        return resultRegister
 
     -- Built-in not function call
     Application (BuiltInFunction "not" _) argument _ -> do
@@ -236,7 +296,7 @@ booleanLiteral operand n = BinaryOperation operand LLVM.BooleanType Add (integer
 
 data CompilationState = CompilationState
     { register :: Int -- the last register to have been used
-    , branch :: Int -- a counter for the number of branches in this expression
+    , branch :: Int -- a counter for the number of branches and switches in this expression
     , basicBlock :: Label -- the current basic block
     , variableCounter :: Map String Int -- used to provide a fresh variable name for shadowing
     , statements :: [Statement]
@@ -258,16 +318,30 @@ createBranch = do
     let branchCount = branch state + 1
     put state { branch = branchCount }
 
-    let leftLabel = MakeLabel $ "left" ++ show branchCount
-        rightLabel = MakeLabel $ "right" ++ show branchCount
-        mergeLabel = MakeLabel $ "merge" ++ show branchCount
+    let leftLabel = MakeLabel $ "left_" ++ show branchCount
+        rightLabel = MakeLabel $ "right_" ++ show branchCount
+        mergeLabel = MakeLabel $ "merge_" ++ show branchCount
 
     return (leftLabel, rightLabel, mergeLabel)
 
-putBasicBlock :: Label -> State CompilationState ()
-putBasicBlock bb = do
+createSwitch :: Int -> State CompilationState ([Label], Label, Label)
+createSwitch n = do
     state <- get
-    put state { basicBlock = bb }
+    let branchCount = branch state + 1
+    put state { branch = branchCount }
+
+    let labels = [MakeLabel $ "case_" ++ show branchCount ++ "_" ++ show i | i <- [1..n]]
+        defaultLabel = MakeLabel $ "default_" ++ show branchCount
+        mergeLabel = MakeLabel $ "merge_" ++ show branchCount
+
+
+    return (labels, defaultLabel, mergeLabel)
+
+putLabel :: Label -> State CompilationState ()
+putLabel label = do
+    state <- get
+    put state { basicBlock = label }
+    putStatement $ Label label
 
 getBasicBlock :: State CompilationState Label
 getBasicBlock = do
@@ -320,6 +394,8 @@ llvmType Closures.IntegerType = LLVM.IntegerType
 llvmType Closures.BooleanType = LLVM.BooleanType
 llvmType (Closures.TupleType _) = LLVM.PointerType
 llvmType (Closures.ClosureType _ _) = LLVM.PointerType
+llvmType (Closures.SumType _) = LLVM.PointerType
+llvmType (Closures.ConstructorType _) = LLVM.PointerType
 
 -- Despite the fact that variables holding tuples are represented with pointers
 -- in the LLVM IR, to allocate them we need to use their tuple representation as
@@ -330,4 +406,7 @@ llvmTupleType (Closures.TupleType ts) = LLVM.TupleType (map llvmType ts)
 llvmTupleType _ = error "llvmTupleType should only be called on tuple types"
 
 closureType :: LLVM.Type
-closureType = LLVM.TupleType [PointerType, PointerType]
+closureType = LLVM.TupleType [LLVM.PointerType, LLVM.PointerType]
+
+sumType :: LLVM.Type
+sumType = LLVM.TupleType [LLVM.IntegerType, LLVM.PointerType]
