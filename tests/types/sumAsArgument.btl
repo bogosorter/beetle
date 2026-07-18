@@ -1,8 +1,9 @@
 Sum = Left integer | Right {};
 
 f(s: Sum): integer =
-    case s of
+    case s of {
         Left n -> return n;
         _ -> return 0;
+    };
 
 return f(Right {});
