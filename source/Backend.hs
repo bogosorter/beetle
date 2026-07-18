@@ -156,7 +156,7 @@ compileExpression env expression = case expression of
         putStatement $ Switch constructor defaultLabel [(integerOperand i, label) | (i, label) <- zip indexes labels]
         putStatement $ EmptyLine
 
-        let encloseBranch :: Label -> (Int, String, Closures.Type, Expression) -> State CompilationState Operand
+        let encloseBranch :: Label -> (Int, String, Closures.Type, Expression) -> State CompilationState (Operand, Label)
             encloseBranch label (_, name, varType, body) = do
                 putLabel label
 
@@ -169,30 +169,33 @@ compileExpression env expression = case expression of
 
                 putStatement $ Comment "Case branch body"
                 bodyRegister <- compileExpression env' body
+                block <- getBasicBlock
                 putStatement $ Jump mergeLabel
                 putStatement $ EmptyLine
 
-                return bodyRegister
+                return (bodyRegister, block)
 
         branchOperands <- mapM (uncurry encloseBranch) (zip labels branches)
         defaultOperand <- case defaultBranch of
             Just branch -> do
                 putLabel defaultLabel
                 defaultOperand <- compileExpression env branch
+                block <- getBasicBlock
                 putStatement $ Jump mergeLabel
                 putStatement $ EmptyLine
-                return defaultOperand
+                return (defaultOperand, block)
             Nothing -> do
                 putStatement $ Comment "The default label is required but never reached"
                 putLabel defaultLabel
                 defaultOperand <- reserveRegister
+                block <- getBasicBlock
                 putStatement $ Bitcast defaultOperand (llvmType t) (integerOperand 0) LLVM.IntegerType
                 putStatement $ Jump mergeLabel
                 putStatement $ EmptyLine
-                return defaultOperand
+                return (defaultOperand, block)
 
         putLabel mergeLabel
-        let phiSources = (zip branchOperands labels) ++ [(defaultOperand, defaultLabel)]
+        let phiSources = branchOperands ++ [defaultOperand]
         resultRegister <- reserveRegister
         putStatement $ Phi resultRegister (llvmType t) phiSources
         return resultRegister
