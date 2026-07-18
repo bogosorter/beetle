@@ -72,21 +72,28 @@ enclose env expression = case expression of
                 SumType constructors -> constructors
                 _ -> error "got a constructor whose type is not a sum type"
 
-            encloseBranch :: (String, String, TypedExpression) -> State ClosureState (String, Closures.Type, Closures.Expression)
+            encloseBranch :: (String, String, TypedExpression) -> State ClosureState (Int, String, Closures.Type, Closures.Expression)
             encloseBranch (branchConstructor, introducedName, body) = do
-                let introducedType = encloseType $ constructors ! branchConstructor
+                let constructorIndex = findIndex branchConstructor constructors
+                    introducedType = encloseType $ constructors ! branchConstructor
                     introducedVariable = Closures.Local introducedName introducedType
                     env' = insertVariable introducedName introducedVariable env
 
                 enclosedBody <- enclose env' body
-                return $ (introducedName, introducedType, enclosedBody)
+                return $ (constructorIndex, introducedName, introducedType, enclosedBody)
 
             compareBranches :: (String, String, TypedExpression) -> (String, String, TypedExpression) -> Ordering
             compareBranches (a, _, _) (b, _, _) = compare a b
 
         enclosedScrutinee <- enclose env $ scrutinee expression
         enclosedBranches <- mapM encloseBranch (sortBy compareBranches $ branches expression)
-        return $ Closures.Case enclosedScrutinee enclosedBranches enclosedType
+        enclosedDefault <- case (defaultBranch expression) of
+            Just branch -> do
+                result <- enclose env branch
+                return $ Just result
+            Nothing -> return Nothing
+
+        return $ Closures.Case enclosedScrutinee enclosedBranches enclosedDefault enclosedType
 
     Application {} -> do
         enclosedFunction <- enclose env (function expression)

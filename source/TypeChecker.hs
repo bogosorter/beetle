@@ -5,6 +5,7 @@ import Text.Megaparsec (SourcePos)
 import qualified Data.Map as Map
 import Data.Map ((!))
 import qualified Data.Set as Set
+import Data.Maybe (isJust)
 import Control.Monad (unless, when)
 
 
@@ -96,7 +97,7 @@ typeCheck env expression = case expression of
         let branchConstructors = [constructor | (constructor, _, _) <- branches expression]
         when (hasDuplicates branchConstructors) $
             Left $ TypeError position "case branches have duplicate constructors"
-        unless (length branchConstructors == Map.size constructors) $
+        unless (length branchConstructors == Map.size constructors || isJust (defaultBranch expression)) $
             Left $ TypeError position "cannot have less branches in a case expression than constructors in the sum type"
 
         let typeCheckBranch :: (String, String, SourceExpression) -> Either TypeError (String, String, TypedExpression)
@@ -111,12 +112,20 @@ typeCheck env expression = case expression of
                 return (constructor, introducedVariable, typedValue)
 
         typedBranches <- mapM typeCheckBranch (branches expression)
-        let branchValueTypes = [getType value | (_, _, value) <- typedBranches]
+        typedDefault <- case (defaultBranch expression) of
+            Just branch -> do
+                typed <- typeCheck env branch
+                return $ Just typed
+            Nothing -> return Nothing
 
-        unless (allEqual branchValueTypes) $
+        let branchValueTypes = [getType value | (_, _, value) <- typedBranches]
+            branchValueTypesWithDefault = case typedDefault of
+                Just branch -> branchValueTypes ++ [getType branch]
+                Nothing -> branchValueTypes
+        unless (allEqual branchValueTypesWithDefault) $
             Left $ TypeError position "all the return types of a case expression's branches must be equal"
 
-        return $ Case typedScrutinee typedBranches (branchValueTypes !! 0)
+        return $ Case typedScrutinee typedBranches typedDefault (branchValueTypesWithDefault !! 0)
 
     Application {} -> do
         typedFunction <- typeCheck env (function expression)

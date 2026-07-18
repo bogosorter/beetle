@@ -70,7 +70,8 @@ data Expression
         }
     | Case
         { scrutinee :: Expression
-        , branches :: [(String, Type, Expression)]
+        , branches :: [(Int, String, Type, Expression)]
+        , defaultBranch :: Maybe Expression
         , t :: Type
         }
     | Application

@@ -13,7 +13,7 @@ simplify expression = case expression of
     Constructor constructor value t -> Constructor constructor (simplify value) t
     Function {} -> expression { body = simplify $ body expression }
     If condition left right t -> If (simplify condition) (simplify left) (simplify right) t
-    Case scrutinee branches t -> Case (simplify scrutinee) [(c, v, simplify branch) | (c, v, branch) <- branches] t
+    Case scrutinee branches defaultBranch t -> Case (simplify scrutinee) [(c, v, simplify branch) | (c, v, branch) <- branches] (simplify <$> defaultBranch) t
 
     -- Since the LLVM does not provide a true modulo operator, it is complicated
     -- (ehem, simplified) to only use the remainder

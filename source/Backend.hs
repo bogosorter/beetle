@@ -141,7 +141,7 @@ compileExpression env expression = case expression of
 
         return register
 
-    Case scrutinee branches t -> do
+    Case scrutinee branches defaultBranch t -> do
         (labels, defaultLabel, mergeLabel) <- createSwitch (length branches)
 
         scrutineeRegister <- compileExpression env scrutinee
@@ -152,11 +152,12 @@ compileExpression env expression = case expression of
         putStatement $ GetElementPointer constructorPosition sumType scrutineeRegister (integerOperand 0) (integerOperand 0)
         putStatement $ Load constructor LLVM.IntegerType constructorPosition
 
-        putStatement $ Switch constructor defaultLabel [(integerOperand i, label) | (i, label) <- zip [0..] labels]
+        let indexes = [index | (index, _, _, _) <- branches]
+        putStatement $ Switch constructor defaultLabel [(integerOperand i, label) | (i, label) <- zip indexes labels]
         putStatement $ EmptyLine
 
-        let encloseBranch :: Label -> (String, Closures.Type, Expression) -> State CompilationState Operand
-            encloseBranch label (name, varType, body) = do
+        let encloseBranch :: Label -> (Int, String, Closures.Type, Expression) -> State CompilationState Operand
+            encloseBranch label (_, name, varType, body) = do
                 putLabel label
 
                 putStatement $ Comment "Loading and casting the value of the new variable"
@@ -174,16 +175,24 @@ compileExpression env expression = case expression of
                 return bodyRegister
 
         branchOperands <- mapM (uncurry encloseBranch) (zip labels branches)
-
-        putStatement $ Comment "The default label is required but never reached"
-        putLabel defaultLabel
-        defaultRegister <- reserveRegister
-        putStatement $ Bitcast defaultRegister (llvmType t) (integerOperand 0) LLVM.IntegerType
-        putStatement $ Jump mergeLabel
-        putStatement $ EmptyLine
+        defaultOperand <- case defaultBranch of
+            Just branch -> do
+                putLabel defaultLabel
+                defaultOperand <- compileExpression env branch
+                putStatement $ Jump mergeLabel
+                putStatement $ EmptyLine
+                return defaultOperand
+            Nothing -> do
+                putStatement $ Comment "The default label is required but never reached"
+                putLabel defaultLabel
+                defaultOperand <- reserveRegister
+                putStatement $ Bitcast defaultOperand (llvmType t) (integerOperand 0) LLVM.IntegerType
+                putStatement $ Jump mergeLabel
+                putStatement $ EmptyLine
+                return defaultOperand
 
         putLabel mergeLabel
-        let phiSources = (zip branchOperands labels) ++ [(defaultRegister, defaultLabel)]
+        let phiSources = (zip branchOperands labels) ++ [(defaultOperand, defaultLabel)]
         resultRegister <- reserveRegister
         putStatement $ Phi resultRegister (llvmType t) phiSources
         return resultRegister

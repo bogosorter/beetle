@@ -7,4 +7,4 @@ safeDivision(a: integer, b: integer): Result =
 result = safeDivision(3, 0);
 case result of
     Result n -> return n;
-    Error _ -> return -1;
+    _ -> return -1;

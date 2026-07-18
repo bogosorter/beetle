@@ -56,19 +56,26 @@ caseExpression = do
     scrutinee <- expression
     symbol "of"
     bs <- branches
-    return $ Case scrutinee bs position
+    db <- defaultBranch <|> (return Nothing)
+    return $ Case scrutinee bs db position
 
     where branches = do
             b <- branch
-            branches <- M.option [] (M.try $ symbol ";" >> branches)
-            return $ b : branches
+            bs <- M.option [] (M.try $ symbol ";" >> branches)
+            return $ b : bs
 
           branch = do
             constructor <- typeIdentifier
             introducedVariable <- identifier
             symbol "->"
-            value <- returnExpression
-            return (constructor, introducedVariable, value)
+            body <- returnExpression
+            return (constructor, introducedVariable, body)
+
+          defaultBranch = M.try $ symbol ";" >> do
+            hole
+            symbol "->"
+            body <- returnExpression
+            return $ Just body
 
 returnValue :: Parser SourceExpression
 returnValue = do
