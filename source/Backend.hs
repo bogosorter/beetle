@@ -395,7 +395,6 @@ llvmType Closures.BooleanType = LLVM.BooleanType
 llvmType (Closures.TupleType _) = LLVM.PointerType
 llvmType (Closures.ClosureType _ _) = LLVM.PointerType
 llvmType (Closures.SumType _) = LLVM.PointerType
-llvmType (Closures.ConstructorType _) = LLVM.PointerType
 
 -- Despite the fact that variables holding tuples are represented with pointers
 -- in the LLVM IR, to allocate them we need to use their tuple representation as

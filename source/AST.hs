@@ -12,7 +12,6 @@ data Type
     | FunctionType Type Type
     | TypeAlias String
     | SumType (Map.Map String Type)
-    | ConstructorType String Type
     deriving Eq
 
 data Expression a
@@ -109,7 +108,6 @@ instance Show Type where
         _ -> show argumentType ++ " -> " ++ show returnType
     show (TypeAlias name) = name
     show (SumType constructors) = List.intercalate " | " [constructor ++ " " ++ show t | (constructor, t) <- Map.toList constructors]
-    show (ConstructorType name sumType) = name ++ " (" ++ show sumType ++ ")"
 
 showRecordMemberType :: (String, Type) -> String
 showRecordMemberType (name, t) = name ++ ": " ++ show t

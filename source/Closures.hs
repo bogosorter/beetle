@@ -12,7 +12,6 @@ data Type
     | TupleType [Type]
     | ClosureType Type Type
     | SumType [Type]
-    | ConstructorType Type
     deriving Show
 
 -- While not strictly necessary, we add name as a parameter to ensure that the

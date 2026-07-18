@@ -242,8 +242,6 @@ encloseType (RecordType memberTypes) = Closures.TupleType (map encloseType $ Map
 encloseType (FunctionType argumentType returnType) = Closures.ClosureType (encloseType argumentType) (encloseType returnType)
 encloseType (TypeAlias _) = error "type variables should have been removed in type checking"
 encloseType (SumType constructors) = Closures.SumType $ [encloseType t | t <- Map.elems constructors]
-encloseType (ConstructorType name (SumType constructors)) = Closures.ConstructorType (encloseType $ constructors ! name)
-encloseType (ConstructorType _ _) = error "encloseType called on constructor whose type is not sum type"
 
 
 -- State and environment utils

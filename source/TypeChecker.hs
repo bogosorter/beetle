@@ -36,8 +36,8 @@ typeCheck env expression = case expression of
 
     Constructor {} -> do
         let name = constructor expression
-        case Map.lookup name (userTypes env) of
-            Just (ConstructorType _ sumType@(SumType constructors)) -> do
+        case Map.lookup name (constructors env) of
+            Just sumType@(SumType constructors) -> do
                 typedValue <- typeCheck env (value expression)
 
                 let expectedValueType = constructors ! name
@@ -50,7 +50,7 @@ typeCheck env expression = case expression of
                 desugaredSumType <- desugar position env sumType
                 return $ Constructor name typedValue desugaredSumType
 
-            Just t -> Left $ TypeError position (name ++ " is not a constructor (the type of " ++ name ++ " is " ++ show t ++ ")")
+            Just t -> Left $ TypeError position (name ++ " is not a constructor whose type is not a sum type (" ++ show t ++ ")")
             Nothing -> Left $ TypeError position ("couldn't find constructor " ++ name)
 
     Function {} -> do
@@ -165,8 +165,8 @@ typeCheck env expression = case expression of
             env' = insertUserType (typeName expression) t env
             env'' = case assignedType expression of
                 SumType constructors ->
-                    let constructorTypes = [(constructor, ConstructorType constructor t) | (constructor, _) <- Map.toList constructors]
-                    in Prelude.foldr (uncurry insertUserType) env' constructorTypes
+                    let constructorTypes = [(constructor, t) | constructor <- Map.keys constructors]
+                    in Prelude.foldr (uncurry insertConstructor) env' constructorTypes
                 _ -> env'
 
         typeCheck env'' (body expression)
@@ -237,10 +237,11 @@ desugar _ _ t = Right $ t
 data Environment = Environment
     { variableTypes :: Map.Map String Type
     , userTypes :: Map.Map String Type
+    , constructors :: Map.Map String Type
     }
 
 emptyEnvironment :: Environment
-emptyEnvironment = Environment defaultFunctions Map.empty
+emptyEnvironment = Environment defaultFunctions Map.empty Map.empty
 
 defaultFunctions :: Map.Map String Type
 defaultFunctions = Map.fromList
@@ -261,18 +262,22 @@ defaultFunctions = Map.fromList
     ]
 
 isAvailable :: Environment -> String -> Bool
-isAvailable env name = not (Map.member name variables) && not (Map.member name types)
+isAvailable env name = not (Map.member name variables) && not (Map.member name types) && not (Map.member name cs)
     where variables = variableTypes env
           types = userTypes env
+          cs = constructors env
 
 insertVariableType :: String -> Type -> Environment -> Environment
-insertVariableType name t env = Environment newTypes (userTypes env)
+insertVariableType name t env = Environment newTypes (userTypes env) (constructors env)
     where newTypes = Map.insert name t (variableTypes env)
 
 insertUserType :: String -> Type -> Environment -> Environment
-insertUserType name t env = Environment (variableTypes env) newTypes
+insertUserType name t env = Environment (variableTypes env) newTypes (constructors env)
     where newTypes = Map.insert name t (userTypes env)
 
+insertConstructor :: String -> Type -> Environment -> Environment
+insertConstructor name t env = Environment (variableTypes env) (userTypes env) newConstructors
+    where newConstructors = Map.insert name t (constructors env)
 
 instance Show TypeError where
     show (TypeError _ e) = e
