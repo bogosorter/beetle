@@ -6,4 +6,4 @@ f(b: boolean, n: integer): Sum =
 
 case f(false, 1) of
     Left n -> return n;
-    Right _ -> return -1;
+    _ -> return -1;
