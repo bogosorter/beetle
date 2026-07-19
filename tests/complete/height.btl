@@ -15,8 +15,8 @@ tree = Node {
     left: Leaf 1,
     right: Node {
         left: Node {
-            Leaf 2,
-            Leaf 3
+            left: Leaf 2,
+            right: Leaf 3
         },
         right: Leaf 4,
     }
