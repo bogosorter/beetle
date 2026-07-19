@@ -1,0 +1,22 @@
+List = Cons (integer, List) | Nil {};
+
+double(list: List): List =
+    case list of {
+        Cons p ->
+            h, tail = p;
+            return Cons (h * 2, double(tail));
+        _ ->
+            return Nil {};
+    };
+
+list = Cons (1, Cons (2, Cons (3, Nil {})));
+list = double(list);
+case list of {
+    Cons p ->
+        _, tail = p;
+        case tail of {
+            second, _ -> return second;
+            _ -> return -1;
+        };
+    _ -> return -1;
+};

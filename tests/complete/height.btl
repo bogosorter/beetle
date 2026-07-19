@@ -1,0 +1,25 @@
+Tree = Leaf integer | Node {left: Tree, right: Tree};
+
+max(a: integer, b: integer): integer =
+    if (a >= b) return a;
+    return b;
+
+height(tree: Tree): integer =
+    case tree of {
+        Node tree ->
+           return 1 + max(height(tree.left), height(tree.right));
+        _ -> return 0;
+    };
+
+tree = Node {
+    left: Leaf 1,
+    right: Node {
+        left: Node {
+            Leaf 2,
+            Leaf 3
+        },
+        right: Leaf 4,
+    }
+};
+
+return height(tree);

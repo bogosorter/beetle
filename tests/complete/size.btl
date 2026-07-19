@@ -1,0 +1,21 @@
+Tree = Leaf integer | Node {left: Tree, right: Tree};
+
+height(tree: Tree): integer =
+    case tree of {
+        Node tree ->
+           return size(tree.left) + size(tree.right);
+        _ -> return 1;
+    };
+
+tree = Node {
+    left: Leaf 1,
+    right: Node {
+        left: Node {
+            Leaf 2,
+            Leaf 3
+        },
+        right: Leaf 4,
+    }
+};
+
+return height(tree);
