@@ -5,7 +5,6 @@ safeDivision(a: integer, b: integer): Result =
     return Result (a / b);
 
 result = safeDivision(3, 0);
-case result of {
-    Result n -> return n;
-    _ -> return -1;
-};
+
+if result is Result: return result;
+return -1;

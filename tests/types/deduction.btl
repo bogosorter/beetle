@@ -1,0 +1,6 @@
+Sum = Left integer | Middle integer | Right integer;
+
+a = Right 1;
+if a is Left: return -1;
+if a is Middle: return -1;
+return a;

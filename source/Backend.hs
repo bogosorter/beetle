@@ -298,9 +298,9 @@ createBranch = do
     let branchCount = branch state + 1
     put state { branch = branchCount }
 
-    let leftLabel = MakeLabel $ "left_" ++ show branchCount
-        rightLabel = MakeLabel $ "right_" ++ show branchCount
-        mergeLabel = MakeLabel $ "merge_" ++ show branchCount
+    let leftLabel = MakeLabel $ "_left_" ++ show branchCount
+        rightLabel = MakeLabel $ "_right_" ++ show branchCount
+        mergeLabel = MakeLabel $ "_merge_" ++ show branchCount
 
     return (leftLabel, rightLabel, mergeLabel)
 

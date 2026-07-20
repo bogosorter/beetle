@@ -2,7 +2,7 @@ Tree = Leaf integer | Node {left: Tree, right: Tree};
 
 size(tree: Tree): integer =
     if tree is Leaf: return 1;
-    tree = Leaf 1;
+    if tree is Leaf: return 1;
     return size(tree.left) + size(tree.right);
 
 tree = Node {

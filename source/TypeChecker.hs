@@ -4,6 +4,7 @@ import AST
 import Text.Megaparsec (SourcePos)
 import qualified Data.Map as Map
 import Data.Map ((!))
+import qualified Data.Set as Set
 import Control.Monad (unless, when)
 
 
@@ -91,15 +92,24 @@ typeCheck env expression = case expression of
         unless (Map.member constructor constructors) $
             Left $ TypeError position ("constructor " ++ show constructor ++ " does not exist in type " ++ show (getType typedScrutinee))
 
-        -- If the scrutinee is a variable, we can change the type of that variable
-        let modifiedLeft = case scrutinee of
-                (Variable name _) -> Assignment name (Lowering scrutinee constructor position) left position
-                _ -> left
+        -- If the scrutinee is a variable, we can change the type of that
+        -- variable, and possibly change the type of the variable on the else
+        -- branch, if it is known that there is a single possibility left.
+        let (left', right', rightEnv) = case scrutinee of
+                (Variable name _) ->
+                    let modifiedLeft = Assignment name (Lowering scrutinee constructor position) left position
+                        env' = insertImpossibleConstructor name constructor env
+                        missingConstructors = Map.keys $ Map.withoutKeys constructors (impossibleConstructors env' ! name)
+                        modifiedRight = case missingConstructors of
+                            [x] ->  Assignment name (Lowering scrutinee x position) right position
+                            _ -> right
+                    in (modifiedLeft, modifiedRight, env')
+                _ -> (left, right, env)
 
-        typedLeft <- typeCheck env modifiedLeft
-        typedRight <- typeCheck env right
+        typedLeft <- typeCheck env left'
+        typedRight <- typeCheck rightEnv right'
 
-        unless (getType typedLeft == getType typedLeft) $
+        unless (getType typedLeft == getType typedRight) $
             Left $ TypeError position "the branches of an if expression must have the same return type"
 
         Right $ If (TypeAssertion typedScrutinee constructor BooleanType) typedLeft typedRight (getType typedLeft)
@@ -112,7 +122,7 @@ typeCheck env expression = case expression of
         typedLeft <- typeCheck env (left expression)
         typedRight <- typeCheck env (right expression)
 
-        unless (getType typedLeft == getType typedLeft) $
+        unless (getType typedLeft == getType typedRight) $
             Left $ TypeError position "the branches of an if expression must have the same return type"
 
         Right $ If typedCondition typedLeft typedRight (getType typedLeft)
@@ -179,26 +189,29 @@ typeCheck env expression = case expression of
         when (name == "_") $
             Left $ TypeError position ("assigning to a hole")
 
+        -- Clear the previous data about this variable, if any
+        let env' = clearImpossibleConstructors name env
+
         -- For the moment, arbitrary recursion is not allowed. For instance, a
         -- lambda cannot refer to the variable that holds it. This can only
         -- happen if there is an assignment whose direct child is a function
         -- (whose type is know a priori). As such, if this is such a function
         -- its type is inserted before evaluation, if not it is inserted after
         -- evaluation
-        (typedValue, env') <- case (variableValue expression) of
+        (typedValue, env'') <- case (variableValue expression) of
 
             Function { argumentType = at, returnType = rt } -> do
-                let env' = insertVariableType name (FunctionType at rt) env
-                typedValue <- typeCheck env' (variableValue expression)
-                return (typedValue, env')
+                let env'' = insertVariableType name (FunctionType at rt) env'
+                typedValue <- typeCheck env'' (variableValue expression)
+                return (typedValue, env'')
 
             _ -> do
-                typedValue <- typeCheck env (variableValue expression)
-                let env' = insertVariableType name (getType typedValue) env
-                return (typedValue, env')
+                typedValue <- typeCheck env' (variableValue expression)
+                let env'' = insertVariableType name (getType typedValue) env'
+                return (typedValue, env'')
 
 
-        typedBody <- typeCheck env' (body expression)
+        typedBody <- typeCheck env'' (body expression)
         Right $ Assignment name typedValue typedBody (getType typedBody)
 
     TupleDestructuring {} -> do
@@ -249,10 +262,15 @@ data Environment = Environment
     , typeAliases :: Map.Map String Type
     , sumTypes :: Map.Map String (Map.Map String Type)
     , constructors :: Map.Map String String
+    -- Impossible constructors of a given variable are sum type branches that
+    -- have already been rulled out by previous if is instances. Once these
+    -- reach n - 1 constructors, the variable can only have one possible type
+    -- and may be lowered.
+    , impossibleConstructors :: Map.Map String (Set.Set String)
     }
 
 emptyEnvironment :: Environment
-emptyEnvironment = Environment defaultFunctions Map.empty Map.empty Map.empty
+emptyEnvironment = Environment defaultFunctions Map.empty Map.empty Map.empty Map.empty
 
 defaultFunctions :: Map.Map String Type
 defaultFunctions = Map.fromList
@@ -279,20 +297,29 @@ isAvailable env name = not (Map.member name variables) && not (Map.member name t
           cs = constructors env
 
 insertVariableType :: String -> Type -> Environment -> Environment
-insertVariableType name t env = Environment newTypes (typeAliases env) (sumTypes env) (constructors env)
+insertVariableType name t env = env { variableTypes = newTypes }
     where newTypes = Map.insert name t (variableTypes env)
 
 insertTypeAlias :: String -> Type -> Environment -> Environment
-insertTypeAlias name t env = Environment (variableTypes env) newTypes (sumTypes env) (constructors env)
+insertTypeAlias name t env = env { typeAliases = newTypes }
     where newTypes = Map.insert name t (typeAliases env)
 
 insertSumType :: String -> Map.Map String Type -> Environment -> Environment
-insertSumType name t env = Environment (variableTypes env) (typeAliases env) newTypes (constructors env)
+insertSumType name t env = env { sumTypes = newTypes }
     where newTypes = Map.insert name t (sumTypes env)
 
 insertConstructor :: String -> String -> Environment -> Environment
-insertConstructor name t env = Environment (variableTypes env) (typeAliases env) (sumTypes env) newConstructors
+insertConstructor name t env = env { constructors = newConstructors }
     where newConstructors = Map.insert name t (constructors env)
+
+insertImpossibleConstructor :: String -> String -> Environment -> Environment
+insertImpossibleConstructor name constructor env = env { impossibleConstructors = newImpossible }
+    where newImpossible = Map.insert name newConstructors (impossibleConstructors env)
+          newConstructors = Set.insert constructor (Map.findWithDefault Set.empty name (impossibleConstructors env))
+
+clearImpossibleConstructors :: String -> Environment -> Environment
+clearImpossibleConstructors name env = env { impossibleConstructors = newImpossible }
+    where newImpossible = Map.delete name (impossibleConstructors env)
 
 instance Show TypeError where
     show (TypeError _ e) = e

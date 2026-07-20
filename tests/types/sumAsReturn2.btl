@@ -4,7 +4,6 @@ f(b: boolean, n: integer): Sum =
     if b: return Left n;
     return Right {};
 
-case f(true, 1) of {
-    Left n -> return n;
-    _ -> return -1;
-};
+result = f(true, 1);
+if result is Left: return result;
+return -1;

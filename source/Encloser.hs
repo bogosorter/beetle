@@ -47,32 +47,22 @@ enclose env expression = case expression of
         let sumType = AST.getType expression
             enclosedType = encloseType sumType
 
-            constructors = case sumType of
-                UserType name -> getSumType env name
-                _ -> error "got a constructor whose type is not a sum type"
+            constructors = getSumType env sumType
             index = findIndex (constructor expression) constructors
 
         enclosedValue <- enclose env $ value expression
         return $ Closures.Constructor enclosedValue index enclosedType
 
     Lowering {} -> do
-        let Lowering value constructor t = expression
-
+        let Lowering value _ t = expression
         enclosedValue <- enclose env value
-        let constructors = case t of
-                UserType name -> getSumType env name
-                _ -> error "got a constructor whose type is not a sum type"
-            loweredType = encloseType (constructors ! constructor)
-
-        return $ Closures.Lowering enclosedValue loweredType
+        return $ Closures.Lowering enclosedValue (encloseType t)
 
     TypeAssertion {} -> do
         let TypeAssertion scrutinee constructor _ = expression
 
         enclosedScrutinee <- enclose env scrutinee
-        let constructors = case AST.getType scrutinee of
-                UserType name -> getSumType env name
-                _ -> error "got a constructor whose type is not a sum type"
+        let constructors = getSumType env (getType scrutinee)
             index = findIndex constructor constructors
 
         return $ Closures.TypeAssertion enclosedScrutinee index
@@ -110,7 +100,7 @@ enclose env expression = case expression of
         enclose env' (body expression)
 
     Assignment {} -> do
-        -- We insert the variable into the environment even before enclosing its
+        -- If this is a function, we insert the variable into the environment even before enclosing its
         -- value to allow for recursion
         let env' = insertVariable name variable env
             name = assignedName expression
@@ -119,11 +109,12 @@ enclose env expression = case expression of
         -- If we are assigning a function, we want to give a name to it in the
         -- LLVM code, for it to be identifiable. We have to do it here, though,
         -- and not inside the function case, because this is where the
-        -- information about the funtion name is
+        -- information about the funtion name is.
+        -- `env` or `env'` are chosen according to the type that we are enclosing.
         let expressionValue = variableValue expression
         enclosedValue <- case expressionValue of
             AST.Function {} -> encloseFunction env' expressionValue (Just name)
-            _ -> enclose env' (variableValue expression)
+            _ -> enclose env (variableValue expression)
 
         enclosedBody <- enclose env' $ body expression
         return $ Closures.Let name enclosedValue enclosedBody (Closures.getType enclosedBody)
@@ -228,7 +219,12 @@ freeVariables expression = case expression of
     RecordMember { record = record } -> freeVariables record
 
     Assignment { assignedName = name, variableValue = value, body = body} ->
-        delete name (freeVariables value `union` freeVariables body)
+        -- To allow for expressions like `x = x + 1`, self-references in the
+        -- value of an assignment are considered free as long as this is not a
+        -- function assignment (which allows for recursion)
+        case value of
+            AST.Function {} -> delete name $ freeVariables value `union` freeVariables body
+            _ -> freeVariables value `union` (delete name $ freeVariables body)
 
     TupleDestructuring { destructuredNames = names, tuple = tuple, body = body} ->
         (freeVariables tuple `union` freeVariables body) `difference` (Set.fromList names)
@@ -298,10 +294,12 @@ insertSumType :: String -> Map String AST.Type -> Environment -> Environment
 insertSumType name t env = env { sumTypes = sumTypes' }
     where sumTypes' = insert name t $ sumTypes env
 
-getSumType :: Environment -> String -> Map String AST.Type
-getSumType env name = case Map.lookup name (sumTypes env) of
-    Just t -> t
-    Nothing -> error ("couldn't find name " ++ name)
+getSumType :: Environment -> AST.Type -> Map String AST.Type
+getSumType env constructor = case constructor of
+    UserType name -> case Map.lookup name (sumTypes env) of
+        Just t -> t
+        Nothing -> error ("couldn't find name " ++ name)
+    _ -> error ("got a constructor whose type is not sum type: " ++ show constructor)
 
 builtInFunctions :: [(String, Closures.Expression)]
 builtInFunctions =
