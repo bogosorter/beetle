@@ -37,7 +37,6 @@ simplify expression = case expression of
 
     RecordMember {} -> expression { record = simplify $ record expression }
     Variable {} -> expression
+    TypeAssignment assignedName assignedType body t -> TypeAssignment assignedName assignedType (simplify body) t
     Assignment name value body t -> Assignment name (simplify value) (simplify body) t
     TupleDestructuring names tuple body t -> TupleDestructuring names (simplify tuple) (simplify body) t
-
-    TypeAssignment {} -> error "type checked AST should not have type declarations"

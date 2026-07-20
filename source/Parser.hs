@@ -88,7 +88,7 @@ typeAssignment = do
     t <- typeParser
 
     finalType <- case t of
-        TypeAlias constructor -> attemptSumType constructor <|> return t
+        UserType constructor -> attemptSumType constructor <|> return t
         _ -> return t
     return $ \body -> TypeAssignment name finalType body position
 
@@ -269,14 +269,12 @@ parenthesizedExpression = do
 
 functionCall :: SourceExpression -> Parser SourceExpression
 functionCall base = do
-    position <- M.getSourcePos
-
     symbol "("
     -- we do not use full expressions to avoid ambiguity with tuples
     arguments <- M.sepBy1 binaryOperation (symbol ",")
     symbol ")"
 
-    let buildCall base argument = Application base argument position
+    let buildCall base argument = Application base argument (getPosition base)
     let result = foldl buildCall base arguments
     atomContinuation result
 
@@ -329,7 +327,7 @@ integerType = do
 userType :: Parser Type
 userType = do
     name <- typeIdentifier
-    return $ TypeAlias name
+    return $ UserType name
 
 parenthesizedType :: Parser Type
 parenthesizedType = do

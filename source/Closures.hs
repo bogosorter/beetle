@@ -10,8 +10,8 @@ data Type
     = BooleanType
     | IntegerType
     | TupleType [Type]
+    | SumType
     | ClosureType Type Type
-    | SumType [Type]
     deriving Show
 
 -- While not strictly necessary, we add name as a parameter to ensure that the

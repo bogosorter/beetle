@@ -9,9 +9,9 @@ data Type
     | IntegerType
     | TupleType [Type]
     | RecordType (Map.Map String Type)
-    | FunctionType Type Type
-    | TypeAlias String
     | SumType (Map.Map String Type)
+    | FunctionType Type Type
+    | UserType String
     deriving Eq
 
 data Expression a
@@ -70,13 +70,13 @@ data Expression a
         , annotation :: a
         }
     | TypeAssignment
-        { typeName :: String
+        { assignedName :: String
         , assignedType :: Type
         , body :: Expression a
         , annotation :: a
         }
     | Assignment
-        { variableName :: String
+        { assignedName :: String
         , variableValue :: Expression a
         , body :: Expression a
         , annotation :: a
@@ -102,13 +102,13 @@ instance Show Type where
     show BooleanType = "boolean"
     show (TupleType memberTypes) = "(" ++ List.intercalate ", " (map show memberTypes) ++ ")"
     show (RecordType memberTypes) = "{" ++ List.intercalate ", " (map showRecordMemberType (Map.toList memberTypes)) ++ "}"
+    show (SumType constructors) = List.intercalate " | " [constructor | (constructor, _) <- Map.toList constructors]
     -- We check for a function type on the left side and add parentheses, since
     -- function types are normally right-associative
     show (FunctionType argumentType returnType) = case argumentType of
         FunctionType {} -> "(" ++ show argumentType ++ ") -> " ++ show returnType
         _ -> show argumentType ++ " -> " ++ show returnType
-    show (TypeAlias name) = name
-    show (SumType constructors) = List.intercalate " | " [constructor ++ " " ++ show t | (constructor, t) <- Map.toList constructors]
+    show (UserType name) = name
 
 showRecordMemberType :: (String, Type) -> String
 showRecordMemberType (name, t) = name ++ ": " ++ show t

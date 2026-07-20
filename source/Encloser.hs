@@ -49,7 +49,7 @@ enclose env expression = case expression of
             enclosedType = encloseType sumType
 
             constructors = case sumType of
-                SumType constructors -> constructors
+                UserType name -> getSumType env name
                 _ -> error "got a constructor whose type is not a sum type"
             index = findIndex (constructor expression) constructors
 
@@ -69,7 +69,7 @@ enclose env expression = case expression of
             enclosedType = encloseType $ getType expression
 
             constructors = case sumType of
-                SumType constructors -> constructors
+                UserType name -> getSumType env name
                 _ -> error "got a constructor whose type is not a sum type"
 
             encloseBranch :: (String, String, TypedExpression) -> State ClosureState (Int, String, Closures.Type, Closures.Expression)
@@ -112,12 +112,19 @@ enclose env expression = case expression of
 
         return $ Closures.TupleMember index enclosedRecord t
 
+    TypeAssignment {} -> do
+        let constructors = case (assignedType expression) of
+                SumType constructors -> constructors
+                _ -> error "only sum type assignments should make it past type checking"
+            env' = insertSumType (assignedName expression) constructors env
+        enclose env' (body expression)
+
     Assignment {} -> do
         -- We insert the variable into the environment even before enclosing its
         -- value to allow for recursion
         let env' = insertVariable name variable env
-            variable = Closures.Local (variableName expression) (encloseType . getType . variableValue $ expression)
-            name = variableName expression
+            name = assignedName expression
+            variable = Closures.Local name (encloseType . getType . variableValue $ expression)
 
         -- If we are assigning a function, we want to give a name to it in the
         -- LLVM code, for it to be identifiable. We have to do it here, though,
@@ -165,8 +172,6 @@ enclose env expression = case expression of
 
         return $ Closures.Let temporary enclosedTuple enclosedBody' bodyType
 
-    TypeAssignment {} -> error "type variables should have been removed in type checking"
-
 
 encloseFunction :: Environment -> TypedExpression -> Maybe String -> State ClosureState Closures.Expression
 encloseFunction env expression functionName = do
@@ -176,7 +181,7 @@ encloseFunction env expression functionName = do
 
             -- The variables as they will be seen from within the closure
             variables = [Closures.Captured i t | (i, t) <- zip [0..] freeTypes]
-            closureEnvironment = fromVariables $ Map.fromList (zip freeNames variables)
+            closureEnvironment = Environment (Map.fromList (zip freeNames variables)) (sumTypes env)
 
             -- The argument must also be added to the environment
             argName = argumentName expression
@@ -232,13 +237,13 @@ freeVariables expression = case expression of
 
     RecordMember { record = record } -> freeVariables record
 
-    Assignment { variableName = name, variableValue = value, body = body} ->
+    Assignment { assignedName = name, variableValue = value, body = body} ->
         delete name (freeVariables value `union` freeVariables body)
 
     TupleDestructuring { destructuredNames = names, tuple = tuple, body = body} ->
         (freeVariables tuple `union` freeVariables body) `difference` (Set.fromList names)
 
-    TypeAssignment {} -> error "type variables should have been removed in type checking"
+    TypeAssignment { body = body } -> freeVariables body
 
 
 encloseType :: Type -> Closures.Type
@@ -247,8 +252,9 @@ encloseType IntegerType = Closures.IntegerType
 encloseType (TupleType memberTypes) = Closures.TupleType (map encloseType memberTypes)
 encloseType (RecordType memberTypes) = Closures.TupleType (map encloseType $ Map.elems memberTypes)
 encloseType (FunctionType argumentType returnType) = Closures.ClosureType (encloseType argumentType) (encloseType returnType)
-encloseType (TypeAlias _) = error "type variables should have been removed in type checking"
-encloseType (SumType constructors) = Closures.SumType $ [encloseType t | t <- Map.elems constructors]
+-- All type aliases are removed by now, and only sum types are left
+encloseType (UserType _) = Closures.SumType
+encloseType (SumType _) = error "sum types should have been removed in type checking"
 
 
 -- State and environment utils
@@ -285,13 +291,11 @@ putFunction f = do
 
 data Environment = Environment
     { variables :: Map String Closures.Expression
+    , sumTypes :: Map String (Map String AST.Type)
     }
 
 emptyEnvironment :: Environment
-emptyEnvironment = Environment Map.empty
-
-fromVariables :: Map String Closures.Expression -> Environment
-fromVariables variables = Environment variables
+emptyEnvironment = Environment Map.empty Map.empty
 
 insertVariable :: String -> Closures.Expression -> Environment -> Environment
 insertVariable name variable env = env { variables = variables' }
@@ -299,6 +303,15 @@ insertVariable name variable env = env { variables = variables' }
 
 getVariable :: Environment -> String -> Closures.Expression
 getVariable env name = variables env ! name
+
+insertSumType :: String -> Map String AST.Type -> Environment -> Environment
+insertSumType name t env = env { sumTypes = sumTypes' }
+    where sumTypes' = insert name t $ sumTypes env
+
+getSumType :: Environment -> String -> Map String AST.Type
+getSumType env name = case Map.lookup name (sumTypes env) of
+    Just t -> t
+    Nothing -> error ("couldn't find name " ++ name)
 
 builtInFunctions :: [(String, Closures.Expression)]
 builtInFunctions =

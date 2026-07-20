@@ -1,7 +1,7 @@
 Tree = Leaf integer | Node {left: Tree, right: Tree};
 
 max(a: integer, b: integer): integer =
-    if (a >= b) return a;
+    if a >= b: return a;
     return b;
 
 height(tree: Tree): integer =

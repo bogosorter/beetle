@@ -38,7 +38,10 @@ typeCheck env expression = case expression of
     Constructor {} -> do
         let name = constructor expression
         case Map.lookup name (constructors env) of
-            Just sumType@(SumType constructors) -> do
+            Just sumType -> do
+                let constructors = case Map.lookup sumType (sumTypes env) of
+                        Just constructors -> constructors
+                        _ -> error ("got constructor to something that is not a user type: " ++ show sumType)
                 typedValue <- typeCheck env (value expression)
 
                 let expectedValueType = constructors ! name
@@ -48,10 +51,8 @@ typeCheck env expression = case expression of
                 when (desugaredExpectedType /= valueType) $
                     Left $ TypeError (getPosition $ value expression) ("expected type " ++ show expectedValueType ++ ", but got value of type " ++ show valueType)
 
-                desugaredSumType <- desugar position env sumType
-                return $ Constructor name typedValue desugaredSumType
+                return $ Constructor name typedValue (UserType sumType)
 
-            Just t -> Left $ TypeError position (name ++ " is not a constructor whose type is not a sum type (" ++ show t ++ ")")
             Nothing -> Left $ TypeError position ("couldn't find constructor " ++ name)
 
     Function {} -> do
@@ -83,7 +84,9 @@ typeCheck env expression = case expression of
     Case {} -> do
         typedScrutinee <- typeCheck env (scrutinee expression)
         constructors <- case getType typedScrutinee of
-            SumType constructors -> return constructors
+            UserType userType -> case Map.lookup userType (sumTypes env) of
+                Just constructors -> return constructors
+                _ -> Left $ TypeError (getPosition $ scrutinee expression) ("the scrutinee of a case expression must be a sum type, but got type " ++ userType)
             t -> Left $ TypeError (getPosition $ scrutinee expression) ("the scrutinee of a case expression must be a sum type, but got type " ++ show t)
 
         -- The three conditions asserted below are also enough to prove that
@@ -164,24 +167,28 @@ typeCheck env expression = case expression of
             _ -> Left $ TypeError position ("trying to access inexistent member " ++ name ++ " of this record")
 
     -- Type shadowing is not allowed
-    -- The type declaration is removed during type checking
     TypeAssignment {} -> do
-        let name = typeName expression
+        let name = assignedName expression
         unless (isAvailable env name) $
             Left $ TypeError position ("type " ++ name ++ " has already been declared")
 
         let t = assignedType expression
-            env' = insertUserType (typeName expression) t env
-            env'' = case assignedType expression of
+            env' = case t of
                 SumType constructors ->
-                    let constructorTypes = [(constructor, t) | constructor <- Map.keys constructors]
+                    let env' = insertSumType name constructors env
+                        constructorTypes = [(constructor, name) | constructor <- Map.keys constructors]
                     in Prelude.foldr (uncurry insertConstructor) env' constructorTypes
-                _ -> env'
+                _ -> insertTypeAlias name t env
 
-        typeCheck env'' (body expression)
+        typedBody <- typeCheck env' (body expression)
+
+        -- Only sum type assignments are left on the AST
+        case t of
+            SumType _ -> return $ TypeAssignment name t typedBody (getType typedBody)
+            _ -> return typedBody
 
     Assignment {} -> do
-        let name = variableName expression
+        let name = assignedName expression
         when (name == "_") $
             Left $ TypeError position ("assigning to a hole")
 
@@ -223,11 +230,15 @@ typeCheck env expression = case expression of
     where position = getPosition expression
 
 desugar :: SourcePos -> Environment -> Type -> Either TypeError Type
-desugar position env (TypeAlias name) = do
-    let types = userTypes env
-    case Map.lookup name types of
+desugar position env (UserType name) = do
+    let aliases = typeAliases env
+    case Map.lookup name aliases of
         Just t -> desugar position env t
-        Nothing -> Left $ TypeError position ("couldn't find type " ++ name)
+        Nothing -> do
+            let sums = sumTypes env
+            case Map.lookup name sums of
+                Just _ -> Right $ UserType name
+                Nothing -> Left $ TypeError position ("couldn't find type " ++ name)
 desugar position env (TupleType memberTypes) = do
     desugaredMemberTypes <- mapM (desugar position env) memberTypes
     Right $ TupleType desugaredMemberTypes
@@ -245,12 +256,13 @@ desugar _ _ t = Right $ t
 
 data Environment = Environment
     { variableTypes :: Map.Map String Type
-    , userTypes :: Map.Map String Type
-    , constructors :: Map.Map String Type
+    , typeAliases :: Map.Map String Type
+    , sumTypes :: Map.Map String (Map.Map String Type)
+    , constructors :: Map.Map String String
     }
 
 emptyEnvironment :: Environment
-emptyEnvironment = Environment defaultFunctions Map.empty Map.empty
+emptyEnvironment = Environment defaultFunctions Map.empty Map.empty Map.empty
 
 defaultFunctions :: Map.Map String Type
 defaultFunctions = Map.fromList
@@ -273,19 +285,23 @@ defaultFunctions = Map.fromList
 isAvailable :: Environment -> String -> Bool
 isAvailable env name = not (Map.member name variables) && not (Map.member name types) && not (Map.member name cs)
     where variables = variableTypes env
-          types = userTypes env
+          types = typeAliases env
           cs = constructors env
 
 insertVariableType :: String -> Type -> Environment -> Environment
-insertVariableType name t env = Environment newTypes (userTypes env) (constructors env)
+insertVariableType name t env = Environment newTypes (typeAliases env) (sumTypes env) (constructors env)
     where newTypes = Map.insert name t (variableTypes env)
 
-insertUserType :: String -> Type -> Environment -> Environment
-insertUserType name t env = Environment (variableTypes env) newTypes (constructors env)
-    where newTypes = Map.insert name t (userTypes env)
+insertTypeAlias :: String -> Type -> Environment -> Environment
+insertTypeAlias name t env = Environment (variableTypes env) newTypes (sumTypes env) (constructors env)
+    where newTypes = Map.insert name t (typeAliases env)
 
-insertConstructor :: String -> Type -> Environment -> Environment
-insertConstructor name t env = Environment (variableTypes env) (userTypes env) newConstructors
+insertSumType :: String -> Map.Map String Type -> Environment -> Environment
+insertSumType name t env = Environment (variableTypes env) (typeAliases env) newTypes (constructors env)
+    where newTypes = Map.insert name t (sumTypes env)
+
+insertConstructor :: String -> String -> Environment -> Environment
+insertConstructor name t env = Environment (variableTypes env) (typeAliases env) (sumTypes env) newConstructors
     where newConstructors = Map.insert name t (constructors env)
 
 instance Show TypeError where

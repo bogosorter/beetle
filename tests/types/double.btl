@@ -15,7 +15,9 @@ case list of {
     Cons p ->
         _, tail = p;
         case tail of {
-            second, _ -> return second;
+            Cons tail ->
+                second, _ = tail;
+                return second;
             _ -> return -1;
         };
     _ -> return -1;
