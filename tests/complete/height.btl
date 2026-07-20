@@ -5,15 +5,15 @@ max(a: integer, b: integer): integer =
     return b;
 
 height(tree: Tree): integer =
-    case tree of {
-        Node tree ->
-           return 1 + max(height(tree.left), height(tree.right));
-        _ -> return 0;
-    };
+    if tree is Leaf: return 0;
+
+    left = height(tree.left);
+    right = height(tree.right);
+    return 1 + max(left, right);
 
 tree = Node {
     left: Leaf 1,
-    right: Node {
+    right: Node {l
         left: Node {
             left: Leaf 2,
             right: Leaf 3

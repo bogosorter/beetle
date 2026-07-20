@@ -1,24 +1,16 @@
 List = Cons (integer, List) | Nil {};
 
 double(list: List): List =
-    case list of {
-        Cons p ->
-            h, tail = p;
-            return Cons (h * 2, double(tail));
-        _ ->
-            return Nil {};
-    };
+    if list is Nil: return Nil {};
+    head, tail = list;
+    return Cons (head * 2, double(tail));
 
 list = Cons (1, Cons (2, Cons (3, Nil {})));
 list = double(list);
-case list of {
-    Cons p ->
-        _, tail = p;
-        case tail of {
-            Cons tail ->
-                second, _ = tail;
-                return second;
-            _ -> return -1;
-        };
-    _ -> return -1;
-};
+
+if list is Nil: return -1;
+_, list = list;
+if list is Nil: return -1;
+second, _ = list;
+
+return second;
