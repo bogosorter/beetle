@@ -24,7 +24,8 @@ expression = logical
            | logical (',' logical) -- tuple creation
 logical = logical' ('and' logical')?
 logical' = logical'' ('or' logical'')?
-logical'' = arithmetic (('==' | '<' | '>' | '<=' | '>=') arithmetic)?
+logical'' = typeAssertion (('==' | '<' | '>' | '<=' | '>=') typeAssertion)?
+typeAssertion = arithmetic ('is' typeSymbol)?
 arithmetic = factor (('+' | '-') factor)*
 factor = atom (('*' | '/' | 'mod' | 'rem') atom)*
 atom = symbol expressionCall

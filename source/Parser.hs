@@ -27,7 +27,7 @@ program = do
     return content
 
 returnExpression :: Parser SourceExpression
-returnExpression = binding <|> ifExpression <|> caseExpression <|> returnValue
+returnExpression = binding <|> ifExpression <|> returnValue
 
 -- This parser is used to abstract the logic of parsing a ";" and a collection
 -- of ensuing expression from assignments and type declarations.
@@ -43,36 +43,27 @@ ifExpression = do
     position <- M.getSourcePos
     keyword "if"
     condition <- expression
+    simpleIf position condition <|> ifLet position condition
+
+simpleIf :: M.SourcePos -> SourceExpression -> Parser SourceExpression
+simpleIf position condition = do
     symbol ":"
     left <- returnExpression
     symbol ";"
     right <- returnExpression
     return $ If condition left right position
 
-caseExpression :: Parser SourceExpression
-caseExpression = do
-    position <- M.getSourcePos
-    symbol "case"
-    scrutinee <- expression
-    symbol "of"
-    symbol "{"
-    bs <- M.endBy branch (symbol ";")
-    db <- defaultBranch <* symbol ";" <|> (return Nothing)
-    symbol "}"
-    return $ Case scrutinee bs db position
+ifLet :: M.SourcePos -> SourceExpression -> Parser SourceExpression
+ifLet position condition = do
+    assertionPosition <- M.getSourcePos
+    keyword "is"
+    constructor <- typeIdentifier
+    symbol ":"
+    left <- returnExpression
+    symbol ";"
+    right <- returnExpression
+    return $ If (TypeAssertion condition constructor assertionPosition) left right position
 
-    where branch = do
-            constructor <- typeIdentifier
-            introducedVariable <- identifier
-            symbol "->"
-            body <- returnExpression
-            return (constructor, introducedVariable, body)
-
-          defaultBranch = do
-            hole
-            symbol "->"
-            body <- returnExpression
-            return $ Just body
 
 returnValue :: Parser SourceExpression
 returnValue = do
@@ -364,7 +355,7 @@ typeIdentifier = lexeme $ do
     return (first : following)
 
 reserved :: [String]
-reserved = ["if", "case", "of", "return", "true", "false", "boolean", "integer", "mod", "rem", "not", "and", "or"]
+reserved = ["if", "case", "of", "return", "true", "false", "boolean", "integer", "mod", "rem", "not", "and", "or", "is"]
 
 identifier :: Parser String
 identifier = M.try $ lexeme $ do

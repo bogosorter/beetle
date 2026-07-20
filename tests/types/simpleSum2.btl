@@ -1,0 +1,4 @@
+Sum = Left integer | Right integer;
+
+if Left 1 is Left: return 1;
+return -1;

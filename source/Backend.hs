@@ -99,7 +99,7 @@ compileExpression env expression = case expression of
         tupleRegister <- compileExpression env tuple
         tupleMember tupleRegister (llvmTupleType $ getType tuple) index (llvmType t)
 
-    Constructor index value _ -> do
+    Constructor value index _ -> do
         valueRegister <- compileExpression env value
 
         putStatement $ Comment "Lifting to sum type"
@@ -112,6 +112,33 @@ compileExpression env expression = case expression of
         positionRegister <- reserveRegister
         putStatement $ GetElementPointer positionRegister sumType resultRegister (integerOperand 0) (integerOperand 1)
         putStatement $ Store valueRegister (llvmType $ getType value) positionRegister
+
+        return resultRegister
+
+    Lowering value t -> do
+        valueRegister <- compileExpression env value
+
+        putStatement $ Comment "Lowering sum type"
+        positionRegister <- reserveRegister
+        resultRegister <- reserveRegister
+        putStatement $ GetElementPointer positionRegister sumType valueRegister (integerOperand 0) (integerOperand 1)
+        putStatement $ Load resultRegister (llvmType t) positionRegister
+
+        return resultRegister
+
+    TypeAssertion scrutinee index -> do
+        scrutineeRegister <- compileExpression env scrutinee
+
+        putStatement $ Comment "Type assertion"
+        putStatement $ Comment "Extracting the constructor of a sum type"
+        constructorPosition <- reserveRegister
+        constructor <- reserveRegister
+        putStatement $ GetElementPointer constructorPosition sumType scrutineeRegister (integerOperand 0) (integerOperand 0)
+        putStatement $ Load constructor LLVM.IntegerType constructorPosition
+
+        putStatement $ Comment "Comparing with the expected constructor"
+        resultRegister <- reserveRegister
+        putStatement $ BinaryOperation resultRegister LLVM.IntegerType Eq constructor (integerOperand index)
 
         return resultRegister
 
@@ -140,65 +167,6 @@ compileExpression env expression = case expression of
         putStatement $ EmptyLine
 
         return register
-
-    Case scrutinee branches defaultBranch t -> do
-        (labels, defaultLabel, mergeLabel) <- createSwitch (length branches)
-
-        scrutineeRegister <- compileExpression env scrutinee
-
-        putStatement $ Comment "Extracting the constructor of a sum type"
-        constructorPosition <- reserveRegister
-        constructor <- reserveRegister
-        putStatement $ GetElementPointer constructorPosition sumType scrutineeRegister (integerOperand 0) (integerOperand 0)
-        putStatement $ Load constructor LLVM.IntegerType constructorPosition
-
-        let indexes = [index | (index, _, _, _) <- branches]
-        putStatement $ Switch constructor defaultLabel [(integerOperand i, label) | (i, label) <- zip indexes labels]
-        putStatement $ EmptyLine
-
-        let encloseBranch :: Label -> (Int, String, Closures.Type, Expression) -> State CompilationState (Operand, Label)
-            encloseBranch label (_, name, varType, body) = do
-                putLabel label
-
-                putStatement $ Comment "Loading and casting the value of the new variable"
-                positionRegister <- reserveRegister
-                putStatement $ GetElementPointer positionRegister sumType scrutineeRegister (integerOperand 0) (integerOperand 1)
-                variable <- createVariable name
-                putStatement $ Load variable (llvmType varType) positionRegister
-                let env' = insertVariable name variable env
-
-                putStatement $ Comment "Case branch body"
-                bodyRegister <- compileExpression env' body
-                block <- getBasicBlock
-                putStatement $ Jump mergeLabel
-                putStatement $ EmptyLine
-
-                return (bodyRegister, block)
-
-        branchOperands <- mapM (uncurry encloseBranch) (zip labels branches)
-        defaultOperand <- case defaultBranch of
-            Just branch -> do
-                putLabel defaultLabel
-                defaultOperand <- compileExpression env branch
-                block <- getBasicBlock
-                putStatement $ Jump mergeLabel
-                putStatement $ EmptyLine
-                return (defaultOperand, block)
-            Nothing -> do
-                putStatement $ Comment "The default label is required but never reached"
-                putLabel defaultLabel
-                defaultOperand <- reserveRegister
-                block <- getBasicBlock
-                putStatement $ Bitcast defaultOperand (llvmType t) (integerOperand 0) LLVM.IntegerType
-                putStatement $ Jump mergeLabel
-                putStatement $ EmptyLine
-                return (defaultOperand, block)
-
-        putLabel mergeLabel
-        let phiSources = branchOperands ++ [defaultOperand]
-        resultRegister <- reserveRegister
-        putStatement $ Phi resultRegister (llvmType t) phiSources
-        return resultRegister
 
     -- Built-in not function call
     Application (BuiltInFunction "not" _) argument _ -> do
@@ -308,7 +276,7 @@ booleanLiteral operand n = BinaryOperation operand LLVM.BooleanType Add (integer
 
 data CompilationState = CompilationState
     { register :: Int -- the last register to have been used
-    , branch :: Int -- a counter for the number of branches and switches in this expression
+    , branch :: Int -- a counter for the number of branches in this expression
     , basicBlock :: Label -- the current basic block
     , variableCounter :: Map String Int -- used to provide a fresh variable name for shadowing
     , statements :: [Statement]
@@ -335,19 +303,6 @@ createBranch = do
         mergeLabel = MakeLabel $ "merge_" ++ show branchCount
 
     return (leftLabel, rightLabel, mergeLabel)
-
-createSwitch :: Int -> State CompilationState ([Label], Label, Label)
-createSwitch n = do
-    state <- get
-    let branchCount = branch state + 1
-    put state { branch = branchCount }
-
-    let labels = [MakeLabel $ "case_" ++ show branchCount ++ "_" ++ show i | i <- [1..n]]
-        defaultLabel = MakeLabel $ "default_" ++ show branchCount
-        mergeLabel = MakeLabel $ "merge_" ++ show branchCount
-
-
-    return (labels, defaultLabel, mergeLabel)
 
 putLabel :: Label -> State CompilationState ()
 putLabel label = do

@@ -4,7 +4,6 @@ import AST
 import Closures (Program(..), Function(..))
 import qualified Closures (Type(..), Expression(..), getType)
 
-import Data.List (sortBy)
 import Data.Set (Set, singleton, union, unions, difference, delete)
 import qualified Data.Set as Set (empty, elems, fromList)
 import Data.Map (Map, insert, findIndex, (!), findWithDefault)
@@ -54,7 +53,29 @@ enclose env expression = case expression of
             index = findIndex (constructor expression) constructors
 
         enclosedValue <- enclose env $ value expression
-        return $ Closures.Constructor index enclosedValue enclosedType
+        return $ Closures.Constructor enclosedValue index enclosedType
+
+    Lowering {} -> do
+        let Lowering value constructor t = expression
+
+        enclosedValue <- enclose env value
+        let constructors = case t of
+                UserType name -> getSumType env name
+                _ -> error "got a constructor whose type is not a sum type"
+            loweredType = encloseType (constructors ! constructor)
+
+        return $ Closures.Lowering enclosedValue loweredType
+
+    TypeAssertion {} -> do
+        let TypeAssertion scrutinee constructor _ = expression
+
+        enclosedScrutinee <- enclose env scrutinee
+        let constructors = case AST.getType scrutinee of
+                UserType name -> getSumType env name
+                _ -> error "got a constructor whose type is not a sum type"
+            index = findIndex constructor constructors
+
+        return $ Closures.TypeAssertion enclosedScrutinee index
 
     AST.Function {} -> encloseFunction env expression Nothing
 
@@ -63,37 +84,6 @@ enclose env expression = case expression of
         enclosedLeft <- enclose env (left expression)
         enclosedRight <- enclose env (right expression)
         return $ Closures.If enclosedCondition enclosedLeft enclosedRight (Closures.getType enclosedLeft)
-
-    Case {} -> do
-        let sumType = AST.getType $ scrutinee expression
-            enclosedType = encloseType $ getType expression
-
-            constructors = case sumType of
-                UserType name -> getSumType env name
-                _ -> error "got a constructor whose type is not a sum type"
-
-            encloseBranch :: (String, String, TypedExpression) -> State ClosureState (Int, String, Closures.Type, Closures.Expression)
-            encloseBranch (branchConstructor, introducedName, body) = do
-                let constructorIndex = findIndex branchConstructor constructors
-                    introducedType = encloseType $ constructors ! branchConstructor
-                    introducedVariable = Closures.Local introducedName introducedType
-                    env' = insertVariable introducedName introducedVariable env
-
-                enclosedBody <- enclose env' body
-                return $ (constructorIndex, introducedName, introducedType, enclosedBody)
-
-            compareBranches :: (String, String, TypedExpression) -> (String, String, TypedExpression) -> Ordering
-            compareBranches (a, _, _) (b, _, _) = compare a b
-
-        enclosedScrutinee <- enclose env $ scrutinee expression
-        enclosedBranches <- mapM encloseBranch (sortBy compareBranches $ branches expression)
-        enclosedDefault <- case (defaultBranch expression) of
-            Just branch -> do
-                result <- enclose env branch
-                return $ Just result
-            Nothing -> return Nothing
-
-        return $ Closures.Case enclosedScrutinee enclosedBranches enclosedDefault enclosedType
 
     Application {} -> do
         enclosedFunction <- enclose env (function expression)
@@ -222,15 +212,15 @@ freeVariables expression = case expression of
 
     Constructor {} -> freeVariables (value expression)
 
+    Lowering {} -> freeVariables (value expression)
+
+    TypeAssertion {} -> freeVariables (scrutinee expression)
+
     AST.Function { argumentName = argument, body = body } ->
         delete argument $ freeVariables body
 
     If { condition = condition, left = left, right = right} ->
         freeVariables condition `union` freeVariables left `union` freeVariables right
-
-    Case {} ->
-        let freeInBranch (_, introduced, body) free = (delete introduced $ freeVariables body) `union` free
-        in foldr freeInBranch (freeVariables $ scrutinee expression) (branches expression)
 
     Application { function = function, argument = argument} ->
         freeVariables function `union` freeVariables argument

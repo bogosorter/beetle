@@ -36,6 +36,18 @@ data Expression a
         , value :: Expression a
         , annotation :: a
         }
+    -- Lowerings are introduced by the Type-Checker, and should thus not be in
+    -- the AST. Perhaps this needs some refactoring.
+    | Lowering
+        { value :: Expression a
+        , constructor :: String
+        , annotation :: a
+        }
+    | TypeAssertion
+        { scrutinee :: Expression a
+        , constructor :: String
+        , annotation :: a
+        }
     | Function
         { argumentType :: Type
         , returnType :: Type
@@ -47,12 +59,6 @@ data Expression a
         { condition :: Expression a
         , left :: Expression a
         , right :: Expression a
-        , annotation :: a
-        }
-    | Case
-        { scrutinee :: Expression a
-        , branches :: [(String, String, Expression a)] -- constructor, introduced variable name and body
-        , defaultBranch :: Maybe (Expression a)
         , annotation :: a
         }
     | Application

@@ -58,20 +58,22 @@ data Expression
         , t :: Type
         }
     | Constructor
-        { index :: Int
-        , value :: Expression
+        { value :: Expression
+        , index :: Int
         , t :: Type
+        }
+    | Lowering
+        { value :: Expression
+        , t :: Type
+        }
+    | TypeAssertion
+        { scrutinee :: Expression
+        , index :: Int
         }
     | If
         { condition :: Expression
         , left :: Expression
         , right :: Expression
-        , t :: Type
-        }
-    | Case
-        { scrutinee :: Expression
-        , branches :: [(Int, String, Type, Expression)]
-        , defaultBranch :: Maybe Expression
         , t :: Type
         }
     | Application
@@ -94,4 +96,5 @@ data Expression
 getType :: Expression -> Type
 getType (Integer {}) = IntegerType
 getType (Boolean {}) = BooleanType
+getType (TypeAssertion {}) = BooleanType
 getType expression = t expression

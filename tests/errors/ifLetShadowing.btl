@@ -1,0 +1,19 @@
+Tree = Leaf integer | Node {left: Tree, right: Tree};
+
+size(tree: Tree): integer =
+    if tree is Leaf: return 1;
+    tree = Leaf 1;
+    return size(tree.left) + size(tree.right);
+
+tree = Node {
+    left: Leaf 1,
+    right: Node {
+        left: Node {
+            left: Leaf 2,
+            right: Leaf 3
+        },
+        right: Leaf 4,
+    }
+};
+
+return size(tree);

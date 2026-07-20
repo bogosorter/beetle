@@ -11,9 +11,10 @@ simplify expression = case expression of
     Tuple members t -> Tuple (map simplify members) t
     Record members t -> Record (Data.Map.map simplify members) t
     Constructor constructor value t -> Constructor constructor (simplify value) t
+    Lowering value constructor t -> Lowering (simplify value) constructor t
+    TypeAssertion scrutinee constructor t -> TypeAssertion (simplify scrutinee) constructor t
     Function {} -> expression { body = simplify $ body expression }
     If condition left right t -> If (simplify condition) (simplify left) (simplify right) t
-    Case scrutinee branches defaultBranch t -> Case (simplify scrutinee) [(c, v, simplify branch) | (c, v, branch) <- branches] (simplify <$> defaultBranch) t
 
     -- Since the LLVM does not provide a true modulo operator, it is complicated
     -- (ehem, simplified) to only use the remainder

@@ -13,7 +13,7 @@ height(tree: Tree): integer =
 
 tree = Node {
     left: Leaf 1,
-    right: Node {l
+    right: Node {
         left: Node {
             left: Leaf 2,
             right: Leaf 3
