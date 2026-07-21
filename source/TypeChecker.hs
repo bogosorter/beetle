@@ -92,6 +92,12 @@ typeCheck env expression = case expression of
         unless (Map.member constructor constructors) $
             Left $ TypeError position ("constructor " ++ show constructor ++ " does not exist in type " ++ show (getType typedScrutinee))
 
+
+        case scrutinee of
+            (Variable name _) -> when (Set.member constructor (getImpossibleConstructors name env)) $
+                Left $ TypeError position ("redundant check: it has already been established that \"" ++ name ++ "\" is not of type " ++ constructor)
+            _ -> Right ()
+
         -- If the scrutinee is a variable, we can change the type of that
         -- variable, and possibly change the type of the variable on the else
         -- branch, if it is known that there is a single possibility left.
@@ -99,7 +105,7 @@ typeCheck env expression = case expression of
                 (Variable name _) ->
                     let modifiedLeft = Assignment name (Lowering scrutinee constructor position) left position
                         env' = insertImpossibleConstructor name constructor env
-                        missingConstructors = Map.keys $ Map.withoutKeys constructors (impossibleConstructors env' ! name)
+                        missingConstructors = Map.keys $ Map.withoutKeys constructors (getImpossibleConstructors name env')
                         modifiedRight = case missingConstructors of
                             [x] ->  Assignment name (Lowering scrutinee x position) right position
                             _ -> right
@@ -316,6 +322,11 @@ insertImpossibleConstructor :: String -> String -> Environment -> Environment
 insertImpossibleConstructor name constructor env = env { impossibleConstructors = newImpossible }
     where newImpossible = Map.insert name newConstructors (impossibleConstructors env)
           newConstructors = Set.insert constructor (Map.findWithDefault Set.empty name (impossibleConstructors env))
+
+getImpossibleConstructors :: String -> Environment -> Set.Set String
+getImpossibleConstructors name env = case Map.lookup name (impossibleConstructors env) of
+    Just result -> result
+    Nothing -> Set.empty
 
 clearImpossibleConstructors :: String -> Environment -> Environment
 clearImpossibleConstructors name env = env { impossibleConstructors = newImpossible }

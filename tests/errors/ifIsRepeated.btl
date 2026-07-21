@@ -1,19 +1,7 @@
-Tree = Leaf Integer | Node {left: Tree, right: Tree};
+Sum = Left Integer | Middle Integer | Right Integer;
 
-size(tree: Tree): Integer =
-    if tree is Leaf: return 1;
-    if tree is Leaf: return 1;
-    return size(tree.left) + size(tree.right);
-
-tree = Node {
-    left: Leaf 1,
-    right: Node {
-        left: Node {
-            left: Leaf 2,
-            right: Leaf 3
-        },
-        right: Leaf 4,
-    }
-};
-
-return size(tree);
+value = Left 1;
+if value is Left: return 1;
+if value is Left: return 1;
+if value is Middle: return 2;
+return 3;
