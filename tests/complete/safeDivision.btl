@@ -1,6 +1,6 @@
-Result = Result integer | Error {};
+Result = Result Integer | Error {};
 
-safeDivision(a: integer, b: integer): Result =
+safeDivision(a: Integer, b: Integer): Result =
     if b == 0: return Error {};
     return Result (a / b);
 

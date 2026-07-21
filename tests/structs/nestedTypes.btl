@@ -1,4 +1,4 @@
-extract(item: {x: {y: {z: integer}}}): integer =
+extract(item: {x: {y: {z: Integer}}}): Integer =
     return item.x.y.z;
 
 return extract({

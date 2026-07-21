@@ -1,4 +1,4 @@
-Sum = Left integer | Middle {x: integer, y: integer} | Right (integer, integer);
+Sum = Left Integer | Middle {x: Integer, y: Integer} | Right (Integer, Integer);
 
 a = Right (1, 2);
 b = Middle {x: 1, y: 2};

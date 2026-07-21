@@ -1,14 +1,14 @@
-Point = {x: integer, y: integer};
+Point = {x: Integer, y: Integer};
 Triangle = (Point, Point, Point);
 
-abs(x: integer): integer =
+abs(x: Integer): Integer =
     if x >= 0: return x;
     return -x;
 
-manhattan(a: Point, b: Point): integer =
+manhattan(a: Point, b: Point): Integer =
     return abs(a.x - b.x) + abs(a.y - b.y);
 
-manhattanTriangle(triangle: Triangle): integer =
+manhattanTriangle(triangle: Triangle): Integer =
     a, b, c = triangle;
     first = manhattan(a, b);
     second = manhattan(b, c);

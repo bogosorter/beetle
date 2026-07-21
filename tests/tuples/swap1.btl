@@ -1,4 +1,4 @@
-swap(pair: (integer, integer)): (integer, integer) =
+swap(pair: (Integer, Integer)): (Integer, Integer) =
     a, b = pair;
     return b, a;
 

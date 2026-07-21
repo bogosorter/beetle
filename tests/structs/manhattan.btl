@@ -1,8 +1,8 @@
-abs(x: integer): integer =
+abs(x: Integer): Integer =
     if x >= 0: return x;
     return -x;
 
-manhattan(a: {x: integer, y: integer}, b: {x: integer, y: integer}): integer =
+manhattan(a: {x: Integer, y: Integer}, b: {x: Integer, y: Integer}): Integer =
     first = abs(a.x - b.x);
     second = abs(a.y - b.y);
     return first + second;

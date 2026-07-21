@@ -1,6 +1,6 @@
-f(a: integer): (integer -> integer) -> integer =
-    g(function: integer -> integer): integer =
+f(a: Integer): (Integer -> Integer) -> Integer =
+    g(function: Integer -> Integer): Integer =
         return function(a);
     return g;
 
-return f(0)((x: integer): integer = x + 1);
+return f(0)((x: Integer): Integer = x + 1);

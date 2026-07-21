@@ -305,12 +305,12 @@ functionType argumentType = do
 
 booleanType :: Parser Type
 booleanType = do
-    keyword "boolean"
+    keyword "Boolean"
     return BooleanType
 
 integerType :: Parser Type
 integerType = do
-    keyword "integer"
+    keyword "Integer"
     return IntegerType
 
 userType :: Parser Type

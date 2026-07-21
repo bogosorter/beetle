@@ -1,4 +1,4 @@
-s(n: integer): integer =
+s(n: Integer): Integer =
     return n + 1;
 
 struct = {

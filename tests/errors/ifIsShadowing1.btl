@@ -2,7 +2,7 @@
 -- environment, such that if a is later reassigned a sum type no assumptions
 -- are made about it based on the previously known impossible constructors.
 
-Sum = Left integer | Middle integer | Right integer;
+Sum = Left Integer | Middle Integer | Right Integer;
 
 a = Left 1;
 if a is Left: return a;

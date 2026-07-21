@@ -1,8 +1,8 @@
-abs(x: integer): integer =
+abs(x: Integer): Integer =
     if x >= 0: return x;
     return -x;
 
-manhattan(a: (integer, integer), b: (integer, integer)): integer =
+manhattan(a: (Integer, Integer), b: (Integer, Integer)): Integer =
     xa, ya = a;
     xb, yb = b;
     first = abs(xa - xb);

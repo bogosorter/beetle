@@ -1,2 +1,2 @@
-lambda(n: integer): integer = return n + 1;
+lambda(n: Integer): Integer = return n + 1;
 return lambda(0);

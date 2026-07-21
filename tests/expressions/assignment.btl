@@ -1,5 +1,5 @@
 x = 0;
-s(n: integer): integer =
+s(n: Integer): Integer =
     return n + 1;
 
 return s(x);

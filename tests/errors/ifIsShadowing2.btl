@@ -2,12 +2,12 @@
 -- environment, such that if a is later reassigned a sum type no assumptions
 -- are made about it based on the previously known impossible constructors.
 
-Sum = Left integer | Middle integer | Right integer;
+Sum = Left Integer | Middle Integer | Right Integer;
 
 a = Right 1;
 if a is Left: return 1;
 
-a = (x: integer): integer = x + 1;
+a = (x: Integer): Integer = x + 1;
 
 a = Left 1;
 if a is Middle: return 2;

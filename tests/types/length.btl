@@ -1,6 +1,6 @@
-List = Cons (integer, List) | Nil {};
+List = Cons (Integer, List) | Nil {};
 
-length(list: List): integer =
+length(list: List): Integer =
     if list is Nil: return 0;
     _, tail = list;
     return 1 + length(tail);

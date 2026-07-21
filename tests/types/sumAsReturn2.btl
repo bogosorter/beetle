@@ -1,6 +1,6 @@
-Sum = Left integer | Right {};
+Sum = Left Integer | Right {};
 
-f(b: boolean, n: integer): Sum =
+f(b: Boolean, n: Integer): Sum =
     if b: return Left n;
     return Right {};
 

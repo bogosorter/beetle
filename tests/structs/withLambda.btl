@@ -1,6 +1,6 @@
 struct = {
     n: 0,
-    s: (n: integer): integer = n + 1
+    s: (n: Integer): Integer = n + 1
 };
 
 return struct.s(struct.n);

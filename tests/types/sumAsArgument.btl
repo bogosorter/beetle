@@ -1,6 +1,6 @@
-Sum = Left integer | Right {};
+Sum = Left Integer | Right {};
 
-f(s: Sum): integer =
+f(s: Sum): Integer =
     if s is Left: return s;
     return 0;
 

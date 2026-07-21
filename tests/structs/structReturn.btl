@@ -1,4 +1,4 @@
-f(x: integer): {x: integer} =
+f(x: Integer): {x: Integer} =
     return {x: x};
 
 return f(1).x;

@@ -1,4 +1,4 @@
-sum(n: integer): integer =
+sum(n: Integer): Integer =
     if n == 0: return 0;
     return n + sum(n - 1);
 

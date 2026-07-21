@@ -1,4 +1,4 @@
-s(x: integer): integer =
+s(x: Integer): Integer =
     y = 0;
     y = 1;
     return x + y;

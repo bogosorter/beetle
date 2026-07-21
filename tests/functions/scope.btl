@@ -1,5 +1,5 @@
 x = 2;
-id(x: integer): integer =
+id(x: Integer): Integer =
     return x;
 
 return x + id(1);

@@ -1,10 +1,10 @@
 Point = {
-    x: integer,
-    y: integer,
-    z: integer
+    x: Integer,
+    y: Integer,
+    z: Integer
 };
 
-manhattanDistance(point: Point): integer =
+manhattanDistance(point: Point): Integer =
     return point.x + point.y + point.z;
 
 return manhattanDistance({x: 1, y: 2, z: 3});

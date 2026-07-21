@@ -1,5 +1,5 @@
-mapSum(f: integer -> integer, a: integer, b: integer): integer =
+mapSum(f: Integer -> Integer, a: Integer, b: Integer): Integer =
     return f(a) + f(b);
 
-lambda = (n: integer): integer = n + 1;
+lambda = (n: Integer): Integer = n + 1;
 return mapSum(lambda, 0, 1);

@@ -1,4 +1,4 @@
 x = 1;
-sum(y: integer): integer = return x + y;
+sum(y: Integer): Integer = return x + y;
 
 return sum(2);

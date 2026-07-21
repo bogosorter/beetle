@@ -1,12 +1,12 @@
 Expression
-    = Literal integer
+    = Literal Integer
     | Addition {left: Expression, right: Expression}
     | Subtraction {left: Expression, right: Expression}
     | Multiplication {left: Expression, right: Expression}
     | Division {left: Expression, right: Expression}
     ;
 
-eval(expression: Expression): integer =
+eval(expression: Expression): Integer =
     if expression is Addition: return eval(expression.left) + eval(expression.right);
     if expression is Subtraction: return eval(expression.left) - eval(expression.right);
     if expression is Multiplication: return eval(expression.left) * eval(expression.right);

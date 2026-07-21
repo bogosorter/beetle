@@ -1,6 +1,6 @@
-s(n: integer): integer = return n + 1;
+s(n: Integer): Integer = return n + 1;
 
-accumulate(f: integer -> integer, n: integer): integer =
+accumulate(f: Integer -> Integer, n: Integer): Integer =
     if n == 0: return 0;
 
     current = f(n);

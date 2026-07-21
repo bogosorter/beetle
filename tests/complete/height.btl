@@ -1,10 +1,10 @@
-Tree = Leaf integer | Node {left: Tree, right: Tree};
+Tree = Leaf Integer | Node {left: Tree, right: Tree};
 
-max(a: integer, b: integer): integer =
+max(a: Integer, b: Integer): Integer =
     if a >= b: return a;
     return b;
 
-height(tree: Tree): integer =
+height(tree: Tree): Integer =
     if tree is Leaf: return 0;
 
     left = height(tree.left);

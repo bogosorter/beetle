@@ -1,4 +1,4 @@
-s(x: integer): integer =
+s(x: Integer): Integer =
     return x + 1;
 
 return s(0);

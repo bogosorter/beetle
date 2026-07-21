@@ -1,8 +1,8 @@
-max(a: integer, b: integer): integer =
+max(a: Integer, b: Integer): Integer =
     if a >= b: return a;
     return b;
 
-maxThree(a: integer, b: integer, c: integer): integer =
+maxThree(a: Integer, b: Integer, c: Integer): Integer =
     return max(a, max(b, c));
 
 return maxThree(1, 2, 3);

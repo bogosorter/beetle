@@ -1,4 +1,4 @@
-isTriangle(a: integer, b: integer, c: integer): boolean =
+isTriangle(a: Integer, b: Integer, c: Integer): Boolean =
     if a + b <= c: return false;
     if b + c <= a: return false;
     if a + c <= b: return false;

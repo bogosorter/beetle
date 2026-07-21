@@ -1,7 +1,7 @@
-test(f: integer -> boolean): boolean =
+test(f: Integer -> Boolean): Boolean =
     if f(0): return true;
     return false;
 
-positive(n: integer): boolean = return n > 0;
+positive(n: Integer): Boolean = return n > 0;
 
 return test(positive);

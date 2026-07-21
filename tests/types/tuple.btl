@@ -1,6 +1,6 @@
-Pair = (integer, integer);
+Pair = (Integer, Integer);
 
-sumComponents(pair: Pair): integer =
+sumComponents(pair: Pair): Integer =
     a, b = pair;
     return a + b;
 

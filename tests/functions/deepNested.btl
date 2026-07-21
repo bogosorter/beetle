@@ -1,6 +1,6 @@
-f(x: integer): integer -> integer -> integer =
-    g(y: integer): integer -> integer =
-        h(z: integer): integer =
+f(x: Integer): Integer -> Integer -> Integer =
+    g(y: Integer): Integer -> Integer =
+        h(z: Integer): Integer =
             return x + y + z;
         return h;
     return g;

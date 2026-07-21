@@ -1,4 +1,4 @@
-List = Cons (integer, List) | Nil {};
+List = Cons (Integer, List) | Nil {};
 
 double(list: List): List =
     if list is Nil: return Nil {};

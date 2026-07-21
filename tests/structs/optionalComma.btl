@@ -1,4 +1,4 @@
-componentSum(point: {x: integer, y: integer,}): integer =
+componentSum(point: {x: Integer, y: Integer,}): Integer =
     return point.x + point.y;
 
 return componentSum({

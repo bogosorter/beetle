@@ -1,4 +1,4 @@
-sum(x: integer, y: integer, z: integer): integer =
+sum(x: Integer, y: Integer, z: Integer): Integer =
     return x + y + z;
 
 return sum(1, 2, 3);

@@ -1,4 +1,4 @@
-Sum = Left integer | Right integer;
+Sum = Left Integer | Right Integer;
 
 value = Left 1;
 if value is Left: return value;

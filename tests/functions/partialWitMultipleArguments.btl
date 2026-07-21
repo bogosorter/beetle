@@ -1,5 +1,5 @@
-f(x: integer): integer -> integer -> integer =
-    partial(y: integer, z: integer): integer = return x + y + z;
+f(x: Integer): Integer -> Integer -> Integer =
+    partial(y: Integer, z: Integer): Integer = return x + y + z;
     return partial;
 
 partial = f(1);
