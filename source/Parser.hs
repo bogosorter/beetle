@@ -271,11 +271,9 @@ functionCall base = do
 
 recordAccess :: SourceExpression -> Parser SourceExpression
 recordAccess base = do
-    position <- M.getSourcePos
-
     symbol "."
     name <- identifier
-    let result = RecordMember base name position
+    let result = RecordMember base name (getPosition base)
 
     atomContinuation result
 
