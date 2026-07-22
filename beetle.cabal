@@ -11,7 +11,7 @@ maintainer:         luiswbarbosa@gmail.com
 category:           Development
 build-type:         Simple
 
-extra-source-files: runtime.o
+extra-source-files: runtime/runtime.o
 
 common configuration
     default-language: Haskell2010

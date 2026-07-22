@@ -133,7 +133,7 @@ null = Operand "null"
 instance Show Program where
     show (Program functions (statements, resultRegister, resultType)) = printf
             "target triple = \"x86_64-pc-linux-gnu\"\n\
-            \declare i32 @print(i32)\n\
+            \declare void @print(ptr)\n\
             \declare ptr @malloc(i64)\n\
             \\n\
             \%s\
@@ -156,14 +156,17 @@ instance Show Program where
                     "    ; the result is zero-extended to prevent printf from reading garbage\n\
                     \    ; values when printing booleans\n\
                     \    %%_extended_result = zext %s %s to i32\n\
-                    \    call i32 @print(i32 %%_extended_result)\n"
+                    \    call void @print(i32 %%_extended_result)\n"
                     (show resultType)
                     (show resultRegister)
                 | resultType == IntegerType = printf
-                    "    call i32 @print(%s %s)\n"
+                    "    call void @print(%s %s)\n"
                     (show resultType)
                     (show resultRegister)
-                | otherwise = error "got a result type that is neither a string nor a boolean"
+                | resultType == PointerType = printf
+                    "    call void @print(ptr %s)\n"
+                    (show resultRegister)
+                | otherwise = error "got a result type that is neither a string nor a boolean nor a pointer"
 
 instance Show Function where
     show function = printf
