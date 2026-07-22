@@ -1,0 +1,4 @@
+Sum = Left Integer | Right Integer;
+value = Left 1;
+if value is Middle: return value;
+return -1;
