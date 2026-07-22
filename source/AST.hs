@@ -104,8 +104,8 @@ getType :: TypedExpression -> Type
 getType others = annotation others
 
 instance Show Type where
-    show IntegerType = "integer"
-    show BooleanType = "boolean"
+    show IntegerType = "Integer"
+    show BooleanType = "Boolean"
     show (TupleType memberTypes) = "(" ++ List.intercalate ", " (map show memberTypes) ++ ")"
     show (RecordType memberTypes) = "{" ++ List.intercalate ", " (map showRecordMemberType (Map.toList memberTypes)) ++ "}"
     show (SumType constructors) = List.intercalate " | " [constructor | (constructor, _) <- Map.toList constructors]

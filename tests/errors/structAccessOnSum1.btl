@@ -7,11 +7,10 @@ Expression
     ;
 
 eval(expression: Expression): Integer =
-    if expression is Literal: return expression;
-
     left = eval(expression.left);
     right = eval(expression.right);
 
+    if expression is Literal: return expression;
     if expression is Addition: return left + right;
     if expression is Subtraction: return left - right;
     if expression is Multiplication: return left * right;

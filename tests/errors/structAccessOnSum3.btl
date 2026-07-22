@@ -1,6 +1,6 @@
 Expression
     = Literal Integer
-    | Addition {left: Expression, right: Expression}
+    | Addition {left: Expression, right: Integer}
     | Subtraction {left: Expression, right: Expression}
     | Multiplication {left: Expression, right: Expression}
     | Division {left: Expression, right: Expression}

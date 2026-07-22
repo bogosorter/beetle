@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 module TypeChecker (typeCheckProgram, TypeError(..)) where
 
 import AST
@@ -6,6 +7,7 @@ import qualified Data.Map as Map
 import Data.Map ((!))
 import qualified Data.Set as Set
 import Control.Monad (unless, when)
+import Data.List (intercalate)
 
 
 data TypeError = TypeError SourcePos String
@@ -160,14 +162,15 @@ typeCheck env expression = case expression of
 
     RecordMember {} -> do
         typedRecord <- typeCheck env (record expression)
-        memberTypes <- case getType typedRecord of
-            RecordType memberTypes -> Right $ memberTypes
-            t -> Left $ TypeError position ("can only access members of records, but got type " ++ show t)
 
-        let name = memberName expression
-        case Map.lookup name memberTypes of
-            Just t -> Right $ RecordMember typedRecord name t
-            _ -> Left $ TypeError position ("trying to access inexistent member " ++ name ++ " of this record")
+        case getType typedRecord of
+            UserType name -> typeCheckSumRecordMember expression name env
+            RecordType memberTypes ->
+                let name = memberName expression
+                in case Map.lookup name memberTypes of
+                    Just t -> Right $ RecordMember typedRecord name t
+                    _ -> Left $ TypeError position ("trying to access inexistent member " ++ name ++ " of this record")
+            t -> Left $ TypeError position ("can only access members of records, but got type " ++ show t)
 
     -- Type shadowing is not allowed
     TypeAssignment {} -> do
@@ -236,6 +239,61 @@ typeCheck env expression = case expression of
     TypeAssertion {} -> error "type assertions can only appear within ifs"
 
     where position = getPosition expression
+
+
+-- When all of the remaining constructors of a sum type variable are of record
+-- type and all share a member of the same type, that member can be accessed
+-- directly
+typeCheckSumRecordMember :: SourceExpression -> String -> Environment -> Either TypeError TypedExpression
+typeCheckSumRecordMember expression userType env = do
+    let RecordMember record memberName position = expression
+
+    constructors <- case Map.lookup userType (sumTypes env) of
+        Just constructors -> case record of
+            (Variable name _) -> return $ Map.withoutKeys constructors (getImpossibleConstructors name env)
+            _ -> return constructors
+        _ -> Left $ TypeError position ("can only access members of records, but got type " ++ show userType)
+
+    let ensureIsRecord :: String -> Type -> Either TypeError (String, Map.Map String Type)
+        ensureIsRecord constructor t  = case t of
+            RecordType members -> return (constructor, members)
+            _ -> Left $ TypeError position ("can only access members of records, but " ++ constructor ++ " is of type " ++ show t)
+
+    records <- mapM (uncurry ensureIsRecord) (Map.toList constructors)
+
+    let ensureHasMember :: String -> Map.Map String Type -> Either TypeError Type
+        ensureHasMember name memberTypes = case Map.lookup memberName memberTypes of
+            Just t -> return t
+            Nothing -> Left $ TypeError position ("type " ++ name ++ " does not have a member \"" ++ memberName ++ "\"")
+
+    memberTypes <- mapM (uncurry ensureHasMember) records
+    unless (allEqual memberTypes) $
+        Left $ TypeError position ("there are multiple possible types for the value of \"" ++ memberName ++ "\" in " ++ intercalate " | " (Map.keys constructors))
+
+    -- To access the member, each of the possible types has to be checked, and,
+    -- if it is that one, a lowering followed by a record access must be
+    -- performed.
+
+    let -- If the record is a variable, on the if branches its type will have
+        -- already been lowered, which would create an error. As such, in that
+        -- case it is not necessary to perform a lowering.
+        lower :: String -> SourceExpression
+        lower constructor = case record of
+            (Variable _ _) -> record
+            _ -> (Lowering record constructor position)
+
+        addConstructor :: String -> SourceExpression -> SourceExpression
+        addConstructor constructor rightBranch =
+            If (TypeAssertion record constructor position)
+                (RecordMember (lower constructor) memberName position)
+                rightBranch
+                position
+
+        (lastConstructor, _) = last records
+        lastAccess = RecordMember (lower lastConstructor) memberName position
+        access = foldr addConstructor lastAccess [constructor | (constructor, _) <- init records]
+
+    typeCheck env access
 
 
 desugar :: SourcePos -> Environment -> Type -> Either TypeError Type
@@ -334,3 +392,10 @@ clearImpossibleConstructors name env = env { impossibleConstructors = newImpossi
 
 instance Show TypeError where
     show (TypeError _ e) = e
+
+
+-- Utils
+allEqual :: Eq a => [a] -> Bool
+allEqual [] = True
+allEqual [_] = True
+allEqual (x:y:zs) = if x /= y then False else allEqual (y:zs)
