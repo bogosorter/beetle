@@ -1,16 +1,26 @@
+#include <stdint.h>
 #include <stdio.h>
 
+void print_boolean(uint8_t value) {
+    if (value) printf("true\n");
+    else printf("false\n");
+}
+
+void print_integer(int32_t value) {
+    printf("%d\n", value);
+}
+
 struct sum {
-    int tag;
+    int32_t tag;
     void *value;
 };
 
 struct string {
-    int c;
+    int32_t c;
     void *next;
 };
 
-void print(struct sum *s) {
+void print_string(struct sum *s) {
     if (s->tag == 1) {
         printf("\n");
         return;
@@ -18,5 +28,5 @@ void print(struct sum *s) {
 
     struct string *content = s->value;
     printf("%c", (char)(content->c));
-    print(content->next);
+    print_string(content->next);
 }

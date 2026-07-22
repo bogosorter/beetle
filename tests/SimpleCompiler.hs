@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module SimpleCompiler (compile, compileWithTypeErrors) where
 
 import Errors
@@ -6,9 +8,14 @@ import TypeChecker
 import ASTSimplificator
 import Encloser
 import Backend
+import LLVM
 
 import System.Exit (ExitCode(..))
 import System.Process (readProcessWithExitCode)
+import System.IO.Temp (withSystemTempFile)
+import System.IO (hClose)
+import Data.ByteString (ByteString, hPut)
+import Data.FileEmbed (embedFileRelative)
 
 compile :: String -> String -> IO ()
 compile input output = do
@@ -27,10 +34,7 @@ compile input output = do
         enclosedProgram = encloseProgram simplifiedProram
         llvm = Backend.compileProgram enclosedProgram
 
-    (code, _, stderr) <- readProcessWithExitCode "clang" ["-x" ,"ir", "-", "-o", output] (show llvm)
-    case code of
-        ExitFailure _ -> print stderr
-        ExitSuccess -> return ()
+    clang output llvm
 
 compileWithTypeErrors :: String -> IO (Maybe ())
 compileWithTypeErrors input = do
@@ -43,3 +47,17 @@ compileWithTypeErrors input = do
     case typeCheckProgram program of
         Left _ -> return $ Just ()
         Right _ -> return Nothing
+
+clang :: String -> LLVM.Program -> IO ()
+clang output program = do
+    withSystemTempFile "runtime.o" $ \runtimePath runtimeHandle -> do
+        hPut runtimeHandle runtime
+        hClose runtimeHandle
+
+        (code, _, stderr) <- readProcessWithExitCode "clang" ["-o", output, runtimePath, "-x" ,"ir", "-"] (show program)
+        case code of
+            ExitFailure _ -> print stderr
+            ExitSuccess -> return ()
+
+runtime :: ByteString
+runtime = $(embedFileRelative "runtime/runtime.o")

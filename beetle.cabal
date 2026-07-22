@@ -42,4 +42,4 @@ test-suite tests
     hs-source-dirs: tests
     main-is: Main.hs
     other-modules: SimpleCompiler
-    build-depends: base, process, tasty, tasty-hunit, megaparsec, directory, filepath, extra, core
+    build-depends: base, process, tasty, tasty-hunit, megaparsec, directory, temporary, bytestring, file-embed, filepath, extra, core
