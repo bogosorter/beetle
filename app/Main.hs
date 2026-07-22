@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Main where
 
 import Arguments
@@ -8,10 +10,15 @@ import TypeChecker
 import ASTSimplificator
 import Encloser
 import Backend
+import LLVM
 
 import System.Exit (ExitCode(..), exitFailure, exitSuccess)
 import System.Process (readProcessWithExitCode)
 import System.Directory (findExecutable)
+import System.IO.Temp (withSystemTempFile)
+import System.IO (hClose)
+import Data.ByteString (ByteString, hPut)
+import Data.FileEmbed (embedFileRelative)
 import Control.Monad (when)
 
 
@@ -50,15 +57,7 @@ main = do
     let compiledProgram = compileProgram enclosedProgram
     checkpoint LLVM parsedArguments compiledProgram
 
-    hasClang <- findExecutable "clang"
-    when (hasClang == Nothing) $ do
-        putStrLn "please install clang before compiling with beetle"
-        exitFailure
-
-    (code, _, stderr) <- readProcessWithExitCode "clang" ["-x" ,"ir", "-", "-o", outputFile parsedArguments] (show compiledProgram)
-    case code of
-        ExitFailure _ -> print stderr
-        ExitSuccess -> return ()
+    clang parsedArguments compiledProgram
 
 -- Terminates compilation if the desired stage has already been reached
 checkpoint :: Show a => OutputType -> Arguments -> a -> IO ()
@@ -66,3 +65,22 @@ checkpoint stage arguments value =
     when (stage == outputType arguments) $ do
         writeFile (outputFile arguments) (show value)
         exitSuccess
+
+clang :: Arguments -> LLVM.Program -> IO ()
+clang arguments program = do
+    hasClang <- findExecutable "clang"
+    when (hasClang == Nothing) $ do
+        putStrLn "please install clang before compiling with beetle"
+        exitFailure
+
+    withSystemTempFile "runtime.o" $ \runtimePath runtimeHandle -> do
+        hPut runtimeHandle runtime
+        hClose runtimeHandle
+
+        (code, _, stderr) <- readProcessWithExitCode "clang" ["-o", outputFile arguments, runtimePath, "-x" ,"ir", "-"] (show program)
+        case code of
+            ExitFailure _ -> print stderr
+            ExitSuccess -> return ()
+
+runtime :: ByteString
+runtime = $(embedFileRelative "runtime/runtime.o")

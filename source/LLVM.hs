@@ -133,8 +133,7 @@ null = Operand "null"
 instance Show Program where
     show (Program functions (statements, resultRegister, resultType)) = printf
             "target triple = \"x86_64-pc-linux-gnu\"\n\
-            \@fmt = private constant [4 x i8] c\"%%d\\0A\\00\"\n\
-            \declare i32 @printf(i8*, ...)\n\
+            \declare i32 @print(i32)\n\
             \declare ptr @malloc(i64)\n\
             \\n\
             \%s\
@@ -143,7 +142,6 @@ instance Show Program where
             \define i32 @main() {\n\
             \    %s\n\
             \\n\
-            \    %%_fmt = getelementptr [4 x i8], [4 x i8]* @fmt, i64 0, i64 0\n\
             \%s\n\
             \    ret i32 0\n\
             \}\n\
@@ -158,11 +156,11 @@ instance Show Program where
                     "    ; the result is zero-extended to prevent printf from reading garbage\n\
                     \    ; values when printing booleans\n\
                     \    %%_extended_result = zext %s %s to i32\n\
-                    \    call i32 (i8*, ...) @printf(i8* %%_fmt, i32 %%_extended_result)\n"
+                    \    call i32 @print(i32 %%_extended_result)\n"
                     (show resultType)
                     (show resultRegister)
                 | resultType == IntegerType = printf
-                    "    call i32 (i8*, ...) @printf(i8* %%_fmt, %s %s)\n"
+                    "    call i32 @print(%s %s)\n"
                     (show resultType)
                     (show resultRegister)
                 | otherwise = error "got a result type that is neither a string nor a boolean"

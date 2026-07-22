@@ -16,3 +16,5 @@ tests/**
 
 test.sh
 install.sh
+
+runtime/runtime.o

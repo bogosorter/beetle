@@ -11,6 +11,8 @@ maintainer:         luiswbarbosa@gmail.com
 category:           Development
 build-type:         Simple
 
+extra-source-files: runtime.o
+
 common configuration
     default-language: Haskell2010
     default-extensions: OverloadedStrings
@@ -31,7 +33,7 @@ executable beetle
     hs-source-dirs: app
     main-is: Main.hs
     other-modules: Arguments
-    build-depends: base, containers, process, filepath, directory, megaparsec, core
+    build-depends: base, containers, process, filepath, directory, temporary, bytestring, file-embed, megaparsec, core
 
 test-suite tests
     import: configuration
