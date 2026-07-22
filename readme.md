@@ -21,7 +21,7 @@ tiles(n: integer): integer =
 return tiles(5);
 ```
 
-The next example is more involved: it evaluates an expression tree using both record and sum types. There are a couple of interesting things worth mentioning. First, instead of using pattern-matching, *beetle* relies on type assertions. Then, instead of introducing a new variable, the previous variable is automatically lowered to match the asserted type. Finally, the lines that evaluate `left` and `right` show that, since the compiler can deduce that all possible types for `expression` are records with `left` and `right` members, their values can be read even though the exact type of `expression` hasn't been determined yet.
+The next example is more involved: it evaluates an expression tree using both record and sum types. Notice how, instead of using pattern-matching, *beetle* relies on type assertions. Additionally, instead of introducing a new variable, the previous variable is automatically lowered to match the asserted type. Finally, the lines that evaluate `left` and `right` show that, since the compiler can deduce that all possible types for `expression` are records with `left` and `right` members, their values can be read even though the exact type of `expression` hasn't been determined yet.
 
 ```
 Expression
