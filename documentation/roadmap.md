@@ -1,11 +1,17 @@
 # Roadmap
 
-# v3.5.0
+# v4.1.0
 
-- Lists
+- Character Type
+- Strings
+
+# v4.2.0
+
+- Generic Types
 
 # v.X.X.X
 
+- Lists
 - Floating point numbers
 - Arbitrary type position
 - Enums
@@ -15,5 +21,4 @@
 - List comprehensions
 - Ascriptions
 - Spread operator
-- Generic types
 - Garbage collection

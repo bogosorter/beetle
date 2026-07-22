@@ -8,7 +8,7 @@ The programming language that embraces bugs.
 
 ## About
 
-*beetle* is a simple functional programming language with TypeScript-inspired syntax. I make no pretense of being a knowledgeable language designer (linguist?), but I hope that tinkering around will teach me a little about compilers. *beetle*'s compiler is written in Haskell and outputs code in the LLVM Intermediate Representation.
+*beetle* is a simple functional programming language. I make no pretense of being a knowledgeable language designer (linguist?), but I hope that tinkering around will teach me a little about compilers. *beetle*'s compiler is written in Haskell and outputs code in the LLVM Intermediate Representation.
 
 *beetle* programs consist of a number of assignments followed by a return expression (the program's output). As an example, consider this naive implementation of the *Red, Green, and Blue Tiles* problem from [Project Euler](https://projecteuler.net/problem=117):
 
@@ -19,6 +19,42 @@ tiles(n: integer): integer =
     return tiles(n - 1) + tiles(n - 2) + tiles(n - 3) + tiles(n - 4);
 
 return tiles(5);
+```
+
+A more involved example concerns the evaluation of expressions using a simple expression tree. This requires the usage of both record and sum types. There are a couple of interesting things worth mentioning in this example. First, instead of using pattern-matching, *beetle* relies on type assertions. Then, instead of introducing a new variable, the previous variable is automatically lowered to match the asserted type. Finally, the lines `left = eval(expression.left);` and `right = eval(expression.right);` show that, since the compiler can deduce that all possible types for `expression` are records with `left` and `right` members, their values can be read even though the exact type of `expression` hasn't been determined yet.
+
+```
+Expression
+    = Literal Integer
+    | Addition {left: Expression, right: Expression}
+    | Subtraction {left: Expression, right: Expression}
+    | Multiplication {left: Expression, right: Expression}
+    | Division {left: Expression, right: Expression}
+    ;
+
+evaluate(expression: Expression): Integer =
+    if expression is Literal: return expression;
+
+    left = evaluate(expression.left);
+    right = evaluate(expression.right);
+
+    if expression is Addition: return left + right;
+    if expression is Subtraction: return left - right;
+    if expression is Multiplication: return left * right;
+    return left / right;
+
+return evaluate(
+    Addition {
+        left: Literal 1,
+        right: Subtraction {
+            left: Multiplication {
+                left: Literal 2,
+                right: Division {left: Literal 4, right: Literal 2}
+            },
+            right: Literal 2
+        }
+    }
+);
 ```
 
 Other examples can be found under the `tests` directory (the most relevant examples are under `tests/complete` and `tests/functions`).

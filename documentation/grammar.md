@@ -10,6 +10,7 @@ program = returnExpression ';'
 returnExpression = assignment ';' returnExpression
                  -- The if statement has an implicit else
                  | 'if' expression ':' returnExpression ';' returnExpression
+                 | 'if' expression 'is' typeSymbol ':' returnExpression ';' returnExpression
                  | 'case' expression 'of' typeSymbol symbol '->' returnExpression (';' typeSymbol symbol '->' returnExpression)*
                  | 'return' expression
 

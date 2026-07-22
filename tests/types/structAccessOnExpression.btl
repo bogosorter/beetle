@@ -1,0 +1,2 @@
+Sum = Left {x: Integer} | Right {x: Integer};
+return (Left {x: 1}).x;
