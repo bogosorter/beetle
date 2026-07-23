@@ -2,6 +2,7 @@ module LLVM (Program(..), Function(..), Statement(..), Type(..), Operand, Label(
 
 import Text.Printf (printf)
 import Data.List (intercalate)
+import Data.Char (isAlphaNum)
 
 data Type
     = VoidType
@@ -120,7 +121,6 @@ booleanOperand :: Bool -> Operand
 booleanOperand False = Operand (show (0 :: Integer))
 booleanOperand True = Operand (show (1 :: Integer))
 
-
 characterOperand :: Int -> Operand
 characterOperand c = Operand (show c)
 
@@ -128,13 +128,13 @@ registerOperand :: Int -> Operand
 registerOperand n = Operand ("%" ++ show n)
 
 variableOperand :: String -> Operand
-variableOperand s = Operand ("%" ++ s)
+variableOperand s = Operand ("%" ++ escape s)
 
 typeOperand :: Type -> Operand
 typeOperand t = Operand (show t)
 
 globalOperand :: String -> Operand
-globalOperand s = Operand ("@" ++ s)
+globalOperand s = Operand ("@" ++ escape s)
 
 null :: Operand
 null = Operand "null"
@@ -321,3 +321,12 @@ instance Show OpCode where
     show Sle = "icmp sle"
     show Sge = "icmp sge"
     show Xor = "xor"
+
+-- Utils
+
+-- An approximation of LLVM's escaping mechanism
+escape :: String -> String
+escape s
+    | not (all isAllowed s) = "\"" ++ s ++ "\""
+    | otherwise = s
+    where isAllowed c = c `elem` ['_', '.', '$'] || isAlphaNum c

@@ -101,7 +101,7 @@ attemptSumType firstConstructor = do
 assignment :: Parser (SourceExpression -> SourceExpression)
 assignment = do
     position <- M.getSourcePos
-    names <- M.sepBy1 (identifier <|> hole) (symbol ",")
+    names <- M.sepBy1 (identifier <|> hole <|> operatorIdentifier) (symbol ",")
     case names of
         [name] -> singleAssignment position name <|> functionDefinition position name
         _ -> tupleAssignment position names
@@ -161,6 +161,7 @@ binaryOperation = do
                 ]
             ,
                 [ E.InfixR (constructor position <$ symbol "::")
+                , E.InfixR (builder position <$> symbol ">>")
                 ]
             ,
                 [ E.InfixL (builder position <$> symbol "==")
@@ -400,6 +401,9 @@ typeIdentifier = lexeme $ do
 reserved :: [String]
 reserved = ["if", "case", "of", "return", "true", "false", "boolean", "integer", "mod", "rem", "not", "and", "or", "is"]
 
+operators :: [String]
+operators = ["*", "/", "mod", "rem", "+", "-", "::", ">>", "==", "<=", ">=", "<", ">", "and", "or"]
+
 identifier :: Parser String
 identifier = M.try $ lexeme $ do
     first <- C.lowerChar
@@ -408,6 +412,14 @@ identifier = M.try $ lexeme $ do
     if word `elem` reserved
         then fail $ "keyword " ++ show word ++ " used as an identifier"
         else return word
+
+operatorIdentifier :: Parser String
+operatorIdentifier = lexeme $ do
+    C.char '('
+    content <- M.manyTill character (C.char ')')
+    if content `elem` operators
+        then return content
+        else fail $ show content ++ " is not an operator"
 
 hole :: Parser String
 hole = symbol "_"
