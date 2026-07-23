@@ -6,11 +6,34 @@ double(list: List): List =
     return Cons (head * 2, double(tail));
 
 list = Cons (1, Cons (2, Cons (3, Nil {})));
-list = double(list);
+result = double(list);
 
-if list is Nil: return -1;
-_, list = list;
-if list is Nil: return -1;
-second, _ = list;
+integerToString(n: Integer): String =
+    if n < 0: return "-" :: integerToString(-n);
 
-return second;
+    -- ord and char do not exist in beetle for now
+    if n == 0: return '0';
+    if n == 1: return '1';
+    if n == 2: return '2';
+    if n == 3: return '3';
+    if n == 4: return '4';
+    if n == 5: return '5';
+    if n == 6: return '6';
+    if n == 7: return '7';
+    if n == 8: return '8';
+    if n == 9: return '9';
+
+    return integerToString(n / 10) >> integerToString(n rem 10);
+
+intercalate(separator: String, list: List): String =
+    if list is Nil: return '';
+
+    head, tail = list;
+    if tail is Nil: return integerToString(head);
+
+    return integerToString(head) >> separator >> intercalate(separator, Cons tail);
+
+listToString(list: List): String =
+    return '[' >> intercalate(', ', list) >> ']';
+
+return listToString(result);
