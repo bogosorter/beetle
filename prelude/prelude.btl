@@ -1,0 +1,9 @@
+String = StringConstructor (Character, String) | StringNil {};
+
+(>>)(a: String, b: String): String =
+    if a is '': return b;
+
+    head, tail = a;
+    return head :: (tail >> b);
+
+export;

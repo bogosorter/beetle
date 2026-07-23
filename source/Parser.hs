@@ -1,9 +1,9 @@
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Parser (parseProgram) where
 
 import AST
-import BeetlePrelude
 
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as C
@@ -13,9 +13,14 @@ import Control.Applicative ((<|>))
 import Data.Void
 import Data.Map (fromList, empty)
 import Data.Char (ord, isAscii)
+import Data.FileEmbed (embedFileRelative)
+import Data.Text (unpack)
+import Data.Text.Encoding (decodeUtf8)
 
 parseProgram :: String -> Either (M.ParseErrorBundle String Void) SourceExpression
-parseProgram input = M.parse program "" input
+parseProgram input = do
+    programContent <- M.parse program "" input
+    M.parse (moduleParser programContent) "prelude.btl" prelude
 
 
 type Parser = M.Parsec Void String
@@ -26,10 +31,21 @@ program = do
     content <- returnExpression
     symbol ";"
     M.eof
-    return $ prelude content
+    return content
+
+moduleParser :: SourceExpression -> Parser SourceExpression
+moduleParser program = do
+    space
+    content <- exportExpression program
+    symbol ";"
+    M.eof
+    return content
 
 returnExpression :: Parser SourceExpression
 returnExpression = binding <|> ifExpression <|> returnValue
+
+exportExpression :: SourceExpression -> Parser SourceExpression
+exportExpression program = exportBinding program <|> exportValue program
 
 -- This parser is used to abstract the logic of parsing a ";" and a collection
 -- of ensuing expression from assignments and type declarations.
@@ -66,12 +82,25 @@ ifLet position condition = do
     right <- returnExpression
     return $ If (TypeAssertion condition constructor assertionPosition) left right position
 
-
 returnValue :: Parser SourceExpression
 returnValue = do
     keyword "return"
     value <- expression
     return value
+
+-- This parser is used to abstract the logic of parsing a ";" and a collection
+-- of ensuing expression from assignments and type declarations.
+exportBinding :: SourceExpression -> Parser SourceExpression
+exportBinding program = do
+    expressionBuilder <- typeAssignment <|> assignment
+    symbol ";"
+    body <- exportExpression program
+    return $ expressionBuilder body
+
+exportValue :: SourceExpression -> Parser SourceExpression
+exportValue program = do
+    keyword "export"
+    return program
 
 typeAssignment :: Parser (SourceExpression -> SourceExpression)
 typeAssignment = do
@@ -341,7 +370,7 @@ typeParser = do
     functionType atomic <|> return atomic
 
 atomicTypes :: Parser Type
-atomicTypes = booleanType <|> integerType <|> userType <|> parenthesizedType <|> recordType
+atomicTypes = booleanType <|> integerType <|> characterType <|> userType <|> parenthesizedType <|> recordType
 
 functionType :: Type -> Parser Type
 functionType argumentType = do
@@ -358,6 +387,11 @@ integerType :: Parser Type
 integerType = do
     keyword "Integer"
     return IntegerType
+
+characterType :: Parser Type
+characterType = do
+    keyword "Character"
+    return CharacterType
 
 userType :: Parser Type
 userType = do
@@ -399,7 +433,7 @@ typeIdentifier = lexeme $ do
     return (first : following)
 
 reserved :: [String]
-reserved = ["if", "case", "of", "return", "true", "false", "boolean", "integer", "mod", "rem", "not", "and", "or", "is"]
+reserved = ["if", "case", "of", "return", "true", "false", "boolean", "integer", "mod", "rem", "not", "and", "or", "is", "export"]
 
 operators :: [String]
 operators = ["*", "/", "mod", "rem", "+", "-", "::", ">>", "==", "<=", ">=", "<", ">", "and", "or"]
@@ -445,3 +479,7 @@ keyword w = M.try $ lexeme $ do
     C.string w
     M.notFollowedBy C.alphaNumChar
     return ()
+
+
+prelude :: String
+prelude = (unpack . decodeUtf8) $(embedFileRelative "prelude/prelude.btl")

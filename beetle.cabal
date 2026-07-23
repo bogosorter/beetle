@@ -11,7 +11,7 @@ maintainer:         luiswbarbosa@gmail.com
 category:           Development
 build-type:         Simple
 
-extra-source-files: runtime/runtime.o
+extra-source-files: runtime/runtime.o, prelude/prelude.btl
 
 common configuration
     default-language: Haskell2010
@@ -24,8 +24,8 @@ library core
     import: configuration
 
     hs-source-dirs: source
-    exposed-modules: AST, BeetlePrelude, Parser, TypeChecker, ASTSimplificator, Closures, Encloser, LLVM, Backend, Errors
-    build-depends: base, process, megaparsec, containers, parser-combinators, mtl, text, errata
+    exposed-modules: AST, Parser, TypeChecker, ASTSimplificator, Closures, Encloser, LLVM, Backend, Errors
+    build-depends: base, process, megaparsec, containers, bytestring, file-embed, parser-combinators, mtl, text, errata
 
 executable beetle
     import: configuration
