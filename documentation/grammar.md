@@ -25,8 +25,8 @@ expression = logical
            | logical (',' logical) -- tuple creation
 logical = logical' ('and' logical')?
 logical' = logical'' ('or' logical'')?
-logical'' = typeAssertion (('==' | '<' | '>' | '<=' | '>=') typeAssertion)?
-typeAssertion = arithmetic ('is' typeSymbol)?
+logical'' = lists (('==' | '<' | '>' | '<=' | '>=') lists)?
+lists = arithmetic (('::' | '>>') arithmetic)*
 arithmetic = factor (('+' | '-') factor)*
 factor = atom (('*' | '/' | 'mod' | 'rem') atom)*
 atom = symbol expressionCall
@@ -39,6 +39,8 @@ atom = symbol expressionCall
      | lambda
      | integer
      | boolean
+     | '"' char '"' -- character
+     ' '\'' char* '\'' -- string
 expressionCall = '(' expression (',' expression)* ')' expressionCall
                | ϵ
 structAccess = '.' symbol structAccess

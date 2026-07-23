@@ -73,6 +73,6 @@ The `-o` flag can be used to specify an output file, and the flags `-ast`, `-tc`
 
 ## Details
 
-*beetle* is a tiny language. It is strictly typed, with the only supported primitive types being integers and booleans. These may be composed using tuples or structs. Closures enable higher-order functions and multiple-argument functions (which are desugared into chains of single-argument functions). Single-line comments start with `--`.
+*beetle* is a tiny language. It is strictly typed, with the only supported primitive types being integers, booleans and characters. These may be composed using tuples, structs and lists. Closures enable higher-order functions and multiple-argument functions (which are desugared into chains of single-argument functions). Single-line comments start with `--`.
 
 The language's grammar is under `documentation/grammar.md`. A curious particularity, which I have not yet seen in any other language, is that there are two different types of expressions, `returnExpressions` and plain `expressions`. Since this is a functional language, pretty much everything is an expression, but `returnExpressions` also allow the definitions of variables, `if` usage and must terminate with a `return`. This allows a clean syntax (similar to Python's, without cluttering from curly braces and `let` statements) while avoiding whitespace sensitivity. I must admit I'm quite proud of it.

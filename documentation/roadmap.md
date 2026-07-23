@@ -1,17 +1,16 @@
 # Roadmap
 
-# v4.1.0
-
-- Character Type
-- Strings
-
 # v4.2.0
 
 - Generic Types
+- Lists
+
+# v4.3.0
+
+- Module system
 
 # v.X.X.X
 
-- Lists
 - Floating point numbers
 - Arbitrary type position
 - Enums

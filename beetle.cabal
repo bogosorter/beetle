@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               beetle
-version:            4.0.0
+version:            4.1.0
 
 synopsis:           The programming language that embraces bugs
 homepage:           https://github.com/bogosorter/beetle
