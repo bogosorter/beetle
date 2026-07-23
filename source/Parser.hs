@@ -9,9 +9,10 @@ import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as C
 import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Control.Monad.Combinators.Expr as E
-import Control.Applicative
+import Control.Applicative ((<|>))
 import Data.Void
-import Data.Map (fromList)
+import Data.Map (fromList, empty)
+import Data.Char (ord, isAscii)
 
 parseProgram :: String -> Either (M.ParseErrorBundle String Void) SourceExpression
 parseProgram input = M.parse program "" input
@@ -175,7 +176,7 @@ binaryOperation = do
           builder position operation left right = Application (Application (Variable operation position) left position) right position
 
 atom :: Parser SourceExpression
-atom = M.try lambda <|> variableUsage <|> unaryMinus <|> logicalNot <|> constructorParser <|> recordParser <|> integer <|> boolean <|> parenthesizedExpression
+atom = M.try lambda <|> variableUsage <|> unaryMinus <|> logicalNot <|> constructorParser <|> recordParser <|> integer <|> boolean <|> string <|> parenthesizedExpression
 
 -- This takes care of things that might continue atoms, such as expression calls
 -- and member access
@@ -251,6 +252,36 @@ integer = do
 
 boolean :: Parser SourceExpression
 boolean = true <|> false
+
+string :: Parser SourceExpression
+string = lexeme $ do
+    position <- M.getSourcePos
+    C.char '\''
+    content <- M.many character
+    C.char '\''
+
+    let emptyString = Constructor "StringNil" (Record empty position) position
+    let prependCharacter :: Char -> SourceExpression -> SourceExpression
+        prependCharacter character expression =
+            Constructor "StringConstructor" (Tuple [Integer (ord character) position, expression] position) position
+
+    return $ foldr prependCharacter emptyString content
+
+character :: Parser Char
+character = regularCharacter <|> escapedCharacter
+
+regularCharacter :: Parser Char
+regularCharacter = M.satisfy (\c -> isAscii c && c /= '\'' && c /= '\\')
+
+escapedCharacter :: Parser Char
+escapedCharacter = do
+    _ <- C.char '\\'
+    c <- C.asciiChar
+    case c of
+        '\'' -> return '\''
+        '\\' -> return '\\'
+        'n' -> return '\n'
+        _ -> fail $ "unknown escaped character: \\" ++ [c]
 
 parenthesizedExpression :: Parser SourceExpression
 parenthesizedExpression = do
