@@ -1,0 +1,4 @@
+List a = Constructor (a, List a) | Nil {};
+
+x = Nil {};
+return 1;

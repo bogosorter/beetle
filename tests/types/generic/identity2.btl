@@ -1,0 +1,4 @@
+identity(x: a): a =
+    return x;
+
+return identity(true);

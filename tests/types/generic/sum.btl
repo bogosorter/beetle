@@ -1,0 +1,10 @@
+List a = Constructor (a, List a) | Nil {};
+
+sum(list: List Integer): Integer =
+    if list is Nil: return 0;
+
+    head, tail = list;
+    return head + sum(tail);
+
+list = Constructor (1, Constructor (2, Constructor (3, Nil {})));
+return sum(list);

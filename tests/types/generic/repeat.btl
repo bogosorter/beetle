@@ -1,0 +1,26 @@
+List a = Constructor (a, List a) | Nil {};
+
+repeat(n: Integer, x: a): List a =
+    if n == 0: return Nil {};
+    return x :: repeat(n - 1, x);
+
+result = repeat(3, true);
+
+-- Utils to print the result
+
+booleanToString(b: Boolean): String =
+    if not b: return 'false';
+    return 'true';
+
+intercalate(separator: String, list: List Boolean): String =
+    if list is Nil: return '';
+
+    head, tail = list;
+    if tail is Nil: return booleanToString(head);
+
+    return booleanToString(head) >> separator >> intercalate(separator, Constructor tail);
+
+listToString(list: List Boolean): String =
+    return '[' >> intercalate(', ', list) >> ']';
+
+return listToString(result);

@@ -1,0 +1,5 @@
+swap(a: Integer, b: a): (a, Integer) =
+    return (b, a);
+
+b, _ = swap(1, true);
+return b;
