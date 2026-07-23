@@ -3,6 +3,7 @@
 module Parser (parseProgram) where
 
 import AST
+import BeetlePrelude
 
 import qualified Text.Megaparsec as M
 import qualified Text.Megaparsec.Char as C
@@ -24,7 +25,7 @@ program = do
     content <- returnExpression
     symbol ";"
     M.eof
-    return content
+    return $ prelude content
 
 returnExpression :: Parser SourceExpression
 returnExpression = binding <|> ifExpression <|> returnValue

@@ -24,7 +24,7 @@ library core
     import: configuration
 
     hs-source-dirs: source
-    exposed-modules: AST, Parser, TypeChecker, ASTSimplificator, Closures, Encloser, LLVM, Backend, Errors
+    exposed-modules: AST, BeetlePrelude, Parser, TypeChecker, ASTSimplificator, Closures, Encloser, LLVM, Backend, Errors
     build-depends: base, process, megaparsec, containers, parser-combinators, mtl, text, errata
 
 executable beetle
