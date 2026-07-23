@@ -6,7 +6,7 @@ import Text.Megaparsec (SourcePos(..), initialPos)
 
 prelude :: SourceExpression -> SourceExpression
 prelude program =
-    TypeAssignment "String" (SumType $ fromList [("StringConstructor", TupleType [IntegerType, UserType "String"]), ("StringNil", RecordType empty)])
+    TypeAssignment "String" (SumType $ fromList [("StringConstructor", TupleType [CharacterType, UserType "String"]), ("StringNil", RecordType empty)])
     program
     preludePosition
 

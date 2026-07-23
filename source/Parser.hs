@@ -176,7 +176,7 @@ binaryOperation = do
           builder position operation left right = Application (Application (Variable operation position) left position) right position
 
 atom :: Parser SourceExpression
-atom = M.try lambda <|> variableUsage <|> unaryMinus <|> logicalNot <|> constructorParser <|> recordParser <|> integer <|> boolean <|> string <|> parenthesizedExpression
+atom = M.try lambda <|> variableUsage <|> unaryMinus <|> logicalNot <|> constructorParser <|> recordParser <|> integer <|> boolean <|> characterExpression <|> string <|> parenthesizedExpression
 
 -- This takes care of things that might continue atoms, such as expression calls
 -- and member access
@@ -263,9 +263,18 @@ string = lexeme $ do
     let emptyString = Constructor "StringNil" (Record empty position) position
     let prependCharacter :: Char -> SourceExpression -> SourceExpression
         prependCharacter character expression =
-            Constructor "StringConstructor" (Tuple [Integer (ord character) position, expression] position) position
+            Constructor "StringConstructor" (Tuple [Character (ord character) position, expression] position) position
 
     return $ foldr prependCharacter emptyString content
+
+characterExpression :: Parser SourceExpression
+characterExpression = lexeme $ do
+    position <- M.getSourcePos
+    C.char '"'
+    content <- character
+    C.char '"'
+
+    return $ Character (ord content) position
 
 character :: Parser Char
 character = regularCharacter <|> escapedCharacter

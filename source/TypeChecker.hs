@@ -15,13 +15,19 @@ data TypeError = TypeError SourcePos String
 typeCheckProgram :: SourceExpression -> Either TypeError TypedExpression
 typeCheckProgram program = do
     checked <- typeCheck emptyEnvironment program
-    Right checked
+    case getType checked of
+        IntegerType -> Right checked
+        BooleanType -> Right checked
+        CharacterType -> Right checked
+        UserType "String" -> Right checked
+        _ -> Left $ TypeError (getPosition program) "every program must return an integer, a boolean, a character or a string"
 
 
 typeCheck :: Environment -> SourceExpression -> Either TypeError TypedExpression
 typeCheck env expression = case expression of
     Integer {} -> Right $ Integer (integerValue expression) IntegerType
     Boolean {} -> Right $ Boolean (booleanValue expression) BooleanType
+    Character {} -> Right $ Character (asciiValue expression) CharacterType
 
     Tuple {} -> do
         typedMembers <- mapM (typeCheck env) (tupleMembers expression)

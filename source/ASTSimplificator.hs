@@ -8,6 +8,7 @@ simplify :: TypedExpression -> TypedExpression
 simplify expression = case expression of
     Boolean {} -> expression
     Integer {} -> expression
+    Character {} -> expression
     Tuple members t -> Tuple (map simplify members) t
     Record members t -> Record (Data.Map.map simplify members) t
     Constructor constructor value t -> Constructor constructor (simplify value) t

@@ -20,6 +20,7 @@ enclose :: Environment -> TypedExpression -> State ClosureState Closures.Express
 enclose env expression = case expression of
     Boolean {} -> return $ Closures.Boolean (booleanValue expression)
     Integer {} -> return $ Closures.Integer (integerValue expression)
+    Character {} -> return $ Closures.Character (asciiValue expression)
 
     Variable {} -> do
         let name = variableName expression
@@ -193,6 +194,7 @@ freeVariables expression = case expression of
 
     Boolean {} -> Set.empty
     Integer {} -> Set.empty
+    Character {} -> Set.empty
     Variable { variableName = name } -> if name `elem` (map fst builtInFunctions) then Set.empty else singleton name
 
     Tuple {} ->
@@ -235,6 +237,7 @@ freeVariables expression = case expression of
 encloseType :: Type -> Closures.Type
 encloseType BooleanType = Closures.BooleanType
 encloseType IntegerType = Closures.IntegerType
+encloseType CharacterType = Closures.CharacterType
 encloseType (TupleType memberTypes) = Closures.TupleType (map encloseType memberTypes)
 encloseType (RecordType memberTypes) = Closures.TupleType (map encloseType $ Map.elems memberTypes)
 encloseType (FunctionType argumentType returnType) = Closures.ClosureType (encloseType argumentType) (encloseType returnType)

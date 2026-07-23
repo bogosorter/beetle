@@ -7,6 +7,7 @@ import Text.Megaparsec (SourcePos)
 data Type
     = BooleanType
     | IntegerType
+    | CharacterType
     | TupleType [Type]
     | RecordType (Map.Map String Type)
     | SumType (Map.Map String Type)
@@ -21,6 +22,10 @@ data Expression a
         }
     | Integer
         { integerValue :: Int
+        , annotation :: a
+        }
+    | Character
+        { asciiValue :: Int
         , annotation :: a
         }
     | Tuple
@@ -106,6 +111,7 @@ getType others = annotation others
 instance Show Type where
     show IntegerType = "Integer"
     show BooleanType = "Boolean"
+    show CharacterType = "Character"
     show (TupleType memberTypes) = "(" ++ List.intercalate ", " (map show memberTypes) ++ ")"
     show (RecordType memberTypes) = "{" ++ List.intercalate ", " (map showRecordMemberType (Map.toList memberTypes)) ++ "}"
     show (SumType constructors) = List.intercalate " | " [constructor | (constructor, _) <- Map.toList constructors]

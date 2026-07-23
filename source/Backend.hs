@@ -25,15 +25,9 @@ compileFunction function = LLVM.Function name argumentType returnType body
 
 compileExpression :: CompilationEnvironment -> Expression -> State CompilationState Operand
 compileExpression env expression = case expression of
-    Integer n -> do
-        register <- reserveRegister
-        putStatement $ integerLiteral register n
-        return register
-
-    Boolean b -> do
-        register <- reserveRegister
-        putStatement $ booleanLiteral register b
-        return register
+    Integer n -> return $ integerOperand n
+    Boolean b -> return $ booleanOperand b
+    Character c -> return $ characterOperand c
 
     Tuple members t -> do
         putStatement $ Comment "Allocating space for tuple"
@@ -263,14 +257,6 @@ tupleMember tuple tupleType index t = do
     putStatement $ Load resultRegister t positionRegister
     return resultRegister
 
-integerLiteral :: Operand -> Int -> Statement
-integerLiteral operand n = BinaryOperation operand LLVM.IntegerType Add (integerOperand 0) (integerOperand n)
-
-booleanLiteral :: Operand -> Bool -> Statement
-booleanLiteral operand n = BinaryOperation operand LLVM.BooleanType Add (integerOperand 0) (booleanOperand n)
-    where booleanOperand False = integerOperand 0
-          booleanOperand True = integerOperand 1
-
 
 -- State and environment utils
 
@@ -359,6 +345,7 @@ insertLet s env = env { innermostLet = Just s }
 llvmType :: Closures.Type -> LLVM.Type
 llvmType Closures.IntegerType = LLVM.IntegerType
 llvmType Closures.BooleanType = LLVM.BooleanType
+llvmType Closures.CharacterType = LLVM.CharacterType
 llvmType (Closures.TupleType _) = LLVM.PointerType
 llvmType Closures.SumType = LLVM.PointerType
 llvmType (Closures.ClosureType _ _) = LLVM.PointerType

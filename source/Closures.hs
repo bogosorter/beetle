@@ -9,6 +9,7 @@ data Program = Program
 data Type
     = BooleanType
     | IntegerType
+    | CharacterType
     | TupleType [Type]
     | SumType
     | ClosureType Type Type
@@ -31,6 +32,9 @@ data Expression
         }
     | Integer
         { integerValue :: Int
+        }
+    | Character
+        { asciiValue :: Int
         }
     | Tuple
         { members :: [Expression]
@@ -96,5 +100,6 @@ data Expression
 getType :: Expression -> Type
 getType (Integer {}) = IntegerType
 getType (Boolean {}) = BooleanType
+getType (Character {}) = CharacterType
 getType (TypeAssertion {}) = BooleanType
 getType expression = t expression

@@ -10,6 +10,10 @@ void print_integer(int32_t value) {
     printf("%d\n", value);
 }
 
+void print_character(uint8_t value) {
+    printf("%c\n", value);
+}
+
 struct sum {
     int32_t tag;
     void *value;

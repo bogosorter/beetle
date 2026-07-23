@@ -1,4 +1,4 @@
-module LLVM (Program(..), Function(..), Statement(..), Type(..), Operand, Label(..), OpCode(..), integerOperand, typeOperand, registerOperand, variableOperand, globalOperand, LLVM.null) where
+module LLVM (Program(..), Function(..), Statement(..), Type(..), Operand, Label(..), OpCode(..), integerOperand, booleanOperand, characterOperand, typeOperand, registerOperand, variableOperand, globalOperand, LLVM.null) where
 
 import Text.Printf (printf)
 import Data.List (intercalate)
@@ -7,6 +7,7 @@ data Type
     = VoidType
     | IntegerType
     | BooleanType
+    | CharacterType
     | TupleType [Type]
     | PointerType
     deriving Eq
@@ -115,6 +116,14 @@ data OpCode = Mul | Div | Rem | Add | Sub | Eq | Slt | Sgt | Sle | Sge | Xor
 integerOperand :: Int -> Operand
 integerOperand n = Operand (show n)
 
+booleanOperand :: Bool -> Operand
+booleanOperand False = Operand (show (0 :: Integer))
+booleanOperand True = Operand (show (1 :: Integer))
+
+
+characterOperand :: Int -> Operand
+characterOperand c = Operand (show c)
+
 registerOperand :: Int -> Operand
 registerOperand n = Operand ("%" ++ show n)
 
@@ -135,6 +144,7 @@ instance Show Program where
             "target triple = \"x86_64-pc-linux-gnu\"\n\
             \declare void @print_boolean(i8)\n\
             \declare void @print_integer(i32)\n\
+            \declare void @print_character(i8)\n\
             \declare void @print_string(ptr)\n\
             \declare ptr @malloc(i64)\n\
             \\n\
@@ -163,10 +173,13 @@ instance Show Program where
                 | resultType == IntegerType = printf
                     "    call void @print_integer(i32 %s)\n"
                     (show resultRegister)
+                | resultType == CharacterType = printf
+                    "    call void @print_character(i8 %s)\n"
+                    (show resultRegister)
                 | resultType == PointerType = printf
                     "    call void @print_string(ptr %s)\n"
                     (show resultRegister)
-                | otherwise = error "got a result type that is not of type string, boolean or pointer"
+                | otherwise = error "got a result type that is not of type string, boolean, character or pointer"
 
 instance Show Function where
     show function = printf
@@ -286,6 +299,7 @@ instance Show Type where
     show VoidType = "void"
     show IntegerType = "i32"
     show BooleanType = "i1"
+    show CharacterType = "i8"
     show (TupleType ts) = "{" ++ (intercalate ", " $ map show ts) ++ "}"
     show PointerType = "ptr"
 
