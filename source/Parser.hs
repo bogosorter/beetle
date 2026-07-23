@@ -160,6 +160,9 @@ binaryOperation = do
                 , E.InfixL (builder position <$> symbol "-")
                 ]
             ,
+                [ E.InfixR (constructor position <$ symbol ":")
+                ]
+            ,
                 [ E.InfixL (builder position <$> symbol "==")
                 , E.InfixL (builder position <$> symbol "<=")
                 , E.InfixL (builder position <$> symbol ">=")
@@ -174,6 +177,7 @@ binaryOperation = do
                 ]
             ]
           builder position operation left right = Application (Application (Variable operation position) left position) right position
+          constructor position left right = Constructor "StringConstructor" (Tuple [left, right] position) position
 
 atom :: Parser SourceExpression
 atom = M.try lambda <|> variableUsage <|> unaryMinus <|> logicalNot <|> constructorParser <|> recordParser <|> integer <|> boolean <|> characterExpression <|> string <|> parenthesizedExpression

@@ -1,1 +1,1 @@
-return "h" : "e" : "l" : "l" : "o" : "";
+return "h" : "e" : "l" : "l" : "o" : '';
