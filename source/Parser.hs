@@ -59,7 +59,7 @@ ifLet :: M.SourcePos -> SourceExpression -> Parser SourceExpression
 ifLet position condition = do
     assertionPosition <- M.getSourcePos
     keyword "is"
-    constructor <- typeIdentifier
+    constructor <- typeIdentifier <|> stringNil
     symbol ":"
     left <- returnExpression
     symbol ";"
@@ -411,6 +411,11 @@ identifier = M.try $ lexeme $ do
 
 hole :: Parser String
 hole = symbol "_"
+
+stringNil :: Parser String
+stringNil = do
+    symbol "''"
+    return "StringNil"
 
 -- Helper functions
 
