@@ -1,0 +1,7 @@
+concatenate(a: String, b: String): String =
+    if a is '': return b;
+
+    head, tail = a;
+    return head :: concatenate(tail, b);
+
+return concatenate('hello, ', 'world');

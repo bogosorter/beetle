@@ -160,7 +160,7 @@ binaryOperation = do
                 , E.InfixL (builder position <$> symbol "-")
                 ]
             ,
-                [ E.InfixR (constructor position <$ symbol ":")
+                [ E.InfixR (constructor position <$ symbol "::")
                 ]
             ,
                 [ E.InfixL (builder position <$> symbol "==")
