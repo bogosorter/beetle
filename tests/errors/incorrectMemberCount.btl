@@ -1,0 +1,3 @@
+tuple = (1, 2);
+a, b, c = tuple;
+return c;

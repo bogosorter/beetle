@@ -1,0 +1,2 @@
+f(x: T): T = return x;
+return 1;
