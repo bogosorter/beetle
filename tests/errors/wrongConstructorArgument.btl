@@ -1,0 +1,5 @@
+Sum = Left Integer | Right Integer;
+
+value = Left true;
+if value is Left: return value;
+return value;

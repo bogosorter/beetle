@@ -1,0 +1,2 @@
+s(n: Integer): Integer = return n + 1;
+return s(false);

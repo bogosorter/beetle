@@ -1,0 +1,3 @@
+A = Integer;
+A = Boolean;
+return 1;

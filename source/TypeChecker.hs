@@ -234,6 +234,9 @@ typeCheck env expression = case expression of
             TupleType memberTypes -> Right $ memberTypes
             t -> Left $ TypeError position ("attempting to destructure tuple, but got type " ++ show t)
 
+        when (length names /= length memberTypes) $
+            Left $ TypeError position ("the number of assigned variables does not match the number of tuple members")
+
         let env' = foldr (uncurry insertVariableType) env (zip names memberTypes)
         typedBody <- typeCheck env' (body expression)
 
