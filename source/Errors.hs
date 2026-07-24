@@ -18,12 +18,12 @@ showTypeError path content e = TL.unpack $ prettyErrors (T.pack content) [typeEr
 typeErrorToErrata :: FilePath -> TypeError -> Errata
 typeErrorToErrata path (TypeError pos msg) =
     errataSimple
-        Nothing
+        (Just $ red "type error: " <> (T.pack msg))
         (blockSimple' fancyStyle basicPointer
             path
             Nothing
             (unPos (sourceLine pos), unPos (sourceColumn pos), Just "here")
-            (Just $ red "type error: " <> (T.pack msg)))
+            Nothing)
         Nothing
 
 parseErrorToErrata :: FilePath -> ParseErrorBundle String Void -> [Errata]

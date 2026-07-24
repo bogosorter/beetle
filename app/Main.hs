@@ -19,6 +19,7 @@ import System.IO.Temp (withSystemTempFile)
 import System.IO (hClose)
 import Data.ByteString (ByteString, hPut)
 import Data.FileEmbed (embedFileRelative)
+import Data.List (intercalate)
 import Control.Monad (when)
 
 
@@ -43,8 +44,9 @@ main = do
 
     typedProgram <- case typeCheckProgram parsedProgram of
         Right program -> return program
-        Left e -> do
-            putStrLn $ showTypeError path content e
+        Left errors -> do
+            let errorMessages = map (showTypeError path content) errors
+            putStrLn $ intercalate "\n\n" errorMessages
             exitFailure
     checkpoint TypeChecked parsedArguments typedProgram
 
