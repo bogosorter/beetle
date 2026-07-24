@@ -26,7 +26,7 @@ compile input output = do
             Right program -> program
 
     let typedProgram = case typeCheckProgram program of
-            Left e -> error (showTypeError input content e)
+            Left errors -> error $ unlines (map (showTypeError input content) errors)
             Right typedProgram -> typedProgram
 
 

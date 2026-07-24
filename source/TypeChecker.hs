@@ -2,42 +2,63 @@
 module TypeChecker (typeCheckProgram, TypeError(..)) where
 
 import AST
+
 import Text.Megaparsec (SourcePos)
+import Data.List (intercalate)
 import qualified Data.Map as Map
 import Data.Map ((!))
 import qualified Data.Set as Set
+import Control.Monad.State (StateT, runStateT, get, put, lift)
 import Control.Monad (unless, when)
-import Data.List (intercalate)
 
 
 data TypeError = TypeError SourcePos String
+data Constraint = Constraint Type Type SourcePos String
 
-typeCheckProgram :: SourceExpression -> Either TypeError TypedExpression
+typeCheckProgram :: SourceExpression -> Either [TypeError] TypedExpression
 typeCheckProgram program = do
-    checked <- typeCheck emptyEnvironment program
-    case getType checked of
-        IntegerType -> Right checked
-        BooleanType -> Right checked
-        CharacterType -> Right checked
-        UserType "String" -> Right checked
-        _ -> Left $ TypeError (getPosition program) "every program must return an integer, a boolean, a character or a string"
+    -- Type-checking is divided into two phases: the first one generates either
+    -- an error that forces the type-checking to a halt or a list of
+    -- constraints. These constraints are used in the second phase to generate a
+    -- list of type errors. This allows for the reporting of multiple type
+    -- errors.
+
+    -- First phase
+    (typedProgram, constraints) <- case runStateT (typeCheck emptyEnvironment program) [] of
+        Left typeError -> Left [typeError]
+        Right result -> Right $ result
+
+    -- Second phase
+    enforce constraints
+
+    -- Ensure that the ouptut of the program is one of the allowed types
+    case getType typedProgram of
+        IntegerType -> Right typedProgram
+        BooleanType -> Right typedProgram
+        CharacterType -> Right typedProgram
+        UserType "String" -> Right typedProgram
+        _ -> Left $ [TypeError (getPosition program) "every program must return an integer, a boolean, a character or a string"]
 
 
-typeCheck :: Environment -> SourceExpression -> Either TypeError TypedExpression
+-- This section deals with the generation of type constraints
+
+type Generator = StateT [Constraint] (Either TypeError)
+
+typeCheck :: Environment -> SourceExpression -> Generator TypedExpression
 typeCheck env expression = case expression of
-    Integer {} -> Right $ Integer (integerValue expression) IntegerType
-    Boolean {} -> Right $ Boolean (booleanValue expression) BooleanType
-    Character {} -> Right $ Character (asciiValue expression) CharacterType
+    Integer {} -> return $ Integer (integerValue expression) IntegerType
+    Boolean {} -> return $ Boolean (booleanValue expression) BooleanType
+    Character {} -> return $ Character (asciiValue expression) CharacterType
 
     Tuple {} -> do
         typedMembers <- mapM (typeCheck env) (tupleMembers expression)
         let tupleType = TupleType $ map getType typedMembers
-        Right $ Tuple typedMembers tupleType
+        return $ Tuple typedMembers tupleType
 
     Record {} -> do
         typedMembers <- mapM (typeCheck env) (recordMembers expression)
         let tupleType = RecordType $ Map.map getType typedMembers
-        Right $ Record typedMembers tupleType
+        return $ Record typedMembers tupleType
 
     Constructor {} -> do
         let name = constructor expression
@@ -52,12 +73,11 @@ typeCheck env expression = case expression of
                     valueType = getType typedValue
 
                 desugaredExpectedType <- desugar position env expectedValueType
-                when (desugaredExpectedType /= valueType) $
-                    Left $ TypeError (getPosition $ value expression) ("expected type " ++ show expectedValueType ++ ", but got value of type " ++ show valueType)
 
+                putConstraint $ Constraint desugaredExpectedType valueType (getPosition $ value expression)  ("expected type " ++ show expectedValueType ++ ", but got value of type " ++ show valueType)
                 return $ Constructor name typedValue (UserType sumType)
 
-            Nothing -> Left $ TypeError position ("couldn't find constructor " ++ name)
+            Nothing -> lift $ Left $ TypeError position ("couldn't find constructor " ++ name)
 
     Lowering {} -> do
         let Lowering value constructor _ = expression
@@ -69,7 +89,7 @@ typeCheck env expression = case expression of
                     _ -> error ("the value of a lowering must be a sum type, but got type " ++ userType)
                 t -> error ("the value of a lowering must be a sum type, but got type " ++ show t)
 
-        Right $ Lowering typedValue constructor loweredType
+        return $ Lowering typedValue constructor loweredType
 
     Function {} -> do
         let Function argumentType returnType argumentName body _ = expression
@@ -79,10 +99,8 @@ typeCheck env expression = case expression of
         let env' = insertVariableType argumentName argumentType env
         typedBody <- typeCheck env' body
 
-        unless (getType typedBody == returnType) $
-            Left $ TypeError position "function return type does not match body type"
-
-        Right $ Function argumentType returnType argumentName typedBody (FunctionType argumentType returnType)
+        putConstraint $ Constraint (getType typedBody) returnType position "function return type does not match body type"
+        return $ Function argumentType returnType argumentName typedBody (FunctionType argumentType returnType)
 
     If { condition = TypeAssertion {} } -> do
         let If (TypeAssertion scrutinee constructor assertionPosition) left right position = expression
@@ -91,17 +109,17 @@ typeCheck env expression = case expression of
         constructors <- case getType typedScrutinee of
             UserType userType -> case Map.lookup userType (sumTypes env) of
                 Just constructors -> return constructors
-                _ -> Left $ TypeError assertionPosition ("the scrutinee of a type assertion must be a sum type, but got type " ++ userType)
-            t -> Left $ TypeError assertionPosition ("the scrutinee of a type assertion must be a sum type, but got type " ++ show t)
+                _ -> lift $ Left $ TypeError assertionPosition ("the scrutinee of a type assertion must be a sum type, but got type " ++ userType)
+            t -> lift $ Left $ TypeError assertionPosition ("the scrutinee of a type assertion must be a sum type, but got type " ++ show t)
 
         unless (Map.member constructor constructors) $
-            Left $ TypeError position ("constructor " ++ show constructor ++ " does not exist in type " ++ show (getType typedScrutinee))
+            lift $ Left $ TypeError position ("constructor " ++ show constructor ++ " does not exist in type " ++ show (getType typedScrutinee))
 
 
         case scrutinee of
             (Variable name _) -> when (Set.member constructor (getImpossibleConstructors name env)) $
-                Left $ TypeError position ("redundant check: it has already been established that \"" ++ name ++ "\" is not of type " ++ constructor)
-            _ -> Right ()
+                lift $ Left $ TypeError position ("redundant check: it has already been established that \"" ++ name ++ "\" is not of type " ++ constructor)
+            _ -> return ()
 
         -- If the scrutinee is a variable, we can change the type of that
         -- variable, and possibly change the type of the variable on the else
@@ -120,39 +138,33 @@ typeCheck env expression = case expression of
         typedLeft <- typeCheck env left'
         typedRight <- typeCheck rightEnv right'
 
-        unless (getType typedLeft == getType typedRight) $
-            Left $ TypeError position "the branches of an if expression must have the same return type"
-
-        Right $ If (TypeAssertion typedScrutinee constructor BooleanType) typedLeft typedRight (getType typedLeft)
+        putConstraint $ Constraint (getType typedLeft) (getType typedRight) position "the branches of an if expression must have the same return type"
+        return $ If (TypeAssertion typedScrutinee constructor BooleanType) typedLeft typedRight (getType typedLeft)
 
     If {} -> do
         typedCondition <- typeCheck env (condition expression)
-        unless (getType typedCondition == BooleanType) $
-            Left $ TypeError position "the condition of an if must always be a boolean expression"
+        putConstraint $ Constraint (getType typedCondition) BooleanType position "the condition of an if must always be a boolean expression"
 
         typedLeft <- typeCheck env (left expression)
         typedRight <- typeCheck env (right expression)
 
-        unless (getType typedLeft == getType typedRight) $
-            Left $ TypeError position "the branches of an if expression must have the same return type"
-
-        Right $ If typedCondition typedLeft typedRight (getType typedLeft)
+        putConstraint $ Constraint (getType typedLeft) (getType typedRight) position "the branches of an if expression must have the same return type"
+        return $ If typedCondition typedLeft typedRight (getType typedLeft)
 
     Application {} -> do
         typedFunction <- typeCheck env (function expression)
         (argumentType, returnType) <- case getType typedFunction of
-            FunctionType argumentType returnType -> Right $ (argumentType, returnType)
-            t -> Left $ TypeError position ("can only apply functions, but got type " ++ show t)
+            FunctionType argumentType returnType -> return $ (argumentType, returnType)
+            t -> lift $ Left $ TypeError position ("can only apply functions, but got type " ++ show t)
 
         typedArgument <- typeCheck env (argument expression)
         -- We do not overwrite the initial variable to keep user-defined
         -- variables in the error output
         argumentType' <- desugar position env argumentType
         returnType <- desugar position env returnType
-        unless (getType typedArgument == argumentType') $
-            Left $ TypeError (getPosition $ argument expression) ("expected an argument of type " ++ show argumentType ++ ", but got argument of type " ++ show (getType typedArgument))
 
-        Right $ Application typedFunction typedArgument returnType
+        putConstraint $ Constraint (getType typedArgument) argumentType' (getPosition $ argument expression) ("expected an argument of type " ++ show argumentType ++ ", but got argument of type " ++ show (getType typedArgument))
+        return $ Application typedFunction typedArgument returnType
 
     Variable {} -> do
         let name = variableName expression
@@ -160,8 +172,8 @@ typeCheck env expression = case expression of
         case Map.lookup name types of
             Just t -> do
                 t <- desugar position env t
-                Right $ Variable name t
-            _ -> Left $ TypeError position ("couldn't find name " ++ name)
+                return $ Variable name t
+            _ -> lift $ Left $ TypeError position ("couldn't find name " ++ name)
 
     RecordMember {} -> do
         typedRecord <- typeCheck env (record expression)
@@ -171,15 +183,15 @@ typeCheck env expression = case expression of
             RecordType memberTypes ->
                 let name = memberName expression
                 in case Map.lookup name memberTypes of
-                    Just t -> Right $ RecordMember typedRecord name t
-                    _ -> Left $ TypeError position ("trying to access inexistent member " ++ name ++ " of this record")
-            t -> Left $ TypeError position ("can only access members of records, but got type " ++ show t)
+                    Just t -> return $ RecordMember typedRecord name t
+                    _ -> lift $ Left $ TypeError position ("trying to access inexistent member " ++ name ++ " of this record")
+            t -> lift $ Left $ TypeError position ("can only access members of records, but got type " ++ show t)
 
     -- Type shadowing is not allowed
     TypeAssignment {} -> do
         let name = assignedName expression
         unless (isAvailable env name) $
-            Left $ TypeError position ("type " ++ name ++ " has already been declared")
+            lift $ Left $ TypeError position ("type " ++ name ++ " has already been declared")
 
         let t = assignedType expression
             env' = case t of
@@ -199,7 +211,7 @@ typeCheck env expression = case expression of
     Assignment {} -> do
         let name = assignedName expression
         when (name == "_") $
-            Left $ TypeError position ("assigning to a hole")
+            lift $ Left $ TypeError position ("assigning to a hole")
 
         -- Clear the previous data about this variable, if any
         let env' = clearImpossibleConstructors name env
@@ -224,23 +236,23 @@ typeCheck env expression = case expression of
 
 
         typedBody <- typeCheck env'' (body expression)
-        Right $ Assignment name typedValue typedBody (getType typedBody)
+        return $ Assignment name typedValue typedBody (getType typedBody)
 
     TupleDestructuring {} -> do
         let names = destructuredNames expression
 
         typedTuple <- typeCheck env (tuple expression)
         memberTypes <- case getType typedTuple of
-            TupleType memberTypes -> Right $ memberTypes
-            t -> Left $ TypeError position ("attempting to destructure tuple, but got type " ++ show t)
+            TupleType memberTypes -> return $ memberTypes
+            t -> lift $ Left $ TypeError position ("attempting to destructure tuple, but got type " ++ show t)
 
         when (length names /= length memberTypes) $
-            Left $ TypeError position ("the number of assigned variables does not match the number of tuple members")
+            lift $ Left $ TypeError position ("the number of assigned variables does not match the number of tuple members")
 
         let env' = foldr (uncurry insertVariableType) env (zip names memberTypes)
         typedBody <- typeCheck env' (body expression)
 
-        Right $ TupleDestructuring names typedTuple typedBody (getType typedBody)
+        return $ TupleDestructuring names typedTuple typedBody (getType typedBody)
 
     TypeAssertion {} -> error "type assertions can only appear within ifs"
 
@@ -250,7 +262,7 @@ typeCheck env expression = case expression of
 -- When all of the remaining constructors of a sum type variable are of record
 -- type and all share a member of the same type, that member can be accessed
 -- directly
-typeCheckSumRecordMember :: SourceExpression -> String -> Environment -> Either TypeError TypedExpression
+typeCheckSumRecordMember :: SourceExpression -> String -> Environment -> Generator TypedExpression
 typeCheckSumRecordMember expression userType env = do
     let RecordMember record memberName position = expression
 
@@ -258,23 +270,23 @@ typeCheckSumRecordMember expression userType env = do
         Just constructors -> case record of
             (Variable name _) -> return $ Map.withoutKeys constructors (getImpossibleConstructors name env)
             _ -> return constructors
-        _ -> Left $ TypeError position ("can only access members of records, but got type " ++ show userType)
+        _ -> lift $ Left $ TypeError position ("can only access members of records, but got type " ++ show userType)
 
-    let ensureIsRecord :: String -> Type -> Either TypeError (String, Map.Map String Type)
+    let ensureIsRecord :: String -> Type -> Generator (String, Map.Map String Type)
         ensureIsRecord constructor t  = case t of
             RecordType members -> return (constructor, members)
-            _ -> Left $ TypeError position ("can only access members of records, but " ++ constructor ++ " is of type " ++ show t)
+            _ -> lift $ Left $ TypeError position ("can only access members of records, but " ++ constructor ++ " is of type " ++ show t)
 
     records <- mapM (uncurry ensureIsRecord) (Map.toList constructors)
 
-    let ensureHasMember :: String -> Map.Map String Type -> Either TypeError Type
+    let ensureHasMember :: String -> Map.Map String Type -> Generator Type
         ensureHasMember name memberTypes = case Map.lookup memberName memberTypes of
             Just t -> return t
-            Nothing -> Left $ TypeError position ("type " ++ name ++ " does not have a member \"" ++ memberName ++ "\"")
+            Nothing -> lift $ Left $ TypeError position ("type " ++ name ++ " does not have a member \"" ++ memberName ++ "\"")
 
     memberTypes <- mapM (uncurry ensureHasMember) records
     unless (allEqual memberTypes) $
-        Left $ TypeError position ("there are multiple possible types for the value of \"" ++ memberName ++ "\" in " ++ intercalate " | " (Map.keys constructors))
+        lift $ Left $ TypeError position ("there are multiple possible types for the value of \"" ++ memberName ++ "\" in " ++ intercalate " | " (Map.keys constructors))
 
     -- To access the member, each of the possible types has to be checked, and,
     -- if it is that one, a lowering followed by a record access must be
@@ -301,8 +313,7 @@ typeCheckSumRecordMember expression userType env = do
 
     typeCheck env access
 
-
-desugar :: SourcePos -> Environment -> Type -> Either TypeError Type
+desugar :: SourcePos -> Environment -> Type -> Generator Type
 desugar position env (UserType name) = do
     let aliases = typeAliases env
     case Map.lookup name aliases of
@@ -310,19 +321,36 @@ desugar position env (UserType name) = do
         Nothing -> do
             let sums = sumTypes env
             case Map.lookup name sums of
-                Just _ -> Right $ UserType name
-                Nothing -> Left $ TypeError position ("couldn't find type " ++ name)
+                Just _ -> return $ UserType name
+                Nothing -> lift $ Left $ TypeError position ("couldn't find type " ++ name)
 desugar position env (TupleType memberTypes) = do
     desugaredMemberTypes <- mapM (desugar position env) memberTypes
-    Right $ TupleType desugaredMemberTypes
+    return $ TupleType desugaredMemberTypes
 desugar position env (RecordType memberTypes) = do
     desugaredMemberTypes <- mapM (desugar position env) memberTypes
-    Right $ RecordType desugaredMemberTypes
+    return $ RecordType desugaredMemberTypes
 desugar position env (FunctionType argumentType returnType) = do
     desugaredArgumentType <- desugar position env argumentType
     desugaredReturnType <- desugar position env returnType
-    Right $ FunctionType desugaredArgumentType desugaredReturnType
-desugar _ _ t = Right $ t
+    return $ FunctionType desugaredArgumentType desugaredReturnType
+desugar _ _ t = return $ t
+
+
+-- This section deals with enforcing type constraints
+
+enforce :: [Constraint] -> Either [TypeError] ()
+enforce constraints = case solve constraints of
+    [] -> Right ()
+    errors -> Left errors
+
+solve :: [Constraint] -> [TypeError]
+solve [] = []
+solve (constraint:constraints)
+    | a == b = solve constraints
+    | otherwise = TypeError position message : solve constraints
+    where Constraint a b position message = constraint
+
+
 
 
 -- Environment utils
@@ -395,6 +423,11 @@ getImpossibleConstructors name env = case Map.lookup name (impossibleConstructor
 clearImpossibleConstructors :: String -> Environment -> Environment
 clearImpossibleConstructors name env = env { impossibleConstructors = newImpossible }
     where newImpossible = Map.delete name (impossibleConstructors env)
+
+putConstraint :: Constraint -> Generator ()
+putConstraint constraint = do
+    constraints <- get
+    put $ constraints ++ [constraint]
 
 instance Show TypeError where
     show (TypeError _ e) = e
