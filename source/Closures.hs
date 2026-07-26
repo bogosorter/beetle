@@ -13,6 +13,7 @@ data Type
     | TupleType [Type]
     | SumType
     | ClosureType Type Type
+    | GenericType
     deriving Show
 
 -- While not strictly necessary, we add name as a parameter to ensure that the

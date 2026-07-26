@@ -196,7 +196,11 @@ compileExpression env expression = case expression of
         putStatement $ BinaryOperation register (llvmType $ argumentType) opCode leftRegister rightRegister
         return register
 
-    Application closure argument t -> do
+    Application closure argument _ -> do
+        let (argumentType, returnType) = case getType closure of
+                ClosureType argumentType returnType -> (argumentType, returnType)
+                _ -> error "got a closure whose type is not closure type"
+
         putStatement $ Comment "Function Application"
 
         closureRegister <- compileExpression env closure
@@ -216,9 +220,41 @@ compileExpression env expression = case expression of
         putStatement $ Comment "Calculate the argument"
         argumentRegister <- compileExpression env argument
 
-        resultRegister <- reserveRegister
+        -- If this argument is a generic variable, we need to cast the value to
+        -- a standard i64 type
+        boxedArgument <- case argumentType of
+            GenericType -> do
+                register <- reserveRegister
+
+                -- Pointers have to be converted, other values are extended
+                putStatement $ Comment "Since this is a generic variable, we have to box it"
+                let realType = llvmType $ getType argument
+                case realType of
+                    PointerType -> putStatement $ PointerToInt register argumentRegister
+                    _ -> putStatement $ ZeroExtend register BoxedType argumentRegister realType
+
+                return register
+
+            _ -> return argumentRegister
+
+        boxedResult <- reserveRegister
         putStatement $ Comment "Perform the function call"
-        putStatement $ Call resultRegister (llvmType t) functionRegister environmentRegister argumentRegister (llvmType $ getType argument)
+        putStatement $ Call boxedResult (llvmType returnType) functionRegister environmentRegister boxedArgument (llvmType argumentType)
+
+        resultRegister <- case returnType of
+            GenericType -> do
+                register <- reserveRegister
+
+                -- Pointers have to be converted, other values are reduced
+                putStatement $ Comment "Since this is a generic variable, we have to unbox it"
+                let realType = llvmType $ getType argument
+                case realType of
+                    PointerType -> putStatement $ IntToPointer register boxedResult
+                    _ -> putStatement $ Truncate register realType boxedResult BoxedType
+
+                return register
+
+            _ -> return boxedResult
         putStatement $ EmptyLine
 
         return resultRegister
@@ -349,6 +385,7 @@ llvmType Closures.CharacterType = LLVM.CharacterType
 llvmType (Closures.TupleType _) = LLVM.PointerType
 llvmType Closures.SumType = LLVM.PointerType
 llvmType (Closures.ClosureType _ _) = LLVM.PointerType
+llvmType Closures.GenericType = LLVM.BoxedType
 
 -- Despite the fact that variables holding tuples are represented with pointers
 -- in the LLVM IR, to allocate them we need to use their tuple representation as

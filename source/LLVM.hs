@@ -11,6 +11,7 @@ data Type
     | CharacterType
     | TupleType [Type]
     | PointerType
+    | BoxedType
     deriving Eq
 
 data Program = Program
@@ -78,6 +79,22 @@ data Statement
     | PointerToInt
         { destination :: Operand
         , source :: Operand
+        }
+    | IntToPointer
+        { destination :: Operand
+        , source :: Operand
+        }
+    | ZeroExtend
+        { destination :: Operand
+        , destinationType :: Type
+        , source :: Operand
+        , sourceType :: Type
+        }
+    | Truncate
+        { destination :: Operand
+        , destinationType :: Type
+        , source :: Operand
+        , sourceType :: Type
         }
     | Malloc
         { destination :: Operand
@@ -256,6 +273,25 @@ instance Show Statement where
             (show $ destination statement)
             (show $ source statement)
 
+        IntToPointer {} ->
+            printf "%s = inttoptr i64 %s to ptr"
+            (show $ destination statement)
+            (show $ source statement)
+
+        ZeroExtend {} ->
+            printf "%s = zext %s %s to %s"
+            (show $ destination statement)
+            (show $ sourceType statement)
+            (show $ source statement)
+            (show $ destinationType statement)
+
+        Truncate {} ->
+            printf "%s = trunc %s %s to %s"
+            (show $ destination statement)
+            (show $ sourceType statement)
+            (show $ source statement)
+            (show $ destinationType statement)
+
         Malloc {} ->
             printf "%s = call ptr @malloc(i64 %s)"
             (show $ destination statement)
@@ -302,6 +338,7 @@ instance Show Type where
     show CharacterType = "i8"
     show (TupleType ts) = "{" ++ (intercalate ", " $ map show ts) ++ "}"
     show PointerType = "ptr"
+    show BoxedType = "i64"
 
 instance Show Operand where
     show (Operand s) = s
