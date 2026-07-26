@@ -13,6 +13,8 @@ data Type
     | SumType (Map.Map String Type)
     | FunctionType Type Type
     | UserType String
+    | TypeVariable String
+    | TypeVariableInstance Int
     deriving Eq
 
 data Expression a
@@ -121,6 +123,8 @@ instance Show Type where
         FunctionType {} -> "(" ++ show argumentType ++ ") -> " ++ show returnType
         _ -> show argumentType ++ " -> " ++ show returnType
     show (UserType name) = name
+    show (TypeVariable name) = name
+    show (TypeVariableInstance n) = "t" ++ show n
 
 showRecordMemberType :: (String, Type) -> String
 showRecordMemberType (name, t) = name ++ ": " ++ show t

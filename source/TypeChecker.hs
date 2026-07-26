@@ -14,6 +14,7 @@ import Control.Monad (unless, when)
 
 data TypeError = TypeError SourcePos String
 data Constraint = Constraint Type Type SourcePos String
+    deriving Show
 
 typeCheckProgram :: SourceExpression -> Either [TypeError] TypedExpression
 typeCheckProgram program = do
@@ -24,14 +25,15 @@ typeCheckProgram program = do
     -- errors.
 
     -- First phase
-    (typedProgram, constraints) <- case runStateT (typeCheck emptyEnvironment program) [] of
+    (intermediateProgram, state) <- case runStateT (typeCheck emptyEnvironment program) initialState of
         Left typeError -> Left [typeError]
         Right result -> Right $ result
 
     -- Second phase
-    enforce constraints
+    substitutions <- solve (constraints state)
 
     -- Ensure that the ouptut of the program is one of the allowed types
+    let typedProgram = performSubstitutions substitutions intermediateProgram
     case getType typedProgram of
         IntegerType -> Right typedProgram
         BooleanType -> Right typedProgram
@@ -42,7 +44,7 @@ typeCheckProgram program = do
 
 -- This section deals with the generation of type constraints
 
-type Generator = StateT [Constraint] (Either TypeError)
+type Generator = StateT GeneratorState (Either TypeError)
 
 typeCheck :: Environment -> SourceExpression -> Generator TypedExpression
 typeCheck env expression = case expression of
@@ -153,8 +155,20 @@ typeCheck env expression = case expression of
 
     Application {} -> do
         typedFunction <- typeCheck env (function expression)
-        (argumentType, returnType) <- case getType typedFunction of
-            FunctionType argumentType returnType -> return $ (argumentType, returnType)
+
+        let functionType = getType typedFunction
+        (argumentType, returnType) <- case functionType of
+
+            -- If this is a polymorphic function, we want to instantiate the
+            -- type of the function with a fresh type
+            FunctionType argumentType returnType -> do
+                case argumentType of
+                    TypeVariable _ -> do
+                        t <- freshType
+                        let FunctionType newArgument newReturn = substituteInType argumentType t functionType
+                        return (newArgument, newReturn)
+                    _ -> return (argumentType, returnType)
+
             t -> lift $ Left $ TypeError position ("can only apply functions, but got type " ++ show t)
 
         typedArgument <- typeCheck env (argument expression)
@@ -338,19 +352,79 @@ desugar _ _ t = return $ t
 
 -- This section deals with enforcing type constraints
 
-enforce :: [Constraint] -> Either [TypeError] ()
-enforce constraints = case solve constraints of
-    [] -> Right ()
-    errors -> Left errors
+type Substitution = (Type, Type)
 
-solve :: [Constraint] -> [TypeError]
-solve [] = []
+solve :: [Constraint] -> Either [TypeError] [Substitution]
+solve [] = Right []
 solve (constraint:constraints)
     | a == b = solve constraints
-    | otherwise = TypeError position message : solve constraints
+    | otherwise = case a of
+        (TypeVariableInstance _) -> do
+            let newConstraints = map (substituteInConstraint a b) constraints
+            substitutions <- solve newConstraints
+            return $ (a, b) : substitutions
+        _ -> case b of
+            (TypeVariableInstance _) -> do
+                let newConstraints = map (substituteInConstraint b a) constraints
+                substitutions <- solve newConstraints
+                return $ (b, a) : substitutions
+            _ -> Left $ [TypeError position message]
     where Constraint a b position message = constraint
 
+performSubstitutions :: [Substitution] -> TypedExpression -> TypedExpression
+performSubstitutions substitutions expression = foldr (uncurry substituteInExpression) expression substitutions
 
+
+-- Utils
+
+substituteInExpression :: Type -> Type -> TypedExpression -> TypedExpression
+substituteInExpression a b expression = case expression of
+    Boolean {} -> expression
+    Integer {} -> expression
+    Character {} -> expression
+    Tuple members t -> Tuple (map substitute members) (substituteType t)
+    Record members t -> Record (Map.map substitute members) (substituteType t)
+    Constructor name value t -> Constructor name (substitute value) (substituteType t)
+    Lowering value constructor t -> Lowering (substitute value) constructor (substituteType t)
+    TypeAssertion scrutinee constructor t -> TypeAssertion (substitute scrutinee) constructor (substituteType t)
+    Function argumentType returnType argument body t ->
+        Function (substituteType argumentType) (substituteType returnType) argument (substitute body) (substituteType t)
+    If condition left right t -> If (substitute condition) (substitute left) (substitute right) (substituteType t)
+    Application function argument t -> Application (substitute function) (substitute argument) (substituteType t)
+    Variable name t -> Variable name (substituteType t)
+    RecordMember record name t -> RecordMember (substitute record) name (substituteType t)
+    TypeAssignment name value body t -> TypeAssignment name (substituteType value) (substitute body) (substituteType t)
+    Assignment name value body t -> Assignment name (substitute value) (substitute body) (substituteType t)
+    TupleDestructuring names tuple body t ->
+        TupleDestructuring names (substitute tuple) (substitute body) (substituteType t)
+
+    where substitute = substituteInExpression a b
+          substituteType = substituteInType a b
+
+substituteInType :: Type -> Type -> Type -> Type
+substituteInType a b source
+    | source == a = b
+    | otherwise = case source of
+        BooleanType -> BooleanType
+        IntegerType -> IntegerType
+        CharacterType -> CharacterType
+        TupleType types -> TupleType $ map substitute types
+        RecordType types -> RecordType $ Map.map substitute types
+        SumType types -> SumType $ Map.map substitute types
+        FunctionType argumentType returnType -> FunctionType (substitute argumentType) (substitute returnType)
+        UserType name -> UserType name
+        TypeVariable name -> TypeVariable name
+        TypeVariableInstance name -> TypeVariableInstance name
+    where substitute = substituteInType a b
+
+substituteInConstraint :: Type -> Type -> Constraint -> Constraint
+substituteInConstraint a b (Constraint left right position message) =
+    Constraint (substituteInType a b left) (substituteInType a b right) position message
+
+allEqual :: Eq a => [a] -> Bool
+allEqual [] = True
+allEqual [_] = True
+allEqual (x:y:zs) = if x /= y then False else allEqual (y:zs)
 
 
 -- Environment utils
@@ -424,17 +498,29 @@ clearImpossibleConstructors :: String -> Environment -> Environment
 clearImpossibleConstructors name env = env { impossibleConstructors = newImpossible }
     where newImpossible = Map.delete name (impossibleConstructors env)
 
-putConstraint :: Constraint -> Generator ()
-putConstraint constraint = do
-    constraints <- get
-    put $ constraints ++ [constraint]
-
 instance Show TypeError where
     show (TypeError _ e) = e
 
 
--- Utils
-allEqual :: Eq a => [a] -> Bool
-allEqual [] = True
-allEqual [_] = True
-allEqual (x:y:zs) = if x /= y then False else allEqual (y:zs)
+-- State utils
+
+data GeneratorState = GeneratorState
+    { constraints :: [Constraint]
+    , typeVariable :: Int
+    }
+
+initialState :: GeneratorState
+initialState = GeneratorState [] 0
+
+putConstraint :: Constraint -> Generator ()
+putConstraint constraint = do
+    state <- get
+    let newConstraints = constraints state ++ [constraint]
+    put $ state { constraints = newConstraints }
+
+freshType :: Generator Type
+freshType = do
+    state <- get
+    let count = typeVariable state + 1
+    put $ state { typeVariable = count }
+    return $ TypeVariableInstance count

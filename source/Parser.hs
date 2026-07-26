@@ -370,7 +370,7 @@ typeParser = do
     functionType atomic <|> return atomic
 
 atomicTypes :: Parser Type
-atomicTypes = booleanType <|> integerType <|> characterType <|> userType <|> parenthesizedType <|> recordType
+atomicTypes = booleanType <|> integerType <|> characterType <|> typeVariable <|> userType <|> parenthesizedType <|> recordType
 
 functionType :: Type -> Parser Type
 functionType argumentType = do
@@ -431,6 +431,11 @@ typeIdentifier = lexeme $ do
     first <- C.upperChar
     following <- M.many C.letterChar
     return (first : following)
+
+typeVariable :: Parser Type
+typeVariable = do
+    name <- identifier
+    return $ TypeVariable name
 
 reserved :: [String]
 reserved = ["if", "case", "of", "return", "true", "false", "boolean", "integer", "mod", "rem", "not", "and", "or", "is", "export"]

@@ -1,0 +1,11 @@
+f(x: a, y: b): (a, b) = return (a, b);
+
+partial = f(1);
+first = partial(1);
+second = partial(true);
+
+
+a, b = first;
+c, d = second
+if d: return a + b + c + d;
+return a;
