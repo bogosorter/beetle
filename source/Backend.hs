@@ -20,7 +20,7 @@ compileFunction function = LLVM.Function name argumentType returnType body
           body = statements state ++ [Return register returnType]
           (register, state) = runState (compileExpression env $ functionBody function) initialState
           env = initialEnvironmentWithType envType
-          envType = LLVM.TupleType $ map llvmType (Closures.environmentType function)
+          envType = LLVM.TupleType $ map (\_ -> BoxedType) (Closures.environmentType function)
 
 
 compileExpression :: CompilationEnvironment -> Expression -> State CompilationState Operand
@@ -39,10 +39,12 @@ compileExpression env expression = case expression of
             insertMember (index, member) = do
                 let memberType = llvmType $ getType member
                 memberRegister <- compileExpression env member
+                -- Tuple members are boxed to facilitate polymorphism management
+                boxedRegister <- box memberRegister memberType
 
                 positionRegister <- reserveRegister
                 putStatement $ GetElementPointer positionRegister (llvmTupleType t) register (integerOperand 0) (integerOperand index)
-                putStatement $ Store memberRegister memberType positionRegister
+                putStatement $ Store boxedRegister BoxedType positionRegister
 
         mapM_ insertMember (zip [0..] members)
         return register
@@ -267,9 +269,11 @@ tupleMember tuple tupleType index t = do
     positionRegister <- reserveRegister
     putStatement $ GetElementPointer positionRegister tupleType tuple (integerOperand 0) (integerOperand index)
 
-    resultRegister <- reserveRegister
-    putStatement $ Load resultRegister t positionRegister
-    return resultRegister
+    boxedRegister <- reserveRegister
+    putStatement $ Load boxedRegister BoxedType positionRegister
+
+    -- Tuple members are all boxed to ease generics on tuple members
+    unbox boxedRegister t
 
 box :: Operand -> LLVM.Type -> State CompilationState Operand
 box sourceRegister realType = do
@@ -390,11 +394,13 @@ llvmType (Closures.ClosureType _ _) = LLVM.PointerType
 llvmType Closures.GenericType = LLVM.BoxedType
 
 -- Despite the fact that variables holding tuples are represented with pointers
--- in the LLVM IR, to allocate them we need to use their tuple representation as
--- an argument to the get element pointer instruction. This function provides
--- the corresponding representation.
+-- in the LLVM IR, to allocate them and acces their members we need to use their
+-- tuple representation as an argument to the get element pointer instruction.
+-- Additionally, all tuple values are stored in boxed form to facilitate access
+-- when there are generic types. This function provides the corresponding
+-- representation.
 llvmTupleType :: Closures.Type -> LLVM.Type
-llvmTupleType (Closures.TupleType ts) = LLVM.TupleType (map llvmType ts)
+llvmTupleType (Closures.TupleType ts) = LLVM.TupleType (map (\_ -> BoxedType) ts)
 llvmTupleType _ = error "llvmTupleType should only be called on tuple types"
 
 closureType :: LLVM.Type
