@@ -10,9 +10,9 @@ data Type
     | CharacterType
     | TupleType [Type]
     | RecordType (Map.Map String Type)
-    | SumType (Map.Map String Type)
+    | SumType [String] (Map.Map String Type)
     | FunctionType Type Type
-    | UserType String
+    | UserType String [Type]
     | TypeVariable String
     | TypeVariableInstance Int
     deriving Eq
@@ -116,13 +116,13 @@ instance Show Type where
     show CharacterType = "Character"
     show (TupleType memberTypes) = "(" ++ List.intercalate ", " (map show memberTypes) ++ ")"
     show (RecordType memberTypes) = "{" ++ List.intercalate ", " (map showRecordMemberType (Map.toList memberTypes)) ++ "}"
-    show (SumType constructors) = List.intercalate " | " [constructor | (constructor, _) <- Map.toList constructors]
+    show (SumType _ constructors) = List.intercalate " | " [constructor | (constructor, _) <- Map.toList constructors]
     -- We check for a function type on the left side and add parentheses, since
     -- function types are normally right-associative
     show (FunctionType argumentType returnType) = case argumentType of
         FunctionType {} -> "(" ++ show argumentType ++ ") -> " ++ show returnType
         _ -> show argumentType ++ " -> " ++ show returnType
-    show (UserType name) = name
+    show (UserType name parameters) = name ++ concat (map (\p -> " " ++ show p) parameters)
     show (TypeVariable name) = name
     show (TypeVariableInstance n) = "t" ++ show n
 

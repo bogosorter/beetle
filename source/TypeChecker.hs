@@ -37,7 +37,7 @@ typeCheckProgram program = do
         IntegerType -> Right typedProgram
         BooleanType -> Right typedProgram
         CharacterType -> Right typedProgram
-        UserType "String" -> Right typedProgram
+        UserType "String" [] -> Right typedProgram
         _ -> Left $ [TypeError (getPosition program) "every program must return an integer, a boolean, a character or a string"]
 
 
@@ -65,8 +65,8 @@ typeCheck env expression = case expression of
         let name = constructor expression
         case Map.lookup name (constructors env) of
             Just sumType -> do
-                let constructors = case Map.lookup sumType (sumTypes env) of
-                        Just constructors -> constructors
+                let (parameters, constructors) = case Map.lookup sumType (sumTypes env) of
+                        Just result -> result
                         _ -> error ("got constructor to something that is not a user type: " ++ show sumType)
                 typedValue <- typeCheck env (value expression)
 
@@ -75,8 +75,17 @@ typeCheck env expression = case expression of
 
                 desugaredExpectedType <- desugar position env expectedValueType
 
-                putConstraint $ Constraint desugaredExpectedType valueType (getPosition $ value expression)  ("expected type " ++ show expectedValueType ++ ", but got value of type " ++ show valueType)
-                return $ Constructor name typedValue (UserType sumType)
+                let createFresh :: String -> Generator Type
+                    createFresh _ = do
+                        fresh <- freshType
+                        return fresh
+
+                freshVariables <- mapM createFresh parameters
+                let substitution = map (\(name, t) -> (TypeVariable name, t)) (zip parameters freshVariables)
+                    substitutedExpectedType = performSubstitutionsInType substitution desugaredExpectedType
+
+                putConstraint $ Constraint substitutedExpectedType valueType (getPosition $ value expression)  ("expected type " ++ show expectedValueType ++ ", but got value of type " ++ show valueType)
+                return $ Constructor name typedValue (UserType sumType freshVariables)
 
             Nothing -> lift $ Left $ TypeError position ("couldn't find constructor " ++ name)
 
@@ -85,8 +94,8 @@ typeCheck env expression = case expression of
 
         typedValue <- typeCheck env value
         let loweredType = case getType typedValue of
-                UserType userType -> case Map.lookup userType (sumTypes env) of
-                    Just constructors -> constructors ! constructor
+                UserType userType arguments -> case Map.lookup userType (sumTypes env) of
+                    Just (parameters, constructors) -> performSubstitutionsInType (zip (map TypeVariable parameters) arguments) (constructors ! constructor)
                     _ -> error ("the value of a lowering must be a sum type, but got type " ++ userType)
                 t -> error ("the value of a lowering must be a sum type, but got type " ++ show t)
 
@@ -108,8 +117,8 @@ typeCheck env expression = case expression of
 
         typedScrutinee <- typeCheck env scrutinee
         constructors <- case getType typedScrutinee of
-            UserType userType -> case Map.lookup userType (sumTypes env) of
-                Just constructors -> return constructors
+            UserType userType _ -> case Map.lookup userType (sumTypes env) of
+                Just (_, constructors) -> return constructors
                 _ -> lift $ Left $ TypeError assertionPosition ("the scrutinee of a type assertion must be a sum type, but got type " ++ userType)
             t -> lift $ Left $ TypeError assertionPosition ("the scrutinee of a type assertion must be a sum type, but got type " ++ show t)
 
@@ -165,8 +174,8 @@ typeCheck env expression = case expression of
         (argumentType, returnType) <- case getType typedFunction of
             FunctionType argumentType returnType -> do
                 substitutions <- instantiateType argumentType
-                let instantiatedArgument = foldr (uncurry substituteInType) argumentType substitutions
-                    instantiatedReturn = foldr (uncurry substituteInType) returnType substitutions
+                let instantiatedArgument = performSubstitutionsInType substitutions argumentType
+                    instantiatedReturn = performSubstitutionsInType substitutions returnType
                 return (instantiatedArgument, instantiatedReturn)
             t -> lift $ Left $ TypeError position ("can only apply functions, but got type " ++ show t)
 
@@ -192,7 +201,7 @@ typeCheck env expression = case expression of
         typedRecord <- typeCheck env (record expression)
 
         case getType typedRecord of
-            UserType name -> typeCheckSumRecordMember expression name env
+            UserType name _ -> typeCheckSumRecordMember expression name env
             RecordType memberTypes ->
                 let name = memberName expression
                 in case Map.lookup name memberTypes of
@@ -208,8 +217,8 @@ typeCheck env expression = case expression of
 
         let t = assignedType expression
             env' = case t of
-                SumType constructors ->
-                    let env' = insertSumType name constructors env
+                SumType parameters constructors ->
+                    let env' = insertSumType name parameters constructors env
                         constructorTypes = [(constructor, name) | constructor <- Map.keys constructors]
                     in Prelude.foldr (uncurry insertConstructor) env' constructorTypes
                 _ -> insertTypeAlias name t env
@@ -218,7 +227,7 @@ typeCheck env expression = case expression of
 
         -- Only sum type assignments are left on the AST
         case t of
-            SumType _ -> return $ TypeAssignment name t typedBody (getType typedBody)
+            SumType _ _ -> return $ TypeAssignment name t typedBody (getType typedBody)
             _ -> return typedBody
 
     Assignment {} -> do
@@ -280,7 +289,7 @@ typeCheckSumRecordMember expression userType env = do
     let RecordMember record memberName position = expression
 
     constructors <- case Map.lookup userType (sumTypes env) of
-        Just constructors -> case record of
+        Just (_, constructors) -> case record of
             (Variable name _) -> return $ Map.withoutKeys constructors (getImpossibleConstructors name env)
             _ -> return constructors
         _ -> lift $ Left $ TypeError position ("can only access members of records, but got type " ++ show userType)
@@ -327,14 +336,14 @@ typeCheckSumRecordMember expression userType env = do
     typeCheck env access
 
 desugar :: SourcePos -> Environment -> Type -> Generator Type
-desugar position env (UserType name) = do
+desugar position env (UserType name parameters) = do
     let aliases = typeAliases env
     case Map.lookup name aliases of
         Just t -> desugar position env t
         Nothing -> do
             let sums = sumTypes env
             case Map.lookup name sums of
-                Just _ -> return $ UserType name
+                Just _ -> return $ UserType name parameters
                 Nothing -> lift $ Left $ TypeError position ("couldn't find type " ++ name)
 desugar position env (TupleType memberTypes) = do
     desugaredMemberTypes <- mapM (desugar position env) memberTypes
@@ -371,18 +380,24 @@ solve (constraint:constraints)
 
     | otherwise = case (left, right) of
 
-        (TupleType aMembers, TupleType bMembers) -> do
-            when (length aMembers /= length bMembers) reportError
-            let newConstraints = [createConstraint a b | (a, b) <- zip aMembers bMembers] ++ constraints
+        (TupleType leftMembers, TupleType rightMembers) -> do
+            when (length leftMembers /= length rightMembers) reportError
+            let newConstraints = [createConstraint a b | (a, b) <- zip leftMembers rightMembers] ++ constraints
             solve newConstraints
 
-        (RecordType aMembers, RecordType bMembers) -> do
-            when (Map.keys aMembers /= Map.keys bMembers) reportError
-            let newConstraints = [createConstraint (aMembers ! key) (bMembers ! key) | key <- Map.keys aMembers] ++ constraints
+        (RecordType leftMembers, RecordType rightMembers) -> do
+            when (Map.keys leftMembers /= Map.keys rightMembers) reportError
+            let newConstraints = [createConstraint (leftMembers ! key) (rightMembers ! key) | key <- Map.keys leftMembers] ++ constraints
             solve newConstraints
 
         (FunctionType a b, FunctionType c d) -> do
             let newConstraints = [createConstraint a c, createConstraint b d] ++ constraints
+            solve newConstraints
+
+        (UserType leftName leftArguments, UserType rightName rightArguments) -> do
+            when (leftName /= rightName) reportError
+            when (length leftArguments /= length rightArguments) reportError
+            let newConstraints = [createConstraint a b | (a, b) <- zip leftArguments rightArguments] ++ constraints
             solve newConstraints
 
         _ -> reportError
@@ -395,6 +410,9 @@ solve (constraint:constraints)
 
 performSubstitutions :: [Substitution] -> TypedExpression -> TypedExpression
 performSubstitutions substitutions expression = foldr (uncurry substituteInExpression) expression substitutions
+
+performSubstitutionsInType :: [Substitution] -> Type -> Type
+performSubstitutionsInType substitutions expression = foldr (uncurry substituteInType) expression substitutions
 
 
 -- Utils
@@ -432,9 +450,9 @@ substituteInType a b source
         CharacterType -> CharacterType
         TupleType types -> TupleType $ map substitute types
         RecordType types -> RecordType $ Map.map substitute types
-        SumType types -> SumType $ Map.map substitute types
+        SumType parameters types -> SumType parameters $ Map.map substitute types
         FunctionType argumentType returnType -> FunctionType (substitute argumentType) (substitute returnType)
-        UserType name -> UserType name
+        UserType name parameters -> UserType name $ map substitute parameters
         TypeVariable name -> TypeVariable name
         TypeVariableInstance name -> TypeVariableInstance name
     where substitute = substituteInType a b
@@ -456,9 +474,9 @@ typeVariables t = case t of
     CharacterType -> []
     TupleType members -> concat $ map typeVariables members
     RecordType members -> concat $ map typeVariables (Map.elems members)
-    SumType members -> concat $ map typeVariables (Map.elems members)
+    SumType parameters members -> parameters ++ concat (map typeVariables (Map.elems members))
     FunctionType argumentType returnType -> typeVariables argumentType ++ typeVariables returnType
-    UserType _ -> []
+    UserType _ arguments -> concat $ map typeVariables arguments
     TypeVariable name -> [name]
     TypeVariableInstance _ -> []
 
@@ -483,7 +501,7 @@ allEqual (x:y:zs) = if x /= y then False else allEqual (y:zs)
 data Environment = Environment
     { variableTypes :: Map.Map String Type
     , typeAliases :: Map.Map String Type
-    , sumTypes :: Map.Map String (Map.Map String Type)
+    , sumTypes :: Map.Map String ([String], Map.Map String Type)
     , constructors :: Map.Map String String
     -- Impossible constructors of a given variable are sum type branches that
     -- have already been rulled out by previous if is instances. Once these
@@ -527,9 +545,9 @@ insertTypeAlias :: String -> Type -> Environment -> Environment
 insertTypeAlias name t env = env { typeAliases = newTypes }
     where newTypes = Map.insert name t (typeAliases env)
 
-insertSumType :: String -> Map.Map String Type -> Environment -> Environment
-insertSumType name t env = env { sumTypes = newTypes }
-    where newTypes = Map.insert name t (sumTypes env)
+insertSumType :: String -> [String] -> Map.Map String Type -> Environment -> Environment
+insertSumType name parameters t env = env { sumTypes = newTypes }
+    where newTypes = Map.insert name (parameters, t) (sumTypes env)
 
 insertConstructor :: String -> String -> Environment -> Environment
 insertConstructor name t env = env { constructors = newConstructors }

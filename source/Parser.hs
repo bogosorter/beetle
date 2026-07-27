@@ -106,16 +106,17 @@ typeAssignment :: Parser (SourceExpression -> SourceExpression)
 typeAssignment = do
     position <- M.getSourcePos
     name <- typeIdentifier
+    parameters <- typeParameters <|> return []
     symbol "="
     t <- typeParser
 
     finalType <- case t of
-        UserType constructor -> attemptSumType constructor <|> return t
+        UserType constructor [] -> attemptSumType constructor parameters <|> return t
         _ -> return t
     return $ \body -> TypeAssignment name finalType body position
 
-attemptSumType :: String -> Parser Type
-attemptSumType firstConstructor = do
+attemptSumType :: String -> [Type] -> Parser Type
+attemptSumType firstConstructor parameters = do
     firstType <- typeParser
     symbol "|"
 
@@ -125,7 +126,7 @@ attemptSumType firstConstructor = do
             return (constructor, t)
         ) (symbol "|")
 
-    return $ SumType (fromList $ (firstConstructor, firstType) : additionalConstructors)
+    return $ SumType [name | (TypeVariable name) <- parameters] (fromList $ (firstConstructor, firstType) : additionalConstructors)
 
 assignment :: Parser (SourceExpression -> SourceExpression)
 assignment = do
@@ -396,7 +397,8 @@ characterType = do
 userType :: Parser Type
 userType = do
     name <- typeIdentifier
-    return $ UserType name
+    arguments <- typeArguments <|> return []
+    return $ UserType name arguments
 
 parenthesizedType :: Parser Type
 parenthesizedType = do
@@ -436,6 +438,20 @@ typeVariable :: Parser Type
 typeVariable = do
     name <- identifier
     return $ TypeVariable name
+
+typeParameters :: Parser [Type]
+typeParameters = do
+    symbol "<"
+    parameters <- M.sepBy1 typeVariable (symbol ",")
+    symbol ">"
+    return parameters
+
+typeArguments :: Parser [Type]
+typeArguments = do
+    symbol "<"
+    parameters <- M.sepBy1 typeParser (symbol ",")
+    symbol ">"
+    return parameters
 
 reserved :: [String]
 reserved = ["if", "case", "of", "return", "true", "false", "boolean", "integer", "mod", "rem", "not", "and", "or", "is", "export"]

@@ -1,14 +1,14 @@
-List a = Constructor (a, List a) | Nil {};
+List<a> = Constructor (a, List<a>) | Nil {};
 
-sum(list: List Integer): Integer =
+sum(list: List<Integer>): Integer =
     if list is Nil: return 0;
     head, tail = list;
     return head + sum(tail);
 
-sumAll(list: List (List Integer)): Integer =
+sumAll(list: List<List<Integer>>): Integer =
     if list is Nil: return 0;
     head, tail = list;
     return sum(head) + sumAll(tail);
 
-list = Constructor (Constructor (1, Constructor (2, Nil {})), Constructor(Constructor (3, Constructor (4, Nil {})), Nil {}))
-return count(f, list);
+list = Constructor (Constructor (1, Constructor (2, Nil {})), Constructor(Constructor (3, Constructor (4, Nil {})), Nil {}));
+return sumAll(list);

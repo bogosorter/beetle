@@ -95,7 +95,7 @@ enclose env expression = case expression of
 
     TypeAssignment {} -> do
         let constructors = case (assignedType expression) of
-                SumType constructors -> constructors
+                SumType _ constructors -> constructors
                 _ -> error "only sum type assignments should make it past type checking"
             env' = insertSumType (assignedName expression) constructors env
         enclose env' (body expression)
@@ -242,11 +242,11 @@ encloseType (TupleType memberTypes) = Closures.TupleType (map encloseType member
 encloseType (RecordType memberTypes) = Closures.TupleType (map encloseType $ Map.elems memberTypes)
 encloseType (FunctionType argumentType returnType) = Closures.ClosureType (encloseType argumentType) (encloseType returnType)
 -- All type aliases are removed by now, and only sum types are left
-encloseType (UserType _) = Closures.SumType
+encloseType (UserType _ _) = Closures.SumType
 encloseType (TypeVariable _) = Closures.GenericType
 -- If a variable instance hasn't been resolved, it should stay as a polymorphic variable
 encloseType (TypeVariableInstance _) = Closures.GenericType
-encloseType (SumType _) = error "sum types should have been removed in type checking"
+encloseType (SumType _ _) = error "sum types should have been removed in type checking"
 
 
 -- State and environment utils
@@ -302,7 +302,7 @@ insertSumType name t env = env { sumTypes = sumTypes' }
 
 getSumType :: Environment -> AST.Type -> Map String AST.Type
 getSumType env constructor = case constructor of
-    UserType name -> case Map.lookup name (sumTypes env) of
+    UserType name _ -> case Map.lookup name (sumTypes env) of
         Just t -> t
         Nothing -> error ("couldn't find name " ++ name)
     _ -> error ("got a constructor whose type is not sum type: " ++ show constructor)
