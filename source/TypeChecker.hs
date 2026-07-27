@@ -10,7 +10,6 @@ import Data.Map ((!))
 import qualified Data.Set as Set
 import Control.Monad.State (StateT, runStateT, get, put, lift)
 import Control.Monad (unless, when)
-import Data.Foldable (foldrM)
 
 data TypeError = TypeError SourcePos String
 data Constraint = Constraint Type Type SourcePos String
@@ -156,11 +155,19 @@ typeCheck env expression = case expression of
     Application {} -> do
         typedFunction <- typeCheck env (function expression)
 
-        -- Polymorphic functions need their type variables to be instantiated
-        instantiatedType <- instantiateType $ getType typedFunction
+        -- Polymorphic functions need their type variables to be instantiated.
+        -- Only the argument of a function is instantiated on a call, and not
+        -- the return value (except for variables that are also on the argument
+        -- type). This is used to enable currying and application of the curried
+        -- function to arguments of different types:
+        --     see tests/types/generic/curried.btl
 
-        (argumentType, returnType) <- case instantiatedType of
-            FunctionType argumentType returnType -> return (argumentType, returnType)
+        (argumentType, returnType) <- case getType typedFunction of
+            FunctionType argumentType returnType -> do
+                substitutions <- instantiateType argumentType
+                let instantiatedArgument = foldr (uncurry substituteInType) argumentType substitutions
+                    instantiatedReturn = foldr (uncurry substituteInType) returnType substitutions
+                return (instantiatedArgument, instantiatedReturn)
             t -> lift $ Left $ TypeError position ("can only apply functions, but got type " ++ show t)
 
         typedArgument <- typeCheck env (argument expression)
@@ -432,14 +439,15 @@ substituteInType a b source
         TypeVariableInstance name -> TypeVariableInstance name
     where substitute = substituteInType a b
 
-instantiateType :: Type -> Generator Type
+instantiateType :: Type -> Generator [(Type, Type)]
 instantiateType t = do
     let variables = typeVariables t
-        instantiateVariable :: String -> Type -> Generator Type
-        instantiateVariable name t = do
+        substituteVariable :: String -> Generator (Type, Type)
+        substituteVariable name = do
             typeInstance <- freshType
-            return $ substituteInType (TypeVariable name) typeInstance t
-    foldrM instantiateVariable t variables
+            return (TypeVariable name, typeInstance)
+
+    mapM substituteVariable variables
 
 typeVariables :: Type -> [String]
 typeVariables t = case t of
