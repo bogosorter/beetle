@@ -10,6 +10,7 @@ import Data.Map ((!))
 import qualified Data.Set as Set
 import Control.Monad.State (StateT, runStateT, get, put, lift)
 import Control.Monad (unless, when)
+import Data.Foldable (foldrM)
 
 
 data TypeError = TypeError SourcePos String
@@ -156,19 +157,11 @@ typeCheck env expression = case expression of
     Application {} -> do
         typedFunction <- typeCheck env (function expression)
 
-        let functionType = getType typedFunction
-        (argumentType, returnType) <- case functionType of
+        -- Polymorphic functions need their type variables to be instantiated
+        instantiatedType <- instantiateType $ getType typedFunction
 
-            -- If this is a polymorphic function, we want to instantiate the
-            -- type of the function with a fresh type
-            FunctionType argumentType returnType -> do
-                case argumentType of
-                    TypeVariable _ -> do
-                        t <- freshType
-                        let FunctionType newArgument newReturn = substituteInType argumentType t functionType
-                        return (newArgument, newReturn)
-                    _ -> return (argumentType, returnType)
-
+        (argumentType, returnType) <- case instantiatedType of
+            FunctionType argumentType returnType -> return (argumentType, returnType)
             t -> lift $ Left $ TypeError position ("can only apply functions, but got type " ++ show t)
 
         typedArgument <- typeCheck env (argument expression)
@@ -357,19 +350,38 @@ type Substitution = (Type, Type)
 solve :: [Constraint] -> Either [TypeError] [Substitution]
 solve [] = Right []
 solve (constraint:constraints)
-    | a == b = solve constraints
-    | otherwise = case a of
-        (TypeVariableInstance _) -> do
-            let newConstraints = map (substituteInConstraint a b) constraints
-            substitutions <- solve newConstraints
-            return $ (a, b) : substitutions
-        _ -> case b of
-            (TypeVariableInstance _) -> do
-                let newConstraints = map (substituteInConstraint b a) constraints
-                substitutions <- solve newConstraints
-                return $ (b, a) : substitutions
-            _ -> Left $ [TypeError position message]
-    where Constraint a b position message = constraint
+
+    | left == right = solve constraints
+
+    | isVariable left = do
+        let newConstraints = map (substituteInConstraint left right) constraints
+        substitutions <- solve newConstraints
+        return $ (left, right) : substitutions
+
+    | isVariable right = do
+        let newConstraints = map (substituteInConstraint right left) constraints
+        substitutions <- solve newConstraints
+        return $ (right, left) : substitutions
+
+    | otherwise = case (left, right) of
+
+        (TupleType aMembers, TupleType bMembers) -> do
+            when (length aMembers /= length bMembers) reportError
+            let newConstraints = [createConstraint a b | (a, b) <- zip aMembers bMembers] ++ constraints
+            solve newConstraints
+
+        (RecordType aMembers, RecordType bMembers) -> do
+            when (Map.keys aMembers /= Map.keys bMembers) reportError
+            let newConstraints = [createConstraint (aMembers ! key) (bMembers ! key) | key <- Map.keys aMembers] ++ constraints
+            solve newConstraints
+
+        _ -> reportError
+
+    where Constraint left right position message = constraint
+          createConstraint a b = Constraint a b position message
+          reportError = case solve constraints of
+            Left errors -> Left $ errors ++ [TypeError position message]
+            Right _ -> Left [TypeError position message]
 
 performSubstitutions :: [Substitution] -> TypedExpression -> TypedExpression
 performSubstitutions substitutions expression = foldr (uncurry substituteInExpression) expression substitutions
@@ -417,9 +429,37 @@ substituteInType a b source
         TypeVariableInstance name -> TypeVariableInstance name
     where substitute = substituteInType a b
 
+instantiateType :: Type -> Generator Type
+instantiateType t = do
+    let variables = typeVariables t
+        instantiateVariable :: String -> Type -> Generator Type
+        instantiateVariable name t = do
+            typeInstance <- freshType
+            return $ substituteInType (TypeVariable name) typeInstance t
+    foldrM instantiateVariable t variables
+
+typeVariables :: Type -> [String]
+typeVariables t = case t of
+    BooleanType -> []
+    IntegerType -> []
+    CharacterType -> []
+    TupleType members -> concat $ map typeVariables members
+    RecordType members -> concat $ map typeVariables (Map.elems members)
+    SumType members -> concat $ map typeVariables (Map.elems members)
+    FunctionType argumentType returnType -> typeVariables argumentType ++ typeVariables returnType
+    UserType _ -> []
+    TypeVariable name -> [name]
+    TypeVariableInstance _ -> []
+
+
 substituteInConstraint :: Type -> Type -> Constraint -> Constraint
 substituteInConstraint a b (Constraint left right position message) =
     Constraint (substituteInType a b left) (substituteInType a b right) position message
+
+isVariable :: Type -> Bool
+isVariable t = case t of
+    (TypeVariableInstance _) -> True
+    _ -> False
 
 allEqual :: Eq a => [a] -> Bool
 allEqual [] = True

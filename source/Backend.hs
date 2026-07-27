@@ -277,27 +277,33 @@ tupleMember tuple tupleType index t = do
 
 box :: Operand -> LLVM.Type -> State CompilationState Operand
 box sourceRegister realType = do
-    register <- reserveRegister
+    -- Do not box if the type is already boxed
+    if realType == BoxedType then return sourceRegister
+    else do
+        register <- reserveRegister
 
-    -- Pointers have to be converted, other values are extended
-    putStatement $ Comment "Boxing variable"
-    case realType of
-        PointerType -> putStatement $ PointerToInt register sourceRegister
-        _ -> putStatement $ ZeroExtend register BoxedType sourceRegister realType
+        -- Pointers have to be converted, other values are extended
+        putStatement $ Comment "Boxing variable"
+        case realType of
+            PointerType -> putStatement $ PointerToInt register sourceRegister
+            _ -> putStatement $ ZeroExtend register BoxedType sourceRegister realType
 
-    return register
+        return register
 
 unbox :: Operand -> LLVM.Type -> State CompilationState Operand
-unbox sourceRegister realType = do
-    register <- reserveRegister
+unbox sourceRegister realType =
+    -- Do not unbox if the type is interpreted as a polymorphic type
+    if realType == BoxedType then return sourceRegister
+    else do
+        register <- reserveRegister
 
-    -- Pointers have to be converted, other values are truncated
-    putStatement $ Comment "Since this is a generic variable, we have to unbox it"
-    case realType of
-        PointerType -> putStatement $ IntToPointer register sourceRegister
-        _ -> putStatement $ Truncate register realType sourceRegister BoxedType
+        -- Pointers have to be converted, other values are truncated
+        putStatement $ Comment "Unboxing variable"
+        case realType of
+            PointerType -> putStatement $ IntToPointer register sourceRegister
+            _ -> putStatement $ Truncate register realType sourceRegister BoxedType
 
-    return register
+        return register
 
 
 -- State and environment utils

@@ -1,2 +1,2 @@
 f(x: {a: a, b: b}): b = return x.b;
-return f({a: true, y: "c"});
+return f({a: true, b: "c"});
