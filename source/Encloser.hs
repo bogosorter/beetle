@@ -244,8 +244,9 @@ encloseType (FunctionType argumentType returnType) = Closures.ClosureType (enclo
 -- All type aliases are removed by now, and only sum types are left
 encloseType (UserType _) = Closures.SumType
 encloseType (TypeVariable _) = Closures.GenericType
+-- If a variable instance hasn't been resolved, it should stay as a polymorphic variable
+encloseType (TypeVariableInstance _) = Closures.GenericType
 encloseType (SumType _) = error "sum types should have been removed in type checking"
-encloseType (TypeVariableInstance _) = error "type variable instances should have been removed in type checking"
 
 
 -- State and environment utils

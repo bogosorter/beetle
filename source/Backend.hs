@@ -3,7 +3,7 @@ module Backend (compileProgram) where
 import Closures
 import LLVM
 
-import Control.Monad.State (State, runState, get, put)
+import Control.Monad.State (State, runState, get, put, execState)
 import Data.Map (Map, insert, empty, (!), findWithDefault)
 
 compileProgram :: Closures.Program -> LLVM.Program
@@ -13,14 +13,31 @@ compileProgram program = LLVM.Program functions (statements s, e, llvmType $ get
           (e, s) = runState (compileExpression initialEnvironment mainExpression) initialState
 
 compileFunction :: Closures.Function -> LLVM.Function
-compileFunction function = LLVM.Function name argumentType returnType body
+compileFunction function = LLVM.Function name BoxedType BoxedType body
     where name = globalOperand (functionName function)
           argumentType = llvmType (Closures.argumentType function)
           returnType = llvmType (Closures.returnType function)
-          body = statements state ++ [Return register returnType]
-          (register, state) = runState (compileExpression env $ functionBody function) initialState
+          body = statements state
+          state = execState (compileFunctionBody argumentType returnType (functionBody function) env) initialState
           env = initialEnvironmentWithType envType
           envType = LLVM.TupleType $ map (\_ -> BoxedType) (Closures.environmentType function)
+
+compileFunctionBody :: LLVM.Type -> LLVM.Type -> Expression -> CompilationEnvironment -> State CompilationState ()
+compileFunctionBody argumentType returnType body env = do
+    -- The argument and return value of a function are always boxed, to allow
+    -- for full polymorphism. For instance, in the case of function composition,
+    -- the intermediate type is not known on the composer, but its type must be
+    -- used (and thus boxed). Since the functions that are being composed have
+    -- no obligation that they will be used in a polymorphic situation, all
+    -- argument and return values must be boxed.
+
+    unboxedArgument <- unbox (variableOperand "_boxed_argument") argumentType
+    let env' = insertVariable "_argument" unboxedArgument env
+
+    resultRegister <- compileExpression env' body
+
+    boxedResult <- box resultRegister returnType
+    putStatement $ Return boxedResult BoxedType
 
 
 compileExpression :: CompilationEnvironment -> Expression -> State CompilationState Operand
@@ -78,7 +95,7 @@ compileExpression env expression = case expression of
         return register
 
     Argument _ ->
-        return $ variableOperand "_argument"
+        return $ variableOperands env ! "_argument"
 
     Local name _ ->
         return $ variableOperands env ! name
@@ -199,10 +216,6 @@ compileExpression env expression = case expression of
         return register
 
     Application closure argument t -> do
-        let (argumentType, returnType) = case getType closure of
-                ClosureType argumentType returnType -> (argumentType, returnType)
-                _ -> error "got a closure whose type is not closure type"
-
         putStatement $ Comment "Function Application"
 
         closureRegister <- compileExpression env closure
@@ -222,19 +235,16 @@ compileExpression env expression = case expression of
         putStatement $ Comment "Calculate the argument"
         argumentRegister <- compileExpression env argument
 
-        -- If this argument is a generic variable, we need to cast the value to
-        -- a standard i64 type
-        boxedArgument <- case argumentType of
-            GenericType -> box argumentRegister (llvmType $ getType argument)
-            _ -> return argumentRegister
+        -- Arguments are always boxed, even if their type is known, to allow
+        -- full polymorphism
+        boxedArgument <- box argumentRegister (llvmType $ getType argument)
 
         boxedResult <- reserveRegister
         putStatement $ Comment "Perform the function call"
-        putStatement $ Call boxedResult (llvmType returnType) functionRegister environmentRegister boxedArgument (llvmType argumentType)
+        putStatement $ Call boxedResult BoxedType functionRegister environmentRegister boxedArgument BoxedType
 
-        resultRegister <- case returnType of
-            GenericType -> unbox boxedResult (llvmType t)
-            _ -> return boxedResult
+        -- As with arguments, the result of an application is always unboxed
+        resultRegister <- unbox boxedResult (llvmType t)
         putStatement $ EmptyLine
 
         return resultRegister

@@ -1,0 +1,15 @@
+compose(f: b -> c, g: a -> b): a -> c =
+    composed(x: a): c =
+        return f(g(x));
+    return composed;
+
+integerToBoolean(n: Integer): Boolean =
+    if n == 0: return false;
+    return true;
+
+booleanToInteger(b: Boolean): Integer =
+    if b: return 1;
+    return 0;
+
+composed = compose(booleanToInteger, integerToBoolean);
+return composed(2);

@@ -1,11 +1,10 @@
-f(x: a, y: b): (a, b) = return (a, b);
+f(x: a, y: b): (a, b) = return (x, y);
 
 partial = f(1);
 first = partial(1);
 second = partial(true);
 
-
 a, b = first;
-c, d = second
-if d: return a + b + c + d;
+c, d = second;
+if d: return a + b + c;
 return a;

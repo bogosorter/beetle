@@ -12,7 +12,6 @@ import Control.Monad.State (StateT, runStateT, get, put, lift)
 import Control.Monad (unless, when)
 import Data.Foldable (foldrM)
 
-
 data TypeError = TypeError SourcePos String
 data Constraint = Constraint Type Type SourcePos String
     deriving Show
@@ -373,6 +372,10 @@ solve (constraint:constraints)
         (RecordType aMembers, RecordType bMembers) -> do
             when (Map.keys aMembers /= Map.keys bMembers) reportError
             let newConstraints = [createConstraint (aMembers ! key) (bMembers ! key) | key <- Map.keys aMembers] ++ constraints
+            solve newConstraints
+
+        (FunctionType a b, FunctionType c d) -> do
+            let newConstraints = [createConstraint a c, createConstraint b d] ++ constraints
             solve newConstraints
 
         _ -> reportError

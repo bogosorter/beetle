@@ -200,7 +200,7 @@ instance Show Program where
 
 instance Show Function where
     show function = printf
-        "define %s %s(ptr %%_env, %s %%_argument) {\n\
+        "define %s %s(ptr %%_env, %s %%_boxed_argument) {\n\
         \    %s\n\
         \}"
         (show $ returnType function)
