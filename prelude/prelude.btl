@@ -6,6 +6,11 @@ List<a> = ListConstructor (a, List<a>) | ListNil {};
     head, tail = left;
     return head :: (tail >> right);
 
+fold(f: a -> b -> b, accumulator: b, list: [a]): b =
+    if list is []: return accumulator;
+    head, tail = list;
+    return f(head, fold(f, accumulator, tail));
+
 String = [Character];
 
 export;

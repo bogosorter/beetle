@@ -2,6 +2,5 @@ increment(element: Boolean, current: Integer): Integer =
     if element: return current + 1;
     return current;
 
-count = fold(0, increment);
-
+count = fold(increment, 0);
 return count([true, false, true]) + count([false, false, true]);
