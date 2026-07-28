@@ -19,7 +19,7 @@ assignment = typeAssignment
            | symbol function
            | symbol (',' symbol)+ '=' expression -- tuple assignment
 typeAssignment = typeSymbol '=' type
-               | typeSymbol '=' typeSymbol type ('|' typeSymbol type)+
+               | typeSymbol ('<' typeVariable (',' typeVariable)* '>')? '=' typeSymbol type ('|' typeSymbol type)+
 
 expression = logical
            | logical (',' logical) -- tuple creation
@@ -40,7 +40,8 @@ atom = symbol expressionCall
      | integer
      | boolean
      | '"' char '"' -- character
-     ' '\'' char* '\'' -- string
+     | '\'' char* '\'' -- string
+     | '[' (logical (',' logical)*)? ']' -- list
 expressionCall = '(' expression (',' expression)* ')' expressionCall
                | ϵ
 structAccess = '.' symbol structAccess
@@ -49,8 +50,9 @@ structAccess = '.' symbol structAccess
 function = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' returnExpression
 lambda = '(' symbol ':' type (',' symbol ':' type)* ')' ':' type '=' expression
 
-type = 'integer' | 'boolean' | typeSymbol | '(' type (',' type)+ ')' | '{' symbol ':' type (',' symbol ':' type)* ','? '}' | type ('->' type)*;
+type = 'integer' | 'boolean' | typeVariable | typeSymbol ('<' typeVariable (',' typeVariable)* '>')? | '(' type (',' type)+ ')' | '{' symbol ':' type (',' symbol ':' type)* ','? '}' | type ('->' type)*;
 
 symbol = ['a'-'z']['a'-'z''A'-'Z']*;
 typeSymbol = ['A'-'Z']['a'-'z''A'-'Z']*;
+typeVariable = ['a'-'z']['a'-'z''A'-'Z']*;
 ```

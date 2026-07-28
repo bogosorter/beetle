@@ -1,6 +1,6 @@
-Tree = Leaf Integer | Node {left: Tree, right: Tree};
+Tree<a> = Leaf a | Node {left: Tree<a>, right: Tree<a>};
 
-size(tree: Tree): Integer =
+size(tree: Tree<a>): Integer =
     if tree is Leaf: return 1;
     return size(tree.left) + size(tree.right);
 

@@ -1,11 +1,10 @@
 # Roadmap
 
-# v4.2.0
-
-- Generic Types
-- Lists
-
 # v4.3.0
+
+- Type classes
+
+# v4.4.0
 
 - Module system
 
