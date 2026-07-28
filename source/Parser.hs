@@ -385,7 +385,7 @@ typeParser = do
     functionType atomic <|> return atomic
 
 atomicTypes :: Parser Type
-atomicTypes = booleanType <|> integerType <|> characterType <|> typeVariable <|> userType <|> parenthesizedType <|> recordType
+atomicTypes = booleanType <|> integerType <|> characterType <|> typeVariable <|> userType <|> parenthesizedType <|> recordType <|> listType
 
 functionType :: Type -> Parser Type
 functionType argumentType = do
@@ -427,6 +427,13 @@ recordType = do
     members <- M.sepEndBy identifierTypePair (symbol ",")
     symbol "}"
     return $ RecordType (fromList members)
+
+listType :: Parser Type
+listType = do
+    symbol "["
+    memberType <- typeParser
+    symbol "]"
+    return $ UserType "List" [memberType]
 
 identifierTypePair :: Parser (String, Type)
 identifierTypePair = do
