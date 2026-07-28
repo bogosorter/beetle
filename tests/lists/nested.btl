@@ -1,9 +1,9 @@
-sum(list: List<Integer>): Integer =
+sum(list: [Integer]): Integer =
     if list is []: return 0;
     head, tail = list;
     return head + sum(tail);
 
-sumAll(list: List<List<Integer>>): Integer =
+sumAll(list: [[Integer]]): Integer =
     if list is []: return 0;
     head, tail = list;
     return sum(head) + sumAll(tail);

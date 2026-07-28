@@ -1,4 +1,2 @@
-sum(list: List): List =
-    return list;
-
+T = Left List | Right List;
 return 1;

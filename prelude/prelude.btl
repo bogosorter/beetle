@@ -1,11 +1,11 @@
 List<a> = ListConstructor (a, List<a>) | ListNil {};
 
-(>>)(left: List<a>, right: List<a>): List<a> =
+(>>)(left: [a], right: [a]): [a] =
     if left is []: return right;
 
     head, tail = left;
     return head :: (tail >> right);
 
-String = List<Character>;
+String = [Character];
 
 export;

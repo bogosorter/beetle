@@ -1,4 +1,4 @@
-double(list: List<Integer>): List<Integer> =
+double(list: [Integer]): [Integer] =
     if list is []: return [];
     head, tail = list;
     return head * 2 :: double(tail);
@@ -23,7 +23,7 @@ integerToString(n: Integer): String =
 
     return integerToString(n / 10) >> integerToString(n rem 10);
 
-intercalate(separator: String, list: List<Integer>): String =
+intercalate(separator: String, list: [Integer]): String =
     if list is []: return '';
 
     head, tail = list;
@@ -31,7 +31,7 @@ intercalate(separator: String, list: List<Integer>): String =
 
     return integerToString(head) >> separator >> intercalate(separator, ListConstructor tail);
 
-listToString(list: List<Integer>): String =
+listToString(list: [Integer]): String =
     return '[' >> intercalate(', ', list) >> ']';
 
 return listToString(result);

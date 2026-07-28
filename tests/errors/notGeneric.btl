@@ -1,4 +1,4 @@
-f(n: a): List<a> =
-    return Constructor (1, Nil {});
+f(n: a): [a] =
+    return [1];
 
-return f(1);
+return 1;
