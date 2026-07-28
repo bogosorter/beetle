@@ -154,6 +154,9 @@ enclose env expression = case expression of
 
         return $ Closures.Let temporary enclosedTuple enclosedBody' bodyType
 
+    EmptyList _ -> error "empty lists should have been removed in AST simplification"
+    EmptyString _ -> error "empty strings should have been removed in AST simplification"
+
 
 encloseFunction :: Environment -> TypedExpression -> Maybe String -> State ClosureState Closures.Expression
 encloseFunction env expression functionName = do
@@ -232,6 +235,9 @@ freeVariables expression = case expression of
         (freeVariables tuple `union` freeVariables body) `difference` (Set.fromList names)
 
     TypeAssignment { body = body } -> freeVariables body
+
+    EmptyList _ -> error "empty lists should have been removed in AST simplification"
+    EmptyString _ -> error "empty strings should have been removed in AST simplification"
 
 
 encloseType :: Type -> Closures.Type

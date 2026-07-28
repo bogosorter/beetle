@@ -38,6 +38,12 @@ data Expression a
         { recordMembers :: Map.Map String (Expression a)
         , annotation :: a
         }
+    | EmptyList
+        { annotation :: a
+        }
+    | EmptyString
+        { annotation :: a
+        }
     | Constructor
         { constructor :: String
         , value :: Expression a

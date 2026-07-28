@@ -2,7 +2,7 @@ module ASTSimplificator (simplify) where
 
 import AST
 
-import qualified Data.Map (map)
+import qualified Data.Map (map, empty)
 
 simplify :: TypedExpression -> TypedExpression
 simplify expression = case expression of
@@ -11,6 +11,8 @@ simplify expression = case expression of
     Character {} -> expression
     Tuple members t -> Tuple (map simplify members) t
     Record members t -> Record (Data.Map.map simplify members) t
+    EmptyList t -> Constructor "ListNil" (Record Data.Map.empty (RecordType Data.Map.empty)) t
+    EmptyString t -> Constructor "ListNil" (Record Data.Map.empty (RecordType Data.Map.empty)) t
     Constructor constructor value t -> Constructor constructor (simplify value) t
     Lowering value constructor t -> Lowering (simplify value) constructor t
     TypeAssertion scrutinee constructor t -> TypeAssertion (simplify scrutinee) constructor t

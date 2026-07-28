@@ -61,6 +61,12 @@ typeCheck env expression = case expression of
         let recordType = RecordType $ Map.map getType typedMembers
         return $ Record typedMembers recordType
 
+    EmptyList {} -> do
+        memberType <- freshType
+        return $ EmptyList (UserType "List" [memberType])
+
+    EmptyString {} -> return $ EmptyString (UserType "List" [CharacterType])
+
     Constructor {} -> do
         let name = constructor expression
         case Map.lookup name (constructors env) of
@@ -424,6 +430,8 @@ substituteInExpression a b expression = case expression of
     Character {} -> expression
     Tuple members t -> Tuple (map substitute members) (substituteType t)
     Record members t -> Record (Map.map substitute members) (substituteType t)
+    EmptyList t -> EmptyList (substituteType t)
+    EmptyString {} -> expression
     Constructor name value t -> Constructor name (substitute value) (substituteType t)
     Lowering value constructor t -> Lowering (substitute value) constructor (substituteType t)
     TypeAssertion scrutinee constructor t -> TypeAssertion (substitute scrutinee) constructor (substituteType t)

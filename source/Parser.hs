@@ -11,7 +11,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Control.Monad.Combinators.Expr as E
 import Control.Applicative ((<|>))
 import Data.Void
-import Data.Map (fromList, empty)
+import Data.Map (fromList)
 import Data.Char (ord, isAscii)
 import Data.FileEmbed (embedFileRelative)
 import Data.Text (unpack)
@@ -295,7 +295,7 @@ string = lexeme $ do
     content <- M.many character
     C.char '\''
 
-    let emptyString = Constructor "ListNil" (Record empty position) position
+    let emptyString = EmptyString position
     let prependCharacter :: Char -> SourceExpression -> SourceExpression
         prependCharacter character string =
             Constructor "ListConstructor" (Tuple [Character (ord character) position, string] position) position
@@ -309,7 +309,7 @@ list = do
     members <- M.sepBy binaryOperation (symbol ",")
     symbol "]"
 
-    let emptyList = Constructor "ListNil" (Record empty position) position
+    let emptyList = EmptyList position
     let prependElement :: SourceExpression -> SourceExpression -> SourceExpression
         prependElement element list =
             Constructor "ListConstructor" (Tuple [element, list] position) position
