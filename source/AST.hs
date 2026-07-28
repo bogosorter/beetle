@@ -122,7 +122,7 @@ instance Show Type where
     show (FunctionType argumentType returnType) = case argumentType of
         FunctionType {} -> "(" ++ show argumentType ++ ") -> " ++ show returnType
         _ -> show argumentType ++ " -> " ++ show returnType
-    show (UserType name parameters) = name ++ concat (map (\p -> " " ++ show p) parameters)
+    show (UserType name parameters) = name ++ "<" ++ List.intercalate ", " (map show parameters) ++ ">"
     show (TypeVariable name) = name
     show (TypeVariableInstance n) = "t" ++ show n
 

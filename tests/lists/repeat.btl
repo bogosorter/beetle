@@ -1,8 +1,6 @@
-List<a> = Constructor (a, List<a>) | Nil {};
-
 repeat(n: Integer, x: a): List<a> =
-    if n == 0: return Nil {};
-    return Constructor (x, repeat(n - 1, x));
+    if n == 0: return [];
+    return x :: repeat(n - 1, x);
 
 result = repeat(3, true);
 
@@ -13,12 +11,12 @@ booleanToString(b: Boolean): String =
     return 'true';
 
 intercalate(separator: String, list: List<Boolean>): String =
-    if list is Nil: return '';
+    if list is []: return '';
 
     head, tail = list;
-    if tail is Nil: return booleanToString(head);
+    if tail is []: return booleanToString(head);
 
-    return booleanToString(head) >> separator >> intercalate(separator, Constructor tail);
+    return booleanToString(head) >> separator >> intercalate(separator, ListConstructor tail);
 
 listToString(list: List<Boolean>): String =
     return '[' >> intercalate(', ', list) >> ']';

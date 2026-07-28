@@ -1,9 +1,11 @@
-String = StringConstructor (Character, String) | StringNil {};
+List<a> = ListConstructor (a, List<a>) | ListNil {};
 
-(>>)(a: String, b: String): String =
-    if a is '': return b;
+(>>)(left: List<a>, right: List<a>): List<a> =
+    if left is []: return right;
 
-    head, tail = a;
-    return head :: (tail >> b);
+    head, tail = left;
+    return head :: (tail >> right);
+
+String = List<Character>;
 
 export;

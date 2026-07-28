@@ -75,7 +75,7 @@ ifLet :: M.SourcePos -> SourceExpression -> Parser SourceExpression
 ifLet position condition = do
     assertionPosition <- M.getSourcePos
     keyword "is"
-    constructor <- typeIdentifier <|> stringNil
+    constructor <- typeIdentifier <|> stringNil <|> listNil
     symbol ":"
     left <- returnExpression
     symbol ";"
@@ -208,10 +208,10 @@ binaryOperation = do
                 ]
             ]
           builder position operation left right = Application (Application (Variable operation position) left position) right position
-          constructor position left right = Constructor "StringConstructor" (Tuple [left, right] position) position
+          constructor position left right = Constructor "ListConstructor" (Tuple [left, right] position) position
 
 atom :: Parser SourceExpression
-atom = M.try lambda <|> variableUsage <|> unaryMinus <|> logicalNot <|> constructorParser <|> recordParser <|> integer <|> boolean <|> characterExpression <|> string <|> parenthesizedExpression
+atom = M.try lambda <|> variableUsage <|> unaryMinus <|> logicalNot <|> constructorParser <|> recordParser <|> integer <|> boolean <|> characterExpression <|> list <|> string <|> parenthesizedExpression
 
 -- This takes care of things that might continue atoms, such as expression calls
 -- and member access
@@ -295,12 +295,26 @@ string = lexeme $ do
     content <- M.many character
     C.char '\''
 
-    let emptyString = Constructor "StringNil" (Record empty position) position
+    let emptyString = Constructor "ListNil" (Record empty position) position
     let prependCharacter :: Char -> SourceExpression -> SourceExpression
-        prependCharacter character expression =
-            Constructor "StringConstructor" (Tuple [Character (ord character) position, expression] position) position
+        prependCharacter character string =
+            Constructor "ListConstructor" (Tuple [Character (ord character) position, string] position) position
 
     return $ foldr prependCharacter emptyString content
+
+list :: Parser SourceExpression
+list = do
+    position <- M.getSourcePos
+    symbol "["
+    members <- M.sepBy expression (symbol ",")
+    symbol "]"
+
+    let emptyList = Constructor "ListNil" (Record empty position) position
+    let prependElement :: SourceExpression -> SourceExpression -> SourceExpression
+        prependElement element list =
+            Constructor "ListConstructor" (Tuple [element, list] position) position
+
+    return $ foldr prependElement emptyList members
 
 characterExpression :: Parser SourceExpression
 characterExpression = lexeme $ do
@@ -482,7 +496,12 @@ hole = symbol "_"
 stringNil :: Parser String
 stringNil = do
     symbol "''"
-    return "StringNil"
+    return "ListNil"
+
+listNil :: Parser String
+listNil = do
+    symbol "[]"
+    return "ListNil"
 
 -- Helper functions
 

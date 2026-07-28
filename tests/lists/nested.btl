@@ -1,0 +1,12 @@
+sum(list: List<Integer>): Integer =
+    if list is []: return 0;
+    head, tail = list;
+    return head + sum(tail);
+
+sumAll(list: List<List<Integer>>): Integer =
+    if list is []: return 0;
+    head, tail = list;
+    return sum(head) + sumAll(tail);
+
+list = [[1, 2], [3, 4]];
+return sumAll(list);

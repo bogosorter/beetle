@@ -1,0 +1,6 @@
+empty = [];
+list = 1 :: empty;
+
+if list is []: return -1;
+head, _ = list;
+return head;

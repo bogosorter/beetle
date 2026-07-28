@@ -1,11 +1,9 @@
-MyList = Cons (Integer, MyList) | Nil {};
-
-double(list: MyList): MyList =
-    if list is Nil: return Nil {};
+double(list: List<Integer>): List<Integer> =
+    if list is []: return [];
     head, tail = list;
-    return Cons (head * 2, double(tail));
+    return head * 2 :: double(tail);
 
-list = Cons (1, Cons (2, Cons (3, Nil {})));
+list = [1, 2, 3];
 result = double(list);
 
 integerToString(n: Integer): String =
@@ -25,15 +23,15 @@ integerToString(n: Integer): String =
 
     return integerToString(n / 10) >> integerToString(n rem 10);
 
-intercalate(separator: String, list: MyList): String =
-    if list is Nil: return '';
+intercalate(separator: String, list: List<Integer>): String =
+    if list is []: return '';
 
     head, tail = list;
-    if tail is Nil: return integerToString(head);
+    if tail is []: return integerToString(head);
 
-    return integerToString(head) >> separator >> intercalate(separator, Cons tail);
+    return integerToString(head) >> separator >> intercalate(separator, ListConstructor tail);
 
-listToString(list: MyList): String =
+listToString(list: List<Integer>): String =
     return '[' >> intercalate(', ', list) >> ']';
 
 return listToString(result);

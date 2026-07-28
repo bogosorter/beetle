@@ -1,5 +1,3 @@
-List<a> = Constructor (a, List<a>) | Nil {};
-
 f(n: a): List<a> =
     return Constructor (1, Nil {});
 

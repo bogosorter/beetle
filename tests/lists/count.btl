@@ -1,13 +1,11 @@
-List<a> = Constructor (a, List<a>) | Nil {};
-
 f(n: Integer): Boolean = return n > 0;
 
 count(f: a -> Boolean, list: List<a>): Integer =
-    if list is Nil: return 0;
+    if list is []: return 0;
 
     head, tail = list;
     if f(head): return 1 + count(f, tail);
     return count(f, tail);
 
-list = Constructor (1, Constructor (0, Constructor (3, Nil {})));
+list = [1, 0, 3];
 return count(f, list);

@@ -1,8 +1,0 @@
-List<a> = Constructor (a, List<a>) | Nil {};
-
-empty = Nil {};
-list = Constructor (1, empty);
-
-if list is Nil: return -1;
-head, _ = list;
-return head;

@@ -37,8 +37,8 @@ typeCheckProgram program = do
         IntegerType -> Right typedProgram
         BooleanType -> Right typedProgram
         CharacterType -> Right typedProgram
-        UserType "String" [] -> Right typedProgram
-        _ -> Left $ [TypeError (getPosition program) "every program must return an integer, a boolean, a character or a string"]
+        UserType "List" [CharacterType] -> Right typedProgram
+        t -> Left $ [TypeError (getPosition program) ("every program must return an integer, a boolean, a character or a string, but got type " ++ show t)]
 
 
 -- This section deals with the generation of type constraints
