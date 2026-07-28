@@ -58,8 +58,8 @@ typeCheck env expression = case expression of
 
     Record {} -> do
         typedMembers <- mapM (typeCheck env) (recordMembers expression)
-        let tupleType = RecordType $ Map.map getType typedMembers
-        return $ Record typedMembers tupleType
+        let recordType = RecordType $ Map.map getType typedMembers
+        return $ Record typedMembers recordType
 
     Constructor {} -> do
         let name = constructor expression

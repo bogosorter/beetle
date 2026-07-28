@@ -306,7 +306,7 @@ list :: Parser SourceExpression
 list = do
     position <- M.getSourcePos
     symbol "["
-    members <- M.sepBy expression (symbol ",")
+    members <- M.sepBy binaryOperation (symbol ",")
     symbol "]"
 
     let emptyList = Constructor "ListNil" (Record empty position) position
