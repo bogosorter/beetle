@@ -222,12 +222,16 @@ typeCheck env expression = case expression of
             lift $ Left $ TypeError position ("type " ++ name ++ " has already been declared")
 
         let t = assignedType expression
-            env' = case t of
-                SumType parameters constructors ->
+
+        env' <- case t of
+                SumType parameters constructors -> do
+                    -- We insert twice to allow desugaring to find the constructor
                     let env' = insertSumType name parameters constructors env
+                    desugaredConstructors <- mapM (desugar position env') constructors
+                    let env'' = insertSumType name parameters desugaredConstructors env
                         constructorTypes = [(constructor, name) | constructor <- Map.keys constructors]
-                    in Prelude.foldr (uncurry insertConstructor) env' constructorTypes
-                _ -> insertTypeAlias name t env
+                    return $ Prelude.foldr (uncurry insertConstructor) env'' constructorTypes
+                _ -> return $ insertTypeAlias name t env
 
         typedBody <- typeCheck env' (body expression)
 
@@ -342,14 +346,17 @@ typeCheckSumRecordMember expression userType env = do
     typeCheck env access
 
 desugar :: SourcePos -> Environment -> Type -> Generator Type
-desugar position env (UserType name parameters) = do
+desugar position env (UserType name arguments) = do
     let aliases = typeAliases env
     case Map.lookup name aliases of
         Just t -> desugar position env t
         Nothing -> do
             let sums = sumTypes env
             case Map.lookup name sums of
-                Just _ -> return $ UserType name parameters
+                Just (parameters, _) -> do
+                    when (length parameters /= length arguments) $
+                        lift $ Left $ TypeError position ("wrong number of arguments for type " ++ name)
+                    return $ UserType name arguments
                 Nothing -> lift $ Left $ TypeError position ("couldn't find type " ++ name)
 desugar position env (TupleType memberTypes) = do
     desugaredMemberTypes <- mapM (desugar position env) memberTypes
