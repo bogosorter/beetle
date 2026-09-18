@@ -29,7 +29,6 @@ program :: Parser SourceExpression
 program = do
     space
     content <- returnExpression
-    symbol ";"
     M.eof
     return content
 
@@ -37,7 +36,6 @@ moduleParser :: SourceExpression -> Parser SourceExpression
 moduleParser program = do
     space
     content <- exportExpression program
-    symbol ";"
     M.eof
     return content
 
@@ -52,7 +50,6 @@ exportExpression program = exportBinding program <|> exportValue program
 binding :: Parser SourceExpression
 binding = do
     expressionBuilder <- typeAssignment <|> assignment
-    symbol ";"
     body <- returnExpression
     return $ expressionBuilder body
 
@@ -67,7 +64,6 @@ simpleIf :: M.SourcePos -> SourceExpression -> Parser SourceExpression
 simpleIf position condition = do
     symbol ":"
     left <- returnExpression
-    symbol ";"
     right <- returnExpression
     return $ If condition left right position
 
@@ -78,7 +74,6 @@ ifLet position condition = do
     constructor <- typeIdentifier <|> stringNil <|> listNil
     symbol ":"
     left <- returnExpression
-    symbol ";"
     right <- returnExpression
     return $ If (TypeAssertion condition constructor assertionPosition) left right position
 
@@ -86,47 +81,53 @@ returnValue :: Parser SourceExpression
 returnValue = do
     keyword "return"
     value <- expression
+    symbol ";"
     return value
 
 -- This parser is used to abstract the logic of parsing a ";" and a collection
 -- of ensuing expression from assignments and type declarations.
 exportBinding :: SourceExpression -> Parser SourceExpression
 exportBinding program = do
-    expressionBuilder <- typeAssignment <|> assignment
-    symbol ";"
+    expressionBuilder <- alias <|> typeAssignment <|> assignment
     body <- exportExpression program
     return $ expressionBuilder body
 
 exportValue :: SourceExpression -> Parser SourceExpression
 exportValue program = do
     keyword "export"
+    symbol ";"
     return program
+
+alias :: Parser (SourceExpression -> SourceExpression)
+alias = do
+    position <- M.getSourcePos
+    keyword "alias"
+    name <- typeIdentifier
+    symbol "for"
+    t <- typeParser
+    symbol ";"
+    return $ \body -> TypeAssignment name t body position
 
 typeAssignment :: Parser (SourceExpression -> SourceExpression)
 typeAssignment = do
     position <- M.getSourcePos
+    keyword "type"
     name <- typeIdentifier
     parameters <- typeParameters <|> return []
-    symbol "="
+    symbol "{"
+    constructors <- M.sepBy optionConstructor (symbol ",")
+    symbol "}"
+
+    let t = SumType [name | (TypeVariable name) <- parameters] (fromList constructors)
+    return $ \body -> TypeAssignment name t body position
+
+optionConstructor :: Parser (String, Type)
+optionConstructor = do
+    name <- typeIdentifier
+    symbol "("
     t <- typeParser
-
-    finalType <- case t of
-        UserType constructor [] -> attemptSumType constructor parameters <|> return t
-        _ -> return t
-    return $ \body -> TypeAssignment name finalType body position
-
-attemptSumType :: String -> [Type] -> Parser Type
-attemptSumType firstConstructor parameters = do
-    firstType <- typeParser
-    symbol "|"
-
-    additionalConstructors <- M.sepBy1 (do
-            constructor <- typeIdentifier
-            t <- typeParser
-            return (constructor, t)
-        ) (symbol "|")
-
-    return $ SumType [name | (TypeVariable name) <- parameters] (fromList $ (firstConstructor, firstType) : additionalConstructors)
+    symbol ")"
+    return $ (name, t)
 
 assignment :: Parser (SourceExpression -> SourceExpression)
 assignment = do
@@ -140,12 +141,14 @@ singleAssignment :: M.SourcePos -> String -> Parser (SourceExpression -> SourceE
 singleAssignment position name = do
     symbol "="
     value <- expression
+    symbol ";"
     return $ \body -> Assignment name value body position
 
 tupleAssignment :: M.SourcePos -> [String] -> Parser (SourceExpression -> SourceExpression)
 tupleAssignment position names = do
     symbol "="
     value <- expression
+    symbol ";"
     return $ \body -> TupleDestructuring names value body position
 
 functionDefinition :: M.SourcePos -> String -> Parser (SourceExpression -> SourceExpression)
@@ -155,8 +158,9 @@ functionDefinition position name = do
     symbol ")"
     symbol ":"
     returnType <- typeParser
-    symbol "="
+    symbol "{"
     body <- returnExpression
+    symbol "}"
 
     let builder :: (String, Type) -> (SourceExpression, Type) -> (SourceExpression, Type)
         builder (argumentName, argumentType) (body, bodyType) =

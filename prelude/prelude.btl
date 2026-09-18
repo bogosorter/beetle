@@ -1,16 +1,21 @@
-List<a> = ListConstructor (a, List<a>) | ListNil {};
+type List<a> {
+    ListConstructor((a, List<a>)),
+    ListNil({})
+}
 
-(>>)(left: [a], right: [a]): [a] =
+(>>)(left: [a], right: [a]): [a] {
     if left is []: return right;
 
     head, tail = left;
     return head :: (tail >> right);
+}
 
-fold(f: a -> b -> b, accumulator: b, list: [a]): b =
+fold(f: a -> b -> b, accumulator: b, list: [a]): b {
     if list is []: return accumulator;
     head, tail = list;
     return f(head, fold(f, accumulator, tail));
+}
 
-String = [Character];
+alias String for [Character];
 
 export;
