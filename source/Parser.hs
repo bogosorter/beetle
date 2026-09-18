@@ -62,9 +62,7 @@ ifExpression = do
 
 simpleIf :: M.SourcePos -> SourceExpression -> Parser SourceExpression
 simpleIf position condition = do
-    symbol ":"
-    left <- returnExpression
-    right <- returnExpression
+    (left, right) <- ifBody
     return $ If condition left right position
 
 ifLet :: M.SourcePos -> SourceExpression -> Parser SourceExpression
@@ -72,10 +70,15 @@ ifLet position condition = do
     assertionPosition <- M.getSourcePos
     keyword "is"
     constructor <- typeIdentifier <|> stringNil <|> listNil
-    symbol ":"
-    left <- returnExpression
-    right <- returnExpression
+    (left, right) <- ifBody
     return $ If (TypeAssertion condition constructor assertionPosition) left right position
+
+ifBody :: Parser (SourceExpression, SourceExpression)
+ifBody = do
+    left <- (symbol ":" *> returnExpression) <|> (symbol "{" *> returnExpression <* symbol "}")
+    right <- returnExpression
+    return (left, right)
+
 
 returnValue :: Parser SourceExpression
 returnValue = do
@@ -156,7 +159,7 @@ functionDefinition position name = do
     symbol "("
     arguments <- M.sepBy1 identifierTypePair (symbol ",")
     symbol ")"
-    symbol ":"
+    symbol "->"
     returnType <- typeParser
     symbol "{"
     body <- returnExpression
