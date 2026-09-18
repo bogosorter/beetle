@@ -1,0 +1,10 @@
+a = 3;
+b = 0;
+
+-- Instead of dividing by zero and getting an error, we divide by 1
+divisor = {
+    if b == 0: return 1;
+    return b;
+};
+
+return a / divisor;

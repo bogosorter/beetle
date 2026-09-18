@@ -215,7 +215,7 @@ binaryOperation = do
           constructor position left right = Constructor "ListConstructor" (Tuple [left, right] position) position
 
 atom :: Parser SourceExpression
-atom = M.try lambda <|> variableUsage <|> unaryMinus <|> logicalNot <|> constructorParser <|> recordParser <|> integer <|> boolean <|> characterExpression <|> list <|> string <|> parenthesizedExpression
+atom = M.try lambda <|> variableUsage <|> unaryMinus <|> logicalNot <|> constructorParser <|> M.try recordParser <|> scope <|> integer <|> boolean <|> characterExpression <|> list <|> string <|> parenthesizedExpression
 
 -- This takes care of things that might continue atoms, such as expression calls
 -- and member access
@@ -239,6 +239,13 @@ lambda = do
 
     let (result, _) = foldr builder (body, returnType) names
     return result
+
+scope :: Parser SourceExpression
+scope = do
+    symbol "{"
+    content <- returnExpression
+    symbol "}"
+    return content
 
 variableUsage :: Parser SourceExpression
 variableUsage = do
