@@ -74,6 +74,11 @@ data Expression a
         , right :: Expression a
         , annotation :: a
         }
+    | Match
+        { scrutinee :: Expression a
+        , branches :: [(String, Expression a)]
+        , annotation :: a
+        }
     | Application
         { function :: Expression a
         , argument :: Expression a

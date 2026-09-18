@@ -172,13 +172,35 @@ functionDefinition position name = do
     let (result, _) = foldr builder (body, returnType) arguments
     return $ \body -> Assignment name result body position
 
+match :: Parser SourceExpression
+match = do
+    position <- M.getSourcePos
+
+    keyword "match"
+    scrutinee <- expression
+    symbol "{"
+    branches <- M.sepBy1 branchParser (symbol ",")
+    symbol "}"
+
+    return $ Match scrutinee branches position
+
+    where branchParser :: Parser (String, SourceExpression)
+          branchParser = do
+            constructor <- typeIdentifier
+            symbol "->"
+            body <- nonTupleExpression
+            return (constructor, body)
+
 expression :: Parser SourceExpression
 expression = do
     position <- M.getSourcePos
-    logicals <- M.sepBy1 binaryOperation (symbol ",")
+    logicals <- M.sepBy1 nonTupleExpression (symbol ",")
     case logicals of
         [single] -> return single
         many -> return $ Tuple many position
+
+nonTupleExpression :: Parser SourceExpression
+nonTupleExpression = binaryOperation <|> match
 
 binaryOperation :: Parser SourceExpression
 binaryOperation = do
@@ -234,7 +256,7 @@ lambda = do
     symbol ":"
     returnType <- typeParser
     symbol "="
-    body <- binaryOperation
+    body <- nonTupleExpression
 
     let builder :: (String, Type) -> (SourceExpression, Type) -> (SourceExpression, Type)
         builder (argumentName, argumentType) (body, bodyType) =
@@ -290,7 +312,7 @@ recordMember :: Parser (String, SourceExpression)
 recordMember = do
     name <- identifier
     symbol ":"
-    value <- binaryOperation
+    value <- nonTupleExpression
     return (name, value)
 
 integer :: Parser SourceExpression
@@ -320,7 +342,7 @@ list :: Parser SourceExpression
 list = do
     position <- M.getSourcePos
     symbol "["
-    members <- M.sepBy binaryOperation (symbol ",")
+    members <- M.sepBy nonTupleExpression (symbol ",")
     symbol "]"
 
     let emptyList = EmptyList position
@@ -366,7 +388,7 @@ functionCall :: SourceExpression -> Parser SourceExpression
 functionCall base = do
     symbol "("
     -- we do not use full expressions to avoid ambiguity with tuples
-    arguments <- M.sepBy1 binaryOperation (symbol ",")
+    arguments <- M.sepBy1 nonTupleExpression (symbol ",")
     symbol ")"
 
     let buildCall base argument = Application base argument (getPosition base)
@@ -489,7 +511,7 @@ typeArguments = do
     return parameters
 
 reserved :: [String]
-reserved = ["if", "case", "of", "return", "true", "false", "boolean", "integer", "mod", "rem", "not", "and", "or", "is", "export"]
+reserved = ["if", "case", "of", "return", "true", "false", "boolean", "integer", "mod", "rem", "not", "and", "or", "is", "export", "match"]
 
 operators :: [String]
 operators = ["*", "/", "mod", "rem", "+", "-", "::", ">>", "==", "<=", ">=", "<", ">", "and", "or"]
