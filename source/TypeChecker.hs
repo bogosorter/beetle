@@ -167,6 +167,42 @@ typeCheck env expression = case expression of
         putConstraint $ Constraint (getType typedLeft) (getType typedRight) position "the branches of an if expression must have the same return type"
         return $ If typedCondition typedLeft typedRight (getType typedLeft)
 
+    Match {} -> do
+        typedScrutinee <- typeCheck env (scrutinee expression)
+        constructors <- case getType typedScrutinee of
+            SumType _ constructors -> return constructors
+            t -> lift $ Left $ TypeError (getPosition $ scrutinee expression) ("the scrutinee of a case expression must be a sum type, but got type " ++ show t)
+
+        -- The three conditions asserted below are enough to prove that every
+        -- possible case is covered:
+        --     - The constructors in the branches cannot have duplicates
+        --     - The number of branches must be equal to the number of
+        --       possible constructors of the sum type
+        --     - Every constructor in the branches must belong to the sum type
+        --       of the scrutinee
+
+        let branchConstructors = [constructor | (constructor, _) <- branches expression]
+        when (hasDuplicates branchConstructors) $
+            lift $ Left $ TypeError position "case branches have duplicate constructors"
+        when (length branchConstructors /= Map.size constructors) $
+            lift $ Left $ TypeError position "cannot have less branches in a case expression than constructors in the sum type"
+
+        let typeCheckBranch :: (String, SourceExpression) -> Generator (String, TypedExpression)
+            typeCheckBranch (constructor, body) = do
+                unless (Map.member constructor constructors) $
+                    lift $ Left $ TypeError position ("constructor " ++ show constructor ++ " does not exist in type " ++ show (getType typedScrutinee))
+
+                typedBody <- typeCheck env body
+                return (constructor, typedBody)
+
+        typedBranches <- mapM typeCheckBranch (branches expression)
+
+        let branchValueTypes = [getType body | (_, body) <- typedBranches]
+        unless (allEqual branchValueTypes) $
+            lift $ Left $ TypeError position "all the return types of a case expression's branches must be equal"
+
+        return $ Match typedScrutinee typedBranches (branchValueTypes !! 0)
+
     Application {} -> do
         typedFunction <- typeCheck env (function expression)
 
@@ -445,6 +481,7 @@ substituteInExpression a b expression = case expression of
     Function argumentType returnType argument body t ->
         Function (substituteType argumentType) (substituteType returnType) argument (substitute body) (substituteType t)
     If condition left right t -> If (substitute condition) (substitute left) (substitute right) (substituteType t)
+    Match scrutinee branches t -> Match (substitute scrutinee) (map substituteInBranch branches) (substituteType t)
     Application function argument t -> Application (substitute function) (substitute argument) (substituteType t)
     Variable name t -> Variable name (substituteType t)
     RecordMember record name t -> RecordMember (substitute record) name (substituteType t)
@@ -455,6 +492,7 @@ substituteInExpression a b expression = case expression of
 
     where substitute = substituteInExpression a b
           substituteType = substituteInType a b
+          substituteInBranch (constructor, body) = (constructor, substitute body)
 
 substituteInType :: Type -> Type -> Type -> Type
 substituteInType a b source
@@ -608,3 +646,6 @@ freshType = do
     let count = typeVariable state + 1
     put $ state { typeVariable = count }
     return $ TypeVariableInstance count
+
+hasDuplicates :: Ord a => [a] -> Bool
+hasDuplicates list = length list > Set.size (Set.fromList list)
