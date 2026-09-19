@@ -81,6 +81,11 @@ data Expression
         , right :: Expression
         , t :: Type
         }
+    | Match
+        { scrutinee :: Expression
+        , branches :: [(Int, Expression)]
+        , t :: Type
+        }
     | Application
         { closure :: Expression
         , argument :: Expression

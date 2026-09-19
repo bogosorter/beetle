@@ -76,6 +76,25 @@ enclose env expression = case expression of
         enclosedRight <- enclose env (right expression)
         return $ Closures.If enclosedCondition enclosedLeft enclosedRight (Closures.getType enclosedLeft)
 
+    Match {} -> do
+        let s = scrutinee expression
+        enclosedScrutinee <- enclose env s
+
+        let constructors = case getType s of
+                (SumType _ constructors) -> constructors
+                _ -> error "only sum types can be scrutinees of a match"
+
+            encloseBranch (name, body) = do
+                let index = findIndex name constructors
+                enclosedBody <- enclose env body
+                return (index, enclosedBody)
+
+        enclosedBranches <- mapM encloseBranch (branches expression)
+
+        let enclosedType = encloseType (getType expression)
+
+        return $ Closures.Match enclosedScrutinee enclosedBranches enclosedType
+
     Application {} -> do
         enclosedFunction <- enclose env (function expression)
         enclosedArgument <- enclose env (argument expression)
@@ -217,6 +236,10 @@ freeVariables expression = case expression of
 
     If { condition = condition, left = left, right = right} ->
         freeVariables condition `union` freeVariables left `union` freeVariables right
+
+    Match { scrutinee = scrutinee, branches = branches} ->
+        let freeInBranch (_, body) = freeVariables body
+        in freeVariables scrutinee `union` (foldr union Set.empty $ map freeInBranch branches)
 
     Application { function = function, argument = argument} ->
         freeVariables function `union` freeVariables argument
