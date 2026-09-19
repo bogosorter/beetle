@@ -204,6 +204,9 @@ typeCheck env expression = case expression of
         typedBranches <- mapM typeCheckBranch (branches expression)
 
         let branchValueTypes = [getType body | (_, body) <- typedBranches]
+        let builder :: (Type, Type) -> Generator ()
+            builder (a, b) = putConstraint $ Constraint a b position "all the branches of a match must have the same type"
+        _ <- mapM builder (zip branchValueTypes (drop 1 branchValueTypes))
         unless (allEqual branchValueTypes) $
             lift $ Left $ TypeError position "all the return types of a case expression's branches must be equal"
 

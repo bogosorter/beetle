@@ -18,6 +18,9 @@ simplify expression = case expression of
     TypeAssertion scrutinee constructor t -> TypeAssertion (simplify scrutinee) constructor t
     Function {} -> expression { body = simplify $ body expression }
     If condition left right t -> If (simplify condition) (simplify left) (simplify right) t
+    Match scrutinee branches t ->
+        let simplifyBranch (name, body) = (name, simplify body)
+        in Match (simplify scrutinee) (map simplifyBranch branches) t
 
     -- Since the LLVM does not provide a true modulo operator, it is complicated
     -- (ehem, simplified) to only use the remainder

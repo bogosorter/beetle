@@ -80,9 +80,7 @@ enclose env expression = case expression of
         let s = scrutinee expression
         enclosedScrutinee <- enclose env s
 
-        let constructors = case getType s of
-                (SumType _ constructors) -> constructors
-                _ -> error "only sum types can be scrutinees of a match"
+        let constructors = getSumType env (getType s)
 
             encloseBranch (name, body) = do
                 let index = findIndex name constructors
