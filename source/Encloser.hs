@@ -174,7 +174,8 @@ enclose env expression = case expression of
 
     EmptyList _ -> error "empty lists should have been removed in AST simplification"
     EmptyString _ -> error "empty strings should have been removed in AST simplification"
-    IfLet {} -> error "if-lets should have been removed in the AST simplification"
+    IfLet {} -> error "if-let expressions should have been removed in the AST simplification"
+    Unwrap {} -> error "unwrap expressions should have been removed in the AST simplification"
 
 
 encloseFunction :: Environment -> TypedExpression -> Maybe String -> State ClosureState Closures.Expression
@@ -263,6 +264,7 @@ freeVariables expression = case expression of
     EmptyList _ -> error "empty lists should have been removed in AST simplification"
     EmptyString _ -> error "empty strings should have been removed in AST simplification"
     IfLet {} -> error "if-let expressions should have been removed in AST simplification"
+    Unwrap {} -> error "unwrap expressions should have been removed in AST simplification"
 
 
 encloseType :: Type -> Closures.Type

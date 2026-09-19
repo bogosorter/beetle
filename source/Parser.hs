@@ -49,7 +49,7 @@ exportExpression program = exportBinding program <|> exportValue program
 -- of ensuing expression from assignments and type declarations.
 binding :: Parser SourceExpression
 binding = do
-    expressionBuilder <- typeAssignment <|> assignment
+    expressionBuilder <- typeAssignment <|> assignment <|> unwrap
     body <- returnExpression
     return $ expressionBuilder body
 
@@ -139,6 +139,18 @@ assignment = do
     case names of
         [name] -> singleAssignment position name <|> functionDefinition position name
         _ -> tupleAssignment position names
+
+unwrap :: Parser (SourceExpression -> SourceExpression)
+unwrap = do
+    position <- M.getSourcePos
+    constructor <- typeIdentifier
+    symbol "("
+    name <- identifier
+    symbol ")"
+    symbol "="
+    scrutinee <- expression
+    symbol ";"
+    return $ \body -> Unwrap name scrutinee constructor body position
 
 singleAssignment :: M.SourcePos -> String -> Parser (SourceExpression -> SourceExpression)
 singleAssignment position name = do

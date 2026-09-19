@@ -23,6 +23,8 @@ simplify expression = case expression of
         let simplifyBranch (name, introducedVariable, body) = (name, introducedVariable, simplify body)
         in Match (simplify scrutinee) (map simplifyBranch branches) Nothing t
     Match {} -> error "match expressions shouldn't have default branches at this point"
+    Unwrap name scrutinee constructor body t ->
+        Match (simplify scrutinee) [(constructor, name, body)] Nothing t
 
     -- Since the LLVM does not provide a true modulo operator, it is complicated
     -- (ehem, simplified) to only use the remainder

@@ -83,6 +83,13 @@ data Expression a
         , defaultBranch :: Maybe (Expression a)
         , annotation :: a
         }
+    | Unwrap
+        { name :: String
+        , scrutinee :: Expression a
+        , constructor :: String
+        , body :: Expression a
+        , annotation :: a
+        }
     | Application
         { function :: Expression a
         , argument :: Expression a

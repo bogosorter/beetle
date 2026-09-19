@@ -141,11 +141,15 @@ typeCheck env expression = case expression of
         unless (Map.member constructor constructors) $
             lift $ Left $ TypeError position ("constructor " ++ show constructor ++ " does not exist in type " ++ show (getType typedScrutinee))
 
+        let missingConstructors = case typedScrutinee of
+                Variable name _ -> Map.withoutKeys constructors (getImpossibleConstructors name env)
+                _ -> constructors
 
-        case scrutinee of
-            (Variable name _) -> when (Set.member constructor (getImpossibleConstructors name env)) $
-                lift $ Left $ TypeError position ("redundant check: it has already been established that \"" ++ name ++ "\" is not of type " ++ constructor)
-            _ -> return ()
+        when (not $ Map.member constructor missingConstructors) $
+            lift $ Left $ TypeError position ("redundant check: it has already been established that this expression is not of type " ++ constructor)
+
+        when (Map.size missingConstructors == 1) $
+            lift $ Left $ TypeError position ("there is only one possible constructor for this expression (use unwrap syntax instead)")
 
         -- If the scrutinee is a variable, we can rule this constructor out in
         -- the else branch
@@ -206,6 +210,30 @@ typeCheck env expression = case expression of
         _ <- mapM builder (zip branchValueTypes (drop 1 branchValueTypes))
 
         return $ Match typedScrutinee typedBranches Nothing (branchValueTypes !! 0)
+
+    Unwrap {} -> do
+        let Unwrap name scrutinee constructor body position = expression
+
+        typedScrutinee <- typeCheck env scrutinee
+        constructors <- case getType typedScrutinee of
+            UserType userType _ -> case Map.lookup userType (sumTypes env) of
+                Just (_, constructors) -> return constructors
+                _ -> lift $ Left $ TypeError position ("the scrutinee of an if-let must be a sum type, but got type " ++ userType)
+            t -> lift $ Left $ TypeError position ("the scrutinee of an if-let must be a sum type, but got type " ++ show t)
+
+        unless (Map.member constructor constructors) $
+            lift $ Left $ TypeError position ("constructor " ++ show constructor ++ " does not exist in type " ++ show (getType typedScrutinee))
+
+
+        case scrutinee of
+            (Variable name _) -> when (Set.member constructor (getImpossibleConstructors name env)) $
+                lift $ Left $ TypeError position ("redundant check: it has already been established that \"" ++ name ++ "\" is not of type " ++ constructor)
+            _ -> return ()
+
+        let env' = insertVariableType name (constructors ! constructor) env
+
+        typedBody <- typeCheck env' body
+        return $ Unwrap name typedScrutinee constructor typedBody (getType typedBody)
 
     Application {} -> do
         typedFunction <- typeCheck env (function expression)
@@ -469,6 +497,7 @@ substituteInExpression a b expression = case expression of
         IfLet (substitute scrutinee) constructor introducedVariable (substitute left) (substitute right) (substituteType t)
     Match scrutinee branches Nothing t -> Match (substitute scrutinee) (map substituteInBranch branches) Nothing (substituteType t)
     Match {} -> error "match expressions shouldn't have default braches at this point"
+    Unwrap name scrutinee constructor body t -> Unwrap name (substitute scrutinee) constructor (substitute body) (substituteType t)
     Application function argument t -> Application (substitute function) (substitute argument) (substituteType t)
     Variable name t -> Variable name (substituteType t)
     RecordMember record name t -> RecordMember (substitute record) name (substituteType t)
