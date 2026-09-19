@@ -181,6 +181,48 @@ compileExpression env expression = case expression of
 
         return register
 
+    Match scrutinee branches t -> do
+        (labels, defaultLabel, mergeLabel) <- createSwitch (length branches)
+
+        scrutineeRegister <- compileExpression env scrutinee
+
+        putStatement $ Comment "Extracting the constructor of a sum type"
+        constructorPosition <- reserveRegister
+        constructor <- reserveRegister
+        putStatement $ GetElementPointer constructorPosition sumType scrutineeRegister (integerOperand 0) (integerOperand 0)
+        putStatement $ Load constructor LLVM.IntegerType constructorPosition
+
+        let indexes = [index | (index, _) <- branches]
+        putStatement $ Switch constructor defaultLabel [(integerOperand i, label) | (i, label) <- zip indexes labels]
+        putStatement $ EmptyLine
+
+        let encloseBranch :: Label -> (Int, Expression) -> State CompilationState Operand
+            encloseBranch label (_, body) = do
+                putLabel label
+
+                putStatement $ Comment "Case branch body"
+                bodyRegister <- compileExpression env body
+                putStatement $ Jump mergeLabel
+                putStatement $ EmptyLine
+
+                return bodyRegister
+
+        branchOperands <- mapM (uncurry encloseBranch) (zip labels branches)
+        defaultOperand <- do
+                putStatement $ Comment "The default label is required but never reached"
+                putLabel defaultLabel
+                defaultOperand <- reserveRegister
+                putStatement $ Bitcast defaultOperand (llvmType t) (integerOperand 0) LLVM.IntegerType
+                putStatement $ Jump mergeLabel
+                putStatement $ EmptyLine
+                return defaultOperand
+
+        putLabel mergeLabel
+        let phiSources = (zip branchOperands labels) ++ [(defaultOperand, defaultLabel)]
+        resultRegister <- reserveRegister
+        putStatement $ Phi resultRegister (llvmType t) phiSources
+        return resultRegister
+
     -- Built-in not function call
     Application (BuiltInFunction "not" _) argument _ -> do
         argumentRegister <- compileExpression env argument
@@ -347,6 +389,18 @@ createBranch = do
         mergeLabel = MakeLabel $ "_merge_" ++ show branchCount
 
     return (leftLabel, rightLabel, mergeLabel)
+
+createSwitch :: Int -> State CompilationState ([Label], Label, Label)
+createSwitch n = do
+    state <- get
+    let branchCount = branch state + 1
+    put state { branch = branchCount }
+
+    let labels = [MakeLabel $ "case_" ++ show branchCount ++ "_" ++ show i | i <- [1..n]]
+        defaultLabel = MakeLabel $ "default_" ++ show branchCount
+        mergeLabel = MakeLabel $ "merge_" ++ show branchCount
+
+    return (labels, defaultLabel, mergeLabel)
 
 putLabel :: Label -> State CompilationState ()
 putLabel label = do
