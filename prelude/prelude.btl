@@ -4,16 +4,23 @@ type List<a> {
 }
 
 (>>)(left: [a], right: [a]) -> [a] {
-    if left is []: return right;
-
-    head, tail = left;
-    return head :: (tail >> right);
+    return match left {
+        ListNil -> right,
+        ListConstructor(list) -> {
+            head, tail = list;
+            return head :: (tail >> right);
+        }
+    };
 }
 
 fold(f: a -> b -> b, accumulator: b, list: [a]) -> b {
-    if list is []: return accumulator;
-    head, tail = list;
-    return f(head, fold(f, accumulator, tail));
+    return match list {
+        ListNil -> accumulator,
+        ListConstructor(list) -> {
+            head, tail = list;
+            return f(head, fold(f, accumulator, tail));
+        }
+    };
 }
 
 alias String for [Character];

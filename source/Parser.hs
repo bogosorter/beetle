@@ -66,12 +66,12 @@ simpleIf position condition = do
     return $ If condition left right position
 
 ifLet :: M.SourcePos -> SourceExpression -> Parser SourceExpression
-ifLet position condition = do
-    assertionPosition <- M.getSourcePos
+ifLet position scrutinee = do
     keyword "is"
     constructor <- typeIdentifier <|> stringNil <|> listNil
+    introducedVariable <- symbol "(" *> identifier <* symbol ")" <|> return "_"
     (left, right) <- ifBody
-    return $ If (TypeAssertion condition constructor assertionPosition) left right position
+    return $ IfLet scrutinee constructor introducedVariable left right position
 
 ifBody :: Parser (SourceExpression, SourceExpression)
 ifBody = do
@@ -182,7 +182,7 @@ match = do
     branches <- M.sepBy1 branchParser (symbol ",")
     symbol "}"
 
-    return $ Match scrutinee branches position
+    return $ Match scrutinee branches Nothing position
 
     where branchParser :: Parser (String, String, SourceExpression)
           branchParser = do

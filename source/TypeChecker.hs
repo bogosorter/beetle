@@ -118,15 +118,25 @@ typeCheck env expression = case expression of
         putConstraint $ Constraint (getType typedBody) returnType position "function return type does not match body type"
         return $ Function argumentType returnType argumentName typedBody (FunctionType argumentType returnType)
 
-    If { condition = TypeAssertion {} } -> do
-        let If (TypeAssertion scrutinee constructor assertionPosition) left right position = expression
+    If {} -> do
+        typedCondition <- typeCheck env (condition expression)
+        putConstraint $ Constraint (getType typedCondition) BooleanType position "the condition of an if must always be a boolean expression"
+
+        typedLeft <- typeCheck env (left expression)
+        typedRight <- typeCheck env (right expression)
+
+        putConstraint $ Constraint (getType typedLeft) (getType typedRight) position "the branches of an if expression must have the same return type"
+        return $ If typedCondition typedLeft typedRight (getType typedLeft)
+
+    IfLet {} -> do
+        let IfLet scrutinee constructor introducedVariable left right position = expression
 
         typedScrutinee <- typeCheck env scrutinee
         constructors <- case getType typedScrutinee of
             UserType userType _ -> case Map.lookup userType (sumTypes env) of
                 Just (_, constructors) -> return constructors
-                _ -> lift $ Left $ TypeError assertionPosition ("the scrutinee of a type assertion must be a sum type, but got type " ++ userType)
-            t -> lift $ Left $ TypeError assertionPosition ("the scrutinee of a type assertion must be a sum type, but got type " ++ show t)
+                _ -> lift $ Left $ TypeError position ("the scrutinee of an if-let must be a sum type, but got type " ++ userType)
+            t -> lift $ Left $ TypeError position ("the scrutinee of an if-let must be a sum type, but got type " ++ show t)
 
         unless (Map.member constructor constructors) $
             lift $ Left $ TypeError position ("constructor " ++ show constructor ++ " does not exist in type " ++ show (getType typedScrutinee))
@@ -137,35 +147,19 @@ typeCheck env expression = case expression of
                 lift $ Left $ TypeError position ("redundant check: it has already been established that \"" ++ name ++ "\" is not of type " ++ constructor)
             _ -> return ()
 
-        -- If the scrutinee is a variable, we can change the type of that
-        -- variable, and possibly change the type of the variable on the else
-        -- branch, if it is known that there is a single possibility left.
-        let (left', right', rightEnv) = case scrutinee of
-                (Variable name _) ->
-                    let modifiedLeft = Assignment name (Lowering scrutinee constructor position) left position
-                        env' = insertImpossibleConstructor name constructor env
-                        missingConstructors = Map.keys $ Map.withoutKeys constructors (getImpossibleConstructors name env')
-                        modifiedRight = case missingConstructors of
-                            [x] ->  Assignment name (Lowering scrutinee x position) right position
-                            _ -> right
-                    in (modifiedLeft, modifiedRight, env')
-                _ -> (left, right, env)
+        -- If the scrutinee is a variable, we can rule this constructor out in
+        -- the else branch
+        let rightEnv = case scrutinee of
+                (Variable name _) -> insertImpossibleConstructor name constructor env
+                _ -> env
 
-        typedLeft <- typeCheck env left'
-        typedRight <- typeCheck rightEnv right'
+        let env' = insertVariableType introducedVariable (constructors ! constructor) env
+
+        typedLeft <- typeCheck env' left
+        typedRight <- typeCheck rightEnv right
 
         putConstraint $ Constraint (getType typedLeft) (getType typedRight) position "the branches of an if expression must have the same return type"
-        return $ If (TypeAssertion typedScrutinee constructor BooleanType) typedLeft typedRight (getType typedLeft)
-
-    If {} -> do
-        typedCondition <- typeCheck env (condition expression)
-        putConstraint $ Constraint (getType typedCondition) BooleanType position "the condition of an if must always be a boolean expression"
-
-        typedLeft <- typeCheck env (left expression)
-        typedRight <- typeCheck env (right expression)
-
-        putConstraint $ Constraint (getType typedLeft) (getType typedRight) position "the branches of an if expression must have the same return type"
-        return $ If typedCondition typedLeft typedRight (getType typedLeft)
+        return $ IfLet typedScrutinee constructor introducedVariable typedLeft typedRight (getType typedLeft)
 
     Match {} -> do
         typedScrutinee <- typeCheck env (scrutinee expression)
@@ -210,10 +204,8 @@ typeCheck env expression = case expression of
         let builder :: (Type, Type) -> Generator ()
             builder (a, b) = putConstraint $ Constraint a b position "all the branches of a match must have the same type"
         _ <- mapM builder (zip branchValueTypes (drop 1 branchValueTypes))
-        unless (allEqual branchValueTypes) $
-            lift $ Left $ TypeError position "all the return types of a case expression's branches must be equal"
 
-        return $ Match typedScrutinee typedBranches (branchValueTypes !! 0)
+        return $ Match typedScrutinee typedBranches Nothing (branchValueTypes !! 0)
 
     Application {} -> do
         typedFunction <- typeCheck env (function expression)
@@ -334,8 +326,6 @@ typeCheck env expression = case expression of
 
         return $ TupleDestructuring names typedTuple typedBody (getType typedBody)
 
-    TypeAssertion {} -> error "type assertions can only appear within ifs"
-
     where position = getPosition expression
 
 
@@ -368,28 +358,10 @@ typeCheckSumRecordMember expression userType env = do
     unless (allEqual memberTypes) $
         lift $ Left $ TypeError position ("there are multiple possible types for the value of \"" ++ memberName ++ "\" in " ++ intercalate " | " (Map.keys constructors))
 
-    -- To access the member, each of the possible types has to be checked, and,
-    -- if it is that one, a lowering followed by a record access must be
-    -- performed.
-
-    let -- If the record is a variable, on the if branches its type will have
-        -- already been lowered, which would create an error. As such, in that
-        -- case it is not necessary to perform a lowering.
-        lower :: String -> SourceExpression
-        lower constructor = case record of
-            (Variable _ _) -> record
-            _ -> (Lowering record constructor position)
-
-        addConstructor :: String -> SourceExpression -> SourceExpression
-        addConstructor constructor rightBranch =
-            If (TypeAssertion record constructor position)
-                (RecordMember (lower constructor) memberName position)
-                rightBranch
-                position
-
-        (lastConstructor, _) = last records
-        lastAccess = RecordMember (lower lastConstructor) memberName position
-        access = foldr addConstructor lastAccess [constructor | (constructor, _) <- init records]
+    -- To access the member, we match on all possible constructors and extract the member
+    let access = Match record branches Nothing position
+        branches :: [(String, String, SourceExpression)]
+        branches = map (\(constructor, _) -> (constructor, "record", RecordMember (Variable "record" position) memberName position)) records
 
     typeCheck env access
 
@@ -466,8 +438,9 @@ solve (constraint:constraints)
     where Constraint left right position message = constraint
           createConstraint a b = Constraint a b position message
           reportError = case solve constraints of
-            Left errors -> Left $ errors ++ [TypeError position message]
-            Right _ -> Left [TypeError position message]
+            Left errors -> Left $ errors ++ [TypeError position finalMessage]
+            Right _ -> Left [TypeError position finalMessage]
+          finalMessage = (message ++ "(" ++ show left ++ " != " ++ show right ++ ")")
 
 performSubstitutions :: [Substitution] -> TypedExpression -> TypedExpression
 performSubstitutions substitutions expression = foldr (uncurry substituteInExpression) expression substitutions
@@ -489,11 +462,13 @@ substituteInExpression a b expression = case expression of
     EmptyString {} -> expression
     Constructor name value t -> Constructor name (substitute value) (substituteType t)
     Lowering value constructor t -> Lowering (substitute value) constructor (substituteType t)
-    TypeAssertion scrutinee constructor t -> TypeAssertion (substitute scrutinee) constructor (substituteType t)
     Function argumentType returnType argument body t ->
         Function (substituteType argumentType) (substituteType returnType) argument (substitute body) (substituteType t)
     If condition left right t -> If (substitute condition) (substitute left) (substitute right) (substituteType t)
-    Match scrutinee branches t -> Match (substitute scrutinee) (map substituteInBranch branches) (substituteType t)
+    IfLet scrutinee constructor introducedVariable left right t ->
+        IfLet (substitute scrutinee) constructor introducedVariable (substitute left) (substitute right) (substituteType t)
+    Match scrutinee branches Nothing t -> Match (substitute scrutinee) (map substituteInBranch branches) Nothing (substituteType t)
+    Match {} -> error "match expressions shouldn't have default braches at this point"
     Application function argument t -> Application (substitute function) (substitute argument) (substituteType t)
     Variable name t -> Variable name (substituteType t)
     RecordMember record name t -> RecordMember (substitute record) name (substituteType t)

@@ -84,6 +84,7 @@ data Expression
     | Match
         { scrutinee :: Expression
         , branches :: [(Int, String, Type, Expression)]
+        , defaultBranch :: Maybe Expression
         , t :: Type
         }
     | Application

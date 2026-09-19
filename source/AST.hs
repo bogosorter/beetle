@@ -56,11 +56,6 @@ data Expression a
         , constructor :: String
         , annotation :: a
         }
-    | TypeAssertion
-        { scrutinee :: Expression a
-        , constructor :: String
-        , annotation :: a
-        }
     | Function
         { argumentType :: Type
         , returnType :: Type
@@ -74,9 +69,18 @@ data Expression a
         , right :: Expression a
         , annotation :: a
         }
+    | IfLet
+        { scrutinee :: Expression a
+        , constructor :: String
+        , introduced :: String
+        , left :: Expression a
+        , right :: Expression a
+        , annotation :: a
+        }
     | Match
         { scrutinee :: Expression a
         , branches :: [(String, String, Expression a)]
+        , defaultBranch :: Maybe (Expression a)
         , annotation :: a
         }
     | Application

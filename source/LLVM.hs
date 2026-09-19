@@ -1,4 +1,4 @@
-module LLVM (Program(..), Function(..), Statement(..), Type(..), Operand, Label(..), OpCode(..), integerOperand, booleanOperand, characterOperand, typeOperand, registerOperand, variableOperand, globalOperand, LLVM.null) where
+module LLVM (Program(..), Function(..), Statement(..), Type(..), Operand, Label(..), OpCode(..), integerOperand, booleanOperand, characterOperand, typeOperand, registerOperand, variableOperand, globalOperand, poison, LLVM.null) where
 
 import Text.Printf (printf)
 import Data.List (intercalate)
@@ -152,6 +152,9 @@ typeOperand t = Operand (show t)
 
 globalOperand :: String -> Operand
 globalOperand s = Operand ("@" ++ escape s)
+
+poison :: Operand
+poison = Operand "poison"
 
 null :: Operand
 null = Operand "null"

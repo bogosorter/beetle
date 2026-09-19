@@ -59,15 +59,6 @@ enclose env expression = case expression of
         enclosedValue <- enclose env value
         return $ Closures.Lowering enclosedValue (encloseType t)
 
-    TypeAssertion {} -> do
-        let TypeAssertion scrutinee constructor _ = expression
-
-        enclosedScrutinee <- enclose env scrutinee
-        let constructors = getSumType env (getType scrutinee)
-            index = findIndex constructor constructors
-
-        return $ Closures.TypeAssertion enclosedScrutinee index
-
     AST.Function {} -> encloseFunction env expression Nothing
 
     If {} -> do
@@ -93,9 +84,15 @@ enclose env expression = case expression of
 
         enclosedBranches <- mapM encloseBranch (branches expression)
 
+        enclosedDefault <- case (defaultBranch expression) of
+            Just branch -> do
+                enclosedBranch <- enclose env branch
+                return $ Just enclosedBranch
+            Nothing -> return Nothing
+
         let enclosedType = encloseType (getType expression)
 
-        return $ Closures.Match enclosedScrutinee enclosedBranches enclosedType
+        return $ Closures.Match enclosedScrutinee enclosedBranches enclosedDefault enclosedType
 
     Application {} -> do
         enclosedFunction <- enclose env (function expression)
@@ -177,6 +174,7 @@ enclose env expression = case expression of
 
     EmptyList _ -> error "empty lists should have been removed in AST simplification"
     EmptyString _ -> error "empty strings should have been removed in AST simplification"
+    IfLet {} -> error "if-lets should have been removed in the AST simplification"
 
 
 encloseFunction :: Environment -> TypedExpression -> Maybe String -> State ClosureState Closures.Expression
@@ -231,17 +229,18 @@ freeVariables expression = case expression of
 
     Lowering {} -> freeVariables (value expression)
 
-    TypeAssertion {} -> freeVariables (scrutinee expression)
-
     AST.Function { argumentName = argument, body = body } ->
         delete argument $ freeVariables body
 
     If { condition = condition, left = left, right = right} ->
         freeVariables condition `union` freeVariables left `union` freeVariables right
 
-    Match { scrutinee = scrutinee, branches = branches} ->
+
+    Match { scrutinee = scrutinee, branches = branches, defaultBranch = defaultBranch } ->
         let freeInBranch (_, introduced, body) = delete introduced (freeVariables body)
-        in freeVariables scrutinee `union` (foldr union Set.empty $ map freeInBranch branches)
+            freeInDefault Nothing = Set.empty
+            freeInDefault (Just branch) = freeVariables branch
+        in freeVariables scrutinee `union` (foldr union Set.empty $ map freeInBranch branches) `union` freeInDefault defaultBranch
 
     Application { function = function, argument = argument} ->
         freeVariables function `union` freeVariables argument
@@ -263,6 +262,7 @@ freeVariables expression = case expression of
 
     EmptyList _ -> error "empty lists should have been removed in AST simplification"
     EmptyString _ -> error "empty strings should have been removed in AST simplification"
+    IfLet {} -> error "if-let expressions should have been removed in AST simplification"
 
 
 encloseType :: Type -> Closures.Type

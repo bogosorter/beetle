@@ -15,12 +15,14 @@ simplify expression = case expression of
     EmptyString t -> Constructor "ListNil" (Record Data.Map.empty (RecordType Data.Map.empty)) t
     Constructor constructor value t -> Constructor constructor (simplify value) t
     Lowering value constructor t -> Lowering (simplify value) constructor t
-    TypeAssertion scrutinee constructor t -> TypeAssertion (simplify scrutinee) constructor t
     Function {} -> expression { body = simplify $ body expression }
     If condition left right t -> If (simplify condition) (simplify left) (simplify right) t
-    Match scrutinee branches t ->
+    IfLet scrutinee constructor introducedVariable left right t ->
+        Match (simplify scrutinee) [(constructor, introducedVariable, simplify left)] (Just $ simplify right) t
+    Match scrutinee branches Nothing t ->
         let simplifyBranch (name, introducedVariable, body) = (name, introducedVariable, simplify body)
-        in Match (simplify scrutinee) (map simplifyBranch branches) t
+        in Match (simplify scrutinee) (map simplifyBranch branches) Nothing t
+    Match {} -> error "match expressions shouldn't have default branches at this point"
 
     -- Since the LLVM does not provide a true modulo operator, it is complicated
     -- (ehem, simplified) to only use the remainder
