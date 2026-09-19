@@ -184,12 +184,13 @@ match = do
 
     return $ Match scrutinee branches position
 
-    where branchParser :: Parser (String, SourceExpression)
+    where branchParser :: Parser (String, String, SourceExpression)
           branchParser = do
             constructor <- typeIdentifier
+            introducedVariable <- symbol "(" *> identifier <* symbol ")" <|> return "_"
             symbol "->"
             body <- nonTupleExpression
-            return (constructor, body)
+            return (constructor, introducedVariable, body)
 
 expression :: Parser SourceExpression
 expression = do

@@ -76,7 +76,7 @@ data Expression a
         }
     | Match
         { scrutinee :: Expression a
-        , branches :: [(String, Expression a)]
+        , branches :: [(String, String, Expression a)]
         , annotation :: a
         }
     | Application

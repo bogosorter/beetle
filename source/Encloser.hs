@@ -7,7 +7,7 @@ import qualified Closures (Type(..), Expression(..), getType)
 import Data.Set (Set, singleton, union, unions, difference, delete)
 import qualified Data.Set as Set (empty, elems, fromList)
 import Data.Map (Map, insert, findIndex, (!), findWithDefault)
-import qualified Data.Map as Map (lookup, empty, elems, fromList)
+import qualified Data.Map as Map (lookup, empty, elems, toList, fromList)
 import Control.Monad.State
 
 encloseProgram :: TypedExpression -> Closures.Program
@@ -82,10 +82,14 @@ enclose env expression = case expression of
 
         let constructors = getSumType env (getType s)
 
-            encloseBranch (name, body) = do
+            encloseBranch (name, introducedName, body) = do
                 let index = findIndex name constructors
-                enclosedBody <- enclose env body
-                return (index, enclosedBody)
+                    introducedType = encloseType (constructors ! name)
+                    introducedVariable = Closures.Local introducedName introducedType
+                    env' = insertVariable introducedName introducedVariable env
+
+                enclosedBody <- enclose env' body
+                return (index, introducedName, introducedType, enclosedBody)
 
         enclosedBranches <- mapM encloseBranch (branches expression)
 
@@ -236,7 +240,7 @@ freeVariables expression = case expression of
         freeVariables condition `union` freeVariables left `union` freeVariables right
 
     Match { scrutinee = scrutinee, branches = branches} ->
-        let freeInBranch (_, body) = freeVariables body
+        let freeInBranch (_, introduced, body) = delete introduced (freeVariables body)
         in freeVariables scrutinee `union` (foldr union Set.empty $ map freeInBranch branches)
 
     Application { function = function, argument = argument} ->
@@ -321,7 +325,9 @@ insertVariable name variable env = env { variables = variables' }
     where variables' = insert name variable $ variables env
 
 getVariable :: Environment -> String -> Closures.Expression
-getVariable env name = variables env ! name
+getVariable env name = case Map.lookup name (variables env) of
+    Just v -> v
+    Nothing -> error ("couldn't find variable " ++ name ++ " in " ++ (show $ Map.toList (variables env)))
 
 insertSumType :: String -> Map String AST.Type -> Environment -> Environment
 insertSumType name t env = env { sumTypes = sumTypes' }

@@ -183,7 +183,7 @@ typeCheck env expression = case expression of
         --     - Every constructor in the branches must belong to the sum type
         --       of the scrutinee
 
-        let branchConstructors = [constructor | (constructor, _) <- branches expression]
+        let branchConstructors = [constructor | (constructor, _, _) <- branches expression]
         let missingConstructors = case typedScrutinee of
                 Variable name _ -> Map.withoutKeys constructors (getImpossibleConstructors name env)
                 _ -> constructors
@@ -193,17 +193,20 @@ typeCheck env expression = case expression of
         when (length branchConstructors /= Map.size missingConstructors) $
             lift $ Left $ TypeError position "cannot have less branches in a case expression than constructors in the sum type"
 
-        let typeCheckBranch :: (String, SourceExpression) -> Generator (String, TypedExpression)
-            typeCheckBranch (constructor, body) = do
+        let typeCheckBranch :: (String, String, SourceExpression) -> Generator (String, String, TypedExpression)
+            typeCheckBranch (constructor, introducedVariable, body) = do
                 unless (Map.member constructor missingConstructors) $
                     lift $ Left $ TypeError position ("constructor " ++ show constructor ++ " does not exist in type " ++ show (getType typedScrutinee))
 
-                typedBody <- typeCheck env body
-                return (constructor, typedBody)
+                let introducedType = constructors ! constructor
+                    env' = insertVariableType introducedVariable introducedType env
+
+                typedBody <- typeCheck env' body
+                return (constructor, introducedVariable, typedBody)
 
         typedBranches <- mapM typeCheckBranch (branches expression)
 
-        let branchValueTypes = [getType body | (_, body) <- typedBranches]
+        let branchValueTypes = [getType body | (_, _, body) <- typedBranches]
         let builder :: (Type, Type) -> Generator ()
             builder (a, b) = putConstraint $ Constraint a b position "all the branches of a match must have the same type"
         _ <- mapM builder (zip branchValueTypes (drop 1 branchValueTypes))
@@ -501,7 +504,7 @@ substituteInExpression a b expression = case expression of
 
     where substitute = substituteInExpression a b
           substituteType = substituteInType a b
-          substituteInBranch (constructor, body) = (constructor, substitute body)
+          substituteInBranch (constructor, introducedVariable, body) = (constructor, introducedVariable, substitute body)
 
 substituteInType :: Type -> Type -> Type -> Type
 substituteInType a b source

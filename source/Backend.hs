@@ -192,16 +192,23 @@ compileExpression env expression = case expression of
         putStatement $ GetElementPointer constructorPosition sumType scrutineeRegister (integerOperand 0) (integerOperand 0)
         putStatement $ Load constructor LLVM.IntegerType constructorPosition
 
-        let indexes = [index | (index, _) <- branches]
+        let indexes = [index | (index, _, _, _) <- branches]
         putStatement $ Switch constructor defaultLabel [(integerOperand i, label) | (i, label) <- zip indexes labels]
         putStatement $ EmptyLine
 
-        let encloseBranch :: Label -> (Int, Expression) -> State CompilationState Operand
-            encloseBranch label (_, body) = do
+        let encloseBranch :: Label -> (Int, String, Closures.Type, Expression) -> State CompilationState Operand
+            encloseBranch label (_, name, t, body) = do
                 putLabel label
 
+                putStatement $ Comment "Loading and casting the value of the new variable"
+                positionRegister <- reserveRegister
+                putStatement $ GetElementPointer positionRegister sumType scrutineeRegister (integerOperand 0) (integerOperand 1)
+                variable <- createVariable name
+                putStatement $ Load variable (llvmType t) positionRegister
+                let env' = insertVariable name variable env
+
                 putStatement $ Comment "Case branch body"
-                bodyRegister <- compileExpression env body
+                bodyRegister <- compileExpression env' body
                 putStatement $ Jump mergeLabel
                 putStatement $ EmptyLine
 

@@ -83,7 +83,7 @@ data Expression
         }
     | Match
         { scrutinee :: Expression
-        , branches :: [(Int, Expression)]
+        , branches :: [(Int, String, Type, Expression)]
         , t :: Type
         }
     | Application
