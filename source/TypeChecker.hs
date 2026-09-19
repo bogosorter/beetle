@@ -170,8 +170,10 @@ typeCheck env expression = case expression of
     Match {} -> do
         typedScrutinee <- typeCheck env (scrutinee expression)
         constructors <- case getType typedScrutinee of
-            SumType _ constructors -> return constructors
-            t -> lift $ Left $ TypeError (getPosition $ scrutinee expression) ("the scrutinee of a case expression must be a sum type, but got type " ++ show t)
+            UserType userType _ -> case Map.lookup userType (sumTypes env) of
+                Just (_, constructors) -> return constructors
+                _ -> lift $ Left $ TypeError position ("the scrutinee of a type assertion must be a sum type, but got type " ++ userType)
+            t -> lift $ Left $ TypeError position ("the scrutinee of a type assertion must be a sum type, but got type " ++ show t)
 
         -- The three conditions asserted below are enough to prove that every
         -- possible case is covered:
@@ -182,14 +184,18 @@ typeCheck env expression = case expression of
         --       of the scrutinee
 
         let branchConstructors = [constructor | (constructor, _) <- branches expression]
+        let missingConstructors = case typedScrutinee of
+                Variable name _ -> Map.withoutKeys constructors (getImpossibleConstructors name env)
+                _ -> constructors
+
         when (hasDuplicates branchConstructors) $
             lift $ Left $ TypeError position "case branches have duplicate constructors"
-        when (length branchConstructors /= Map.size constructors) $
+        when (length branchConstructors /= Map.size missingConstructors) $
             lift $ Left $ TypeError position "cannot have less branches in a case expression than constructors in the sum type"
 
         let typeCheckBranch :: (String, SourceExpression) -> Generator (String, TypedExpression)
             typeCheckBranch (constructor, body) = do
-                unless (Map.member constructor constructors) $
+                unless (Map.member constructor missingConstructors) $
                     lift $ Left $ TypeError position ("constructor " ++ show constructor ++ " does not exist in type " ++ show (getType typedScrutinee))
 
                 typedBody <- typeCheck env body
