@@ -117,12 +117,26 @@ typeAssignment = do
     keyword "type"
     name <- typeIdentifier
     parameters <- typeParameters <|> return []
-    symbol "{"
-    constructors <- M.sepBy optionConstructor (symbol ",")
-    symbol "}"
+    constructors <- sumType <|> newType name
 
     let t = SumType [name | (TypeVariable name) <- parameters] (fromList constructors)
     return $ \body -> TypeAssignment name t body position
+
+    where sumType :: Parser [(String, Type)]
+          sumType =  do
+            symbol "{"
+            constructors <- M.sepBy optionConstructor (symbol ",")
+            symbol "}"
+            return constructors
+          newType :: String -> Parser [(String, Type)]
+          newType name = do
+            symbol "("
+            t <- typeParser
+            symbol ")"
+            symbol ";"
+            return [(name, t)]
+
+
 
 optionConstructor :: Parser (String, Type)
 optionConstructor = do

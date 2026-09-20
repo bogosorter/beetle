@@ -1,0 +1,8 @@
+type Wrapper(Integer);
+
+f(n: Integer) -> Wrapper {
+    return Wrapper(n);
+}
+
+Wrapper(n) = f(2);
+return n;

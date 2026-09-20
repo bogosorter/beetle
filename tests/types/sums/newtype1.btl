@@ -1,0 +1,4 @@
+type Wrapper(Integer);
+wrapped = Wrapper(1);
+Wrapper(n) = wrapped;
+return n;
