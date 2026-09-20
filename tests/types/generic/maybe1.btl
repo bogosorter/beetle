@@ -4,7 +4,7 @@ type Maybe<a> {
 }
 
 safeDiv(a: Integer, b: Integer) -> Maybe<Integer> {
-    if b == 0: return Nothing({});
+    if b == 0: return Nothing;
     return Just(a / b);
 }
 

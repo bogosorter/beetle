@@ -136,8 +136,6 @@ typeAssignment = do
             symbol ";"
             return [(name, t)]
 
-
-
 optionConstructor :: Parser (String, Type)
 optionConstructor = do
     name <- typeIdentifier
@@ -322,9 +320,7 @@ constructorParser :: Parser SourceExpression
 constructorParser = do
     position <- M.getSourcePos
     constructor <- typeIdentifier
-    symbol "("
-    value <- nonTupleExpression
-    symbol ")"
+    value <- (symbol "(" *> nonTupleExpression <* symbol ")") <|> (return $ Record empty position)
     return $ Constructor constructor value position
 
 recordParser :: Parser SourceExpression
