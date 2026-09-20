@@ -7,10 +7,12 @@ type Sum {
 a = Right((1, 2));
 b = Middle({x: 1, y: 2});
 
-if a is Left(n):
+if a is Left(n) {
     if b is Middle(s): return n + s.y;
-    if b is Right(p):
+    if b is Right(p) {
         _, b = p;
         return n + b;
+    }
     return -2;
+}
 return -1;

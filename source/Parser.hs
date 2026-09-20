@@ -75,7 +75,7 @@ ifLet position scrutinee = do
 
 ifBody :: Parser (SourceExpression, SourceExpression)
 ifBody = do
-    left <- (symbol ":" *> returnExpression) <|> (symbol "{" *> returnExpression <* symbol "}")
+    left <- (symbol ":" *> returnValue) <|> (symbol "{" *> returnExpression <* symbol "}")
     right <- returnExpression
     return (left, right)
 
