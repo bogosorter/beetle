@@ -11,7 +11,7 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Control.Monad.Combinators.Expr as E
 import Control.Applicative ((<|>))
 import Data.Void
-import Data.Map (fromList)
+import Data.Map (fromList, empty)
 import Data.Char (ord, isAscii)
 import Data.FileEmbed (embedFileRelative)
 import Data.Text (unpack)
@@ -127,10 +127,8 @@ typeAssignment = do
 optionConstructor :: Parser (String, Type)
 optionConstructor = do
     name <- typeIdentifier
-    symbol "("
-    t <- typeParser
-    symbol ")"
-    return $ (name, t)
+    t <- (symbol "(" *> typeParser <* symbol ")") <|> (return $ RecordType empty)
+    return (name, t)
 
 assignment :: Parser (SourceExpression -> SourceExpression)
 assignment = do

@@ -1,6 +1,6 @@
 type Maybe<a> {
     Just(a),
-    Nothing({})
+    Nothing
 }
 
 safeDiv(a: Integer, b: Integer) -> Maybe<Integer> {
