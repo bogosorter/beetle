@@ -1,9 +1,13 @@
-Sum = Left Integer | Right {};
+type Sum {
+    Left(Integer),
+    Right({})
+}
 
-f(b: Boolean, n: Integer): Sum =
-    if b: return Left n;
-    return Right {};
+f(b: Boolean, n: Integer) -> Sum {
+    if b: return Left(n);
+    return Right({});
+}
 
 result = f(true, 1);
-if result is Left: return result;
+if result is Left(n): return n;
 return -1;

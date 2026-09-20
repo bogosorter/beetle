@@ -17,14 +17,14 @@ simplify expression = case expression of
     Lowering value constructor t -> Lowering (simplify value) constructor t
     Function {} -> expression { body = simplify $ body expression }
     If condition left right t -> If (simplify condition) (simplify left) (simplify right) t
-    IfLet scrutinee constructor introducedVariable left right t ->
-        Match (simplify scrutinee) [(constructor, introducedVariable, simplify left)] (Just $ simplify right) t
+    IfLet scrutinee constructor introducedVariable introducedType left right t ->
+        Match (simplify scrutinee) [(constructor, introducedVariable, introducedType, simplify left)] (Just $ simplify right) t
     Match scrutinee branches Nothing t ->
-        let simplifyBranch (name, introducedVariable, body) = (name, introducedVariable, simplify body)
+        let simplifyBranch (name, introducedVariable, introducedType, body) = (name, introducedVariable, introducedType, simplify body)
         in Match (simplify scrutinee) (map simplifyBranch branches) Nothing t
     Match {} -> error "match expressions shouldn't have default branches at this point"
-    Unwrap name scrutinee constructor body t ->
-        Match (simplify scrutinee) [(constructor, name, body)] Nothing t
+    Unwrap name introducedType scrutinee constructor body t ->
+        Match (simplify scrutinee) [(constructor, name, introducedType, body)] Nothing t
 
     -- Since the LLVM does not provide a true modulo operator, it is complicated
     -- (ehem, simplified) to only use the remainder

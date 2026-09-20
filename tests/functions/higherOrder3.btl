@@ -1,10 +1,13 @@
-s(n: Integer): Integer = return n + 1;
+s(n: Integer) -> Integer {
+    return n + 1;
+}
 
-accumulate(f: Integer -> Integer, n: Integer): Integer =
+accumulate(f: Integer -> Integer, n: Integer) -> Integer {
     if n == 0: return 0;
 
     current = f(n);
     recursive = accumulate(f, n - 1);
     return current + recursive;
+}
 
 return accumulate(s, 3);

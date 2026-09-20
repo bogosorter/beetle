@@ -1,6 +1,7 @@
 empty = [];
 list = 1 :: empty;
 
-if list is []: return -1;
-head, _ = list;
+if list is ListNil: return -1;
+ListConstructor(constructor) = list;
+head, _ = constructor;
 return head;

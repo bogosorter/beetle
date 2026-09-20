@@ -1,5 +1,10 @@
-Sum = Left Integer | Right Integer;
+type Sum {
+    Left(Integer),
+    Right(Integer)
+}
 
-value = Left true;
-if value is Left: return value;
-return value;
+value = Left(true);
+if value is Left(n): return n;
+
+Right(n) = value;
+return n;

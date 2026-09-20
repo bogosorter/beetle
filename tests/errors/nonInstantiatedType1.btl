@@ -1,4 +1,5 @@
-sum(list: List): List =
+sum(list: List) -> List {
     return list;
+}
 
 return 1;

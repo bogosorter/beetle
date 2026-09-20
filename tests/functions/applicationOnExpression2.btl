@@ -1,4 +1,5 @@
-sum(x: Integer, y: Integer): Integer =
+sum(x: Integer, y: Integer) -> Integer {
     return x + y;
+}
 
 return (sum(1))(2);

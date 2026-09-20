@@ -40,7 +40,7 @@ moduleParser program = do
     return content
 
 returnExpression :: Parser SourceExpression
-returnExpression = binding <|> ifExpression <|> returnValue
+returnExpression = binding <|> ifExpression <|> returnValue <|> match
 
 exportExpression :: SourceExpression -> Parser SourceExpression
 exportExpression program = exportBinding program <|> exportValue program
@@ -49,7 +49,7 @@ exportExpression program = exportBinding program <|> exportValue program
 -- of ensuing expression from assignments and type declarations.
 binding :: Parser SourceExpression
 binding = do
-    expressionBuilder <- typeAssignment <|> assignment <|> unwrap
+    expressionBuilder <- alias <|> typeAssignment <|> assignment <|> unwrap
     body <- returnExpression
     return $ expressionBuilder body
 
@@ -71,7 +71,7 @@ ifLet position scrutinee = do
     constructor <- typeIdentifier <|> stringNil <|> listNil
     introducedVariable <- symbol "(" *> identifier <* symbol ")" <|> return "_"
     (left, right) <- ifBody
-    return $ IfLet scrutinee constructor introducedVariable left right position
+    return $ IfLet scrutinee constructor introducedVariable position left right position
 
 ifBody :: Parser (SourceExpression, SourceExpression)
 ifBody = do
@@ -150,7 +150,7 @@ unwrap = do
     symbol "="
     scrutinee <- expression
     symbol ";"
-    return $ \body -> Unwrap name scrutinee constructor body position
+    return $ \body -> Unwrap name position scrutinee constructor body position
 
 singleAssignment :: M.SourcePos -> String -> Parser (SourceExpression -> SourceExpression)
 singleAssignment position name = do
@@ -196,13 +196,14 @@ match = do
 
     return $ Match scrutinee branches Nothing position
 
-    where branchParser :: Parser (String, String, SourceExpression)
+    where branchParser :: Parser (String, String, M.SourcePos, SourceExpression)
           branchParser = do
+            position <- M.getSourcePos
             constructor <- typeIdentifier
             introducedVariable <- symbol "(" *> identifier <* symbol ")" <|> return "_"
             symbol "->"
             body <- nonTupleExpression
-            return (constructor, introducedVariable, body)
+            return (constructor, introducedVariable, position, body)
 
 expression :: Parser SourceExpression
 expression = do
@@ -266,7 +267,7 @@ lambda = do
     symbol "("
     names <- M.sepBy1 identifierTypePair (symbol ",")
     symbol ")"
-    symbol ":"
+    symbol "->"
     returnType <- typeParser
     symbol "="
     body <- nonTupleExpression
@@ -309,7 +310,9 @@ constructorParser :: Parser SourceExpression
 constructorParser = do
     position <- M.getSourcePos
     constructor <- typeIdentifier
-    value <- atom
+    symbol "("
+    value <- nonTupleExpression
+    symbol ")"
     return $ Constructor constructor value position
 
 recordParser :: Parser SourceExpression

@@ -1,4 +1,5 @@
-mapSum(f: Integer -> Integer, a: Integer, b: Integer): Integer =
+mapSum(f: Integer -> Integer, a: Integer, b: Integer) -> Integer {
     return f(a) + f(b);
+}
 
-return mapSum((n: Integer): Integer = n + 1, 0, 1);
+return mapSum((n: Integer) -> Integer = n + 1, 0, 1);

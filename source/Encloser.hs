@@ -73,9 +73,9 @@ enclose env expression = case expression of
 
         let constructors = getSumType env (getType s)
 
-            encloseBranch (name, introducedName, body) = do
+            encloseBranch (name, introducedName, t, body) = do
                 let index = findIndex name constructors
-                    introducedType = encloseType (constructors ! name)
+                    introducedType = encloseType t
                     introducedVariable = Closures.Local introducedName introducedType
                     env' = insertVariable introducedName introducedVariable env
 
@@ -238,7 +238,7 @@ freeVariables expression = case expression of
 
 
     Match { scrutinee = scrutinee, branches = branches, defaultBranch = defaultBranch } ->
-        let freeInBranch (_, introduced, body) = delete introduced (freeVariables body)
+        let freeInBranch (_, introduced, _, body) = delete introduced (freeVariables body)
             freeInDefault Nothing = Set.empty
             freeInDefault (Just branch) = freeVariables branch
         in freeVariables scrutinee `union` (foldr union Set.empty $ map freeInBranch branches) `union` freeInDefault defaultBranch

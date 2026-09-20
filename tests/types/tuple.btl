@@ -1,7 +1,7 @@
-Pair = (Integer, Integer);
+alias Pair for (Integer, Integer);
 
-sumComponents(pair: Pair): Integer =
+sumComponents(pair: Pair) -> Integer {
     a, b = pair;
     return a + b;
-
+}
 return sumComponents((1, 2));

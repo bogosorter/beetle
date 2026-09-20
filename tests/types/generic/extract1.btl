@@ -1,2 +1,4 @@
-f(x: {y: a}): a = return x.y;
+f(x: {y: a}) -> a {
+    return x.y;
+}
 return f({y: 1});

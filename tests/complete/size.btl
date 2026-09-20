@@ -1,18 +1,22 @@
-Tree<a> = Leaf a | Node {left: Tree<a>, right: Tree<a>};
+type Tree<a> {
+    Leaf(a),
+    Node({left: Tree<a>, right: Tree<a>})
+}
 
-size(tree: Tree<a>): Integer =
+size(tree: Tree<a>) -> Integer {
     if tree is Leaf: return 1;
     return size(tree.left) + size(tree.right);
+}
 
-tree = Node {
-    left: Leaf 1,
-    right: Node {
-        left: Node {
-            left: Leaf 2,
-            right: Leaf 3
-        },
-        right: Leaf 4,
-    }
-};
+tree = Node ({
+    left: Leaf(1),
+    right: Node({
+        left: Node({
+            left: Leaf(2),
+            right: Leaf(3)
+        }),
+        right: Leaf (4),
+    })
+});
 
 return size(tree);

@@ -2,12 +2,17 @@
 -- environment, such that if a is later reassigned a sum type no assumptions
 -- are made about it based on the previously known impossible constructors.
 
-Sum = Left Integer | Middle Integer | Right Integer;
+type Sum {
+    Left(Integer),
+    Middle(Integer),
+    Right(Integer)
+}
 
-a = Left 1;
-if a is Left: return a;
+a = Left(1);
+if a is Left(n): return n;
 
-a = Left 1;
-if a is Middle: return a;
+a = Left(1);
+if a is Middle(n): return n;
 
-return a;
+Right(n) = a;
+return n;

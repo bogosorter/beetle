@@ -1,9 +1,17 @@
-MyList = Cons (Integer, MyList) | Nil {};
+type MyList {
+    Cons((Integer, MyList)),
+    Nil({})
+}
 
-length(list: MyList): Integer =
-    if list is Nil: return 0;
-    _, tail = list;
-    return 1 + length(tail);
+length(list: MyList) -> Integer {
+    match list {
+        Nil -> 0,
+        Cons(constructor) -> {
+            _, tail = constructor;
+            return 1 + length(tail);
+        }
+    }
+}
 
-list = Cons (1, Cons (2, Cons (3, Nil {})));
+list = Cons((1, Cons((2, Cons((3, Nil({})))))));
 return length(list);

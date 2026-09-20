@@ -1,12 +1,16 @@
-Sum = Left Integer | Middle {x: Integer, y: Integer} | Right (Integer, Integer);
+type Sum {
+    Left(Integer),
+    Middle({x: Integer, y: Integer}),
+    Right((Integer, Integer))
+}
 
-a = Left 1;
-b = Left 2;
+a = Left(1);
+b = Left(2);
 
-if a is Left:
-    if b is Middle: return a + b.y;
-    if b is Right:
-        _, b = b;
-        return a + b;
+if a is Left(n):
+    if b is Middle(s): return n + s.y;
+    if b is Right(p):
+        _, b = p;
+        return n + b;
     return -2;
 return -1;

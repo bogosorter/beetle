@@ -1,4 +1,6 @@
-Integer = Integer;
-s(n: Integer): Integer = return n + 1;
+alias Integer for Integer;
+s(n: Integer) -> Integer {
+    return n + 1;
+}
 
 return s(0);

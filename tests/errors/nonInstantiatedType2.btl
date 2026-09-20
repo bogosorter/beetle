@@ -1,2 +1,6 @@
-T = Left List | Right List;
+type T {
+    Left(List),
+    Right(List)
+}
+
 return 1;

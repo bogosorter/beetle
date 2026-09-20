@@ -1,12 +1,17 @@
-double(list: [Integer]): [Integer] =
-    if list is []: return [];
-    head, tail = list;
-    return head * 2 :: double(tail);
+double(list: [Integer]) -> [Integer] {
+    match list {
+        ListNil -> [],
+        ListConstructor(constructor) -> {
+            head, tail = constructor;
+            return head * 2 :: double(tail);
+        }
+    }
+}
 
 list = [1, 2, 3];
 result = double(list);
 
-integerToString(n: Integer): String =
+integerToString(n: Integer) -> String {
     if n < 0: return "-" :: integerToString(-n);
 
     -- ord and char do not exist in beetle for now
@@ -22,16 +27,25 @@ integerToString(n: Integer): String =
     if n == 9: return '9';
 
     return integerToString(n / 10) >> integerToString(n rem 10);
+}
 
-intercalate(separator: String, list: [Integer]): String =
-    if list is []: return '';
+intercalate(separator: String, list: [Integer]) -> String {
+    match list {
+        ListNil -> '',
+        ListConstructor(constructor) -> {
+            head, tail = constructor;
+            match tail {
+                ListNil -> integerToString(head),
+                ListConstructor -> {
+                    return integerToString(head) >> separator >> intercalate(separator, tail);
+                }
+            }
+        }
+    }
+}
 
-    head, tail = list;
-    if tail is []: return integerToString(head);
-
-    return integerToString(head) >> separator >> intercalate(separator, ListConstructor tail);
-
-listToString(list: [Integer]): String =
+listToString(list: [Integer]) -> String {
     return '[' >> intercalate(', ', list) >> ']';
+}
 
 return listToString(result);

@@ -1,5 +1,6 @@
-s(n: Integer): Integer =
+s(n: Integer) -> Integer {
     return n + 1;
+}
 
 tuple = (0, s);
 x, f = tuple;

@@ -73,18 +73,20 @@ data Expression a
         { scrutinee :: Expression a
         , constructor :: String
         , introduced :: String
+        , introducedType :: a
         , left :: Expression a
         , right :: Expression a
         , annotation :: a
         }
     | Match
         { scrutinee :: Expression a
-        , branches :: [(String, String, Expression a)]
+        , branches :: [(String, String, a, Expression a)]
         , defaultBranch :: Maybe (Expression a)
         , annotation :: a
         }
     | Unwrap
         { name :: String
+        , introducedType :: a
         , scrutinee :: Expression a
         , constructor :: String
         , body :: Expression a

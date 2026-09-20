@@ -1,1 +1,1 @@
-return fold((a: Integer, b: Integer): Integer = a + b, 0, []);
+return fold((a: Integer, b: Integer) -> Integer = a + b, 0, []);

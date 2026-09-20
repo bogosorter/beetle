@@ -1,2 +1,5 @@
-f(x: T): T = return x;
+f(x: T) -> T {
+    return x;
+}
+
 return 1;

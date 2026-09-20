@@ -1,7 +1,11 @@
-Sum = Left Integer | Right {};
+type Sum {
+    Left(Integer),
+    Right({})
+}
 
-f(s: Sum): Integer =
-    if s is Left: return s;
+f(s: Sum) -> Integer {
+    if s is Left(n): return n;
     return 0;
+}
 
-return f(Right {});
+return f(Right({}));

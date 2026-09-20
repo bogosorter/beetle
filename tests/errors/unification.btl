@@ -1,4 +1,5 @@
-f(x: a, y: a): Integer =
+f(x: a, y: a) -> Integer {
     return 1;
+}
 
 return f(1, true);

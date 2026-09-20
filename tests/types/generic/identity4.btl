@@ -1,4 +1,6 @@
-identity(x: a): a = return x;
+identity(x: a) -> a {
+    return x;
+}
 
 if identity(true): return identity(1);
 return 1;

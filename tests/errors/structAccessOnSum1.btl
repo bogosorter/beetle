@@ -1,30 +1,33 @@
-Expression
-    = Literal Integer
-    | Addition {left: Expression, right: Expression}
-    | Subtraction {left: Expression, right: Expression}
-    | Multiplication {left: Expression, right: Expression}
-    | Division {left: Expression, right: Expression}
-    ;
+type Expression {
+    Literal(Integer),
+    Addition({left: Expression, right: Expression}),
+    Subtraction({left: Expression, right: Expression}),
+    Multiplication({left: Expression, right: Expression}),
+    Division({left: Expression, right: Expression})
+}
 
-eval(expression: Expression): Integer =
+eval(expression: Expression) -> Integer {
     left = eval(expression.left);
     right = eval(expression.right);
 
-    if expression is Literal: return expression;
-    if expression is Addition: return left + right;
-    if expression is Subtraction: return left - right;
-    if expression is Multiplication: return left * right;
-    return left / right;
+    return match expression {
+        Literal(n) -> n,
+        Addition -> left + right,
+        Subtraction -> left - right,
+        Multiplication -> left * right,
+        Division -> left / right
+    };
+}
 
 return eval(
-    Addition {
-        left: Literal 1,
-        right: Subtraction {
-            left: Multiplication {
-                left: Literal 2,
-                right: Division {left: Literal 4, right: Literal 2}
-            },
-            right: Literal 2
-        }
-    }
+    Addition({
+        left: Literal(1),
+        right: Subtraction({
+            left: Multiplication({
+                left: Literal(2),
+                right: Division({left: Literal(4), right: Literal (2)})
+            }),
+            right: Literal(2)
+        })
+    })
 );

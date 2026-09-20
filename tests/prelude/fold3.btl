@@ -1,5 +1,6 @@
-increment(element: Boolean, current: Integer): Integer =
+increment(element: Boolean, current: Integer) -> Integer {
     if element: return current + 1;
     return current;
+}
 
 return fold(increment, 0, [true, false, true]);

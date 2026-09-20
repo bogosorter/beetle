@@ -1,5 +1,8 @@
-Sum = Left Integer | Right Integer;
+type Sum {
+    Left(Integer),
+    Right(Integer)
+}
 
-value = Left 1;
-if value is Left: return value;
+value = Left(1);
+if value is Left(n): return n;
 return -1;

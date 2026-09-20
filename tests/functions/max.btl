@@ -1,8 +1,10 @@
-max(a: Integer, b: Integer): Integer =
+max(a: Integer, b: Integer) -> Integer {
     if a >= b: return a;
     return b;
+}
 
-maxThree(a: Integer, b: Integer, c: Integer): Integer =
+maxThree(a: Integer, b: Integer, c: Integer) -> Integer {
     return max(a, max(b, c));
+}
 
 return maxThree(1, 2, 3);

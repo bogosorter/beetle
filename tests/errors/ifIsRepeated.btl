@@ -1,6 +1,10 @@
-Sum = Left Integer | Middle Integer | Right Integer;
+type Sum {
+    Left(Integer),
+    Middle(Integer),
+    Right(Integer)
+}
 
-value = Left 1;
+value = Left(1);
 if value is Left: return 1;
 if value is Left: return 1;
 if value is Middle: return 2;

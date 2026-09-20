@@ -1,8 +1,12 @@
-sum(list: [Integer]): Integer =
-    if list is []: return 0;
-
-    head, tail = list;
-    return head + sum(tail);
+sum(list: [Integer]) -> Integer {
+    match list {
+        ListNil -> 0,
+        ListConstructor(constructor) -> {
+            head, tail = constructor;
+            return head + sum(tail);
+        }
+    }
+}
 
 list = [1, 2, 3];
 return sum(list);

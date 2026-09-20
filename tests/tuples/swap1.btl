@@ -1,6 +1,7 @@
-swap(pair: (Integer, Integer)): (Integer, Integer) =
+swap(pair: (Integer, Integer)) -> (Integer, Integer) {
     a, b = pair;
     return b, a;
+}
 
 a, b = swap((1, 2));
 return a;

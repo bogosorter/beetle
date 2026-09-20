@@ -1,2 +1,4 @@
-s(n: Integer): Integer = return true;
+s(n: Integer) -> Integer {
+    return true;
+}
 return s(false);

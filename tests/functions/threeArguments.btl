@@ -1,4 +1,5 @@
-sum(x: Integer, y: Integer, z: Integer): Integer =
+sum(x: Integer, y: Integer, z: Integer) -> Integer {
     return x + y + z;
+}
 
 return sum(1, 2, 3);

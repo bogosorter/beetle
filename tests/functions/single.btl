@@ -1,4 +1,5 @@
-s(x: Integer): Integer =
+s(x: Integer) -> Integer {
     return x + 1;
+}
 
 return s(0);

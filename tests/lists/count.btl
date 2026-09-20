@@ -1,11 +1,17 @@
-f(n: Integer): Boolean = return n > 0;
+f(n: Integer) -> Boolean {
+    return n > 0;
+}
 
-count(f: a -> Boolean, list: [a]): Integer =
-    if list is []: return 0;
-
-    head, tail = list;
-    if f(head): return 1 + count(f, tail);
-    return count(f, tail);
+count(f: a -> Boolean, list: [a]) -> Integer {
+    match list {
+        ListNil -> 0,
+        ListConstructor(constructor) -> {
+            head, tail = constructor;
+            if f(head): return 1 + count(f, tail);
+            return count(f, tail);
+        }
+    }
+}
 
 list = [1, 0, 3];
 return count(f, list);

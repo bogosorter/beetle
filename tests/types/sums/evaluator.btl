@@ -1,28 +1,29 @@
-Expression
-    = Literal Integer
-    | Addition {left: Expression, right: Expression}
-    | Subtraction {left: Expression, right: Expression}
-    | Multiplication {left: Expression, right: Expression}
-    | Division {left: Expression, right: Expression}
-    ;
+type Expression {
+    Literal(Integer),
+    Addition({left: Expression, right: Expression}),
+    Subtraction({left: Expression, right: Expression}),
+    Multiplication({left: Expression, right: Expression}),
+    Division({left: Expression, right: Expression})
+}
 
-eval(expression: Expression): Integer =
-    if expression is Addition: return eval(expression.left) + eval(expression.right);
-    if expression is Subtraction: return eval(expression.left) - eval(expression.right);
-    if expression is Multiplication: return eval(expression.left) * eval(expression.right);
-    if expression is Division: return eval(expression.left) / eval(expression.right);
-    -- Literal
-    return expression;
+eval(expression: Expression) -> Integer {
+    if expression is Addition(addition): return eval(addition.left) + eval(addition.right);
+    if expression is Subtraction(subtraction): return eval(subtraction.left) - eval(subtraction.right);
+    if expression is Multiplication(multiplication): return eval(multiplication.left) * eval(multiplication.right);
+    if expression is Division(division): return eval(division.left) / eval(division.right);
+    Literal(n) = expression;
+    return n;
+}
 
 return eval(
-    Addition {
-        left: Literal 1,
-        right: Subtraction {
-            left: Multiplication {
-                left: Literal 2,
-                right: Division {left: Literal 4, right: Literal 2}
-            },
-            right: Literal 2
-        }
-    }
+    Addition({
+        left: Literal(1),
+        right: Subtraction({
+            left: Multiplication({
+                left: Literal(2),
+                right: Division({left: Literal(4), right: Literal (2)})
+            }),
+            right: Literal(2)
+        })
+    })
 );

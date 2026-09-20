@@ -1,7 +1,11 @@
-concatenate(a: String, b: String): String =
-    if a is '': return b;
-
-    head, tail = a;
-    return head :: concatenate(tail, b);
+concatenate(a: String, b: String) -> String {
+    match a {
+        ListNil -> b,
+        ListConstructor(constructor) -> {
+            head, tail = constructor;
+            return head :: concatenate(tail, b);
+        }
+    }
+}
 
 return concatenate('hello, ', 'world');

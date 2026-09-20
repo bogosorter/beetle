@@ -1,10 +1,11 @@
-Point = {
+alias Point for {
     x: Integer,
     y: Integer,
     z: Integer
 };
 
-manhattanDistance(point: Point): Integer =
+manhattanDistance(point: Point) -> Integer {
     return point.x + point.y + point.z;
+}
 
 return manhattanDistance({x: 1, y: 2, z: 3});

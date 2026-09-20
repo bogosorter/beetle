@@ -1,6 +1,8 @@
-sum(x: Integer): Integer -> Integer =
-    partial(y: Integer): Integer =
+sum(x: Integer) -> Integer -> Integer {
+    partial(y: Integer) -> Integer {
         return x + y;
+    }
     return partial;
+}
 
 return sum(1, 2);

@@ -1,8 +1,11 @@
-f(x: Integer): Integer -> Integer -> Integer =
-    g(y: Integer): Integer -> Integer =
-        h(z: Integer): Integer =
+f(x: Integer) -> Integer -> Integer -> Integer {
+    g(y: Integer) -> Integer -> Integer {
+        h(z: Integer) -> Integer {
             return x + y + z;
+        }
         return h;
+    }
     return g;
+}
 
 return f(1, 2, 3);

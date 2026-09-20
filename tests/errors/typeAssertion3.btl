@@ -1,4 +1,8 @@
-Sum = Left Integer | Right Integer;
-value = Left 1;
+type Sum {
+    Left(Integer),
+    Right(Integer)
+}
+
+value = Left(1);
 if value is Left: return 1;
 return false;

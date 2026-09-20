@@ -1,10 +1,14 @@
-Result = Result Integer | Error {};
+type Result {
+    Result(Integer),
+    Error({})
+}
 
-safeDivision(a: Integer, b: Integer): Result =
-    if b == 0: return Error {};
-    return Result (a / b);
+safeDivision(a: Integer, b: Integer) -> Result {
+    if b == 0: return Error({});
+    return Result(a / b);
+}
 
 result = safeDivision(3, 0);
 
-if result is Result: return result;
+if result is Result(n): return n;
 return -1;

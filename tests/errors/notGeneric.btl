@@ -1,4 +1,5 @@
-f(n: a): [a] =
+f(n: a) -> [a] {
     return [1];
+}
 
 return 1;

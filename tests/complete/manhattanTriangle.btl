@@ -1,19 +1,22 @@
-Point = {x: Integer, y: Integer};
-Triangle = (Point, Point, Point);
+alias Point for {x: Integer, y: Integer};
+alias Triangle for (Point, Point, Point);
 
-abs(x: Integer): Integer =
+abs(x: Integer) -> Integer {
     if x >= 0: return x;
     return -x;
+}
 
-manhattan(a: Point, b: Point): Integer =
+manhattan(a: Point, b: Point) -> Integer {
     return abs(a.x - b.x) + abs(a.y - b.y);
+}
 
-manhattanTriangle(triangle: Triangle): Integer =
+manhattanTriangle(triangle: Triangle) -> Integer {
     a, b, c = triangle;
     first = manhattan(a, b);
     second = manhattan(b, c);
     third = manhattan(a, c);
     return first + second + third;
+}
 
 a = {x: 0, y: 0};
 b = {x: 1, y: 0};

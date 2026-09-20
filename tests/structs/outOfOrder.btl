@@ -1,5 +1,6 @@
-componentSum(point: {x: Integer, y: Integer}): Integer =
+componentSum(point: {x: Integer, y: Integer}) -> Integer {
     return point.x + point.y;
+}
 
 return componentSum({
     y: 2,

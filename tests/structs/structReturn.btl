@@ -1,4 +1,5 @@
-f(x: Integer): {x: Integer} =
+f(x: Integer) -> {x: Integer} {
     return {x: x};
+}
 
 return f(1).x;

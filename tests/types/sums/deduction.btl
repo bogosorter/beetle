@@ -1,6 +1,11 @@
-Sum = Left Integer | Middle Integer | Right Integer;
+type Sum {
+    Left(Integer),
+    Middle(Integer),
+    Right(Integer)
+}
 
-a = Right 1;
+a = Right(1);
 if a is Left: return -1;
 if a is Middle: return -1;
-return a;
+Right(n) = a;
+return n;

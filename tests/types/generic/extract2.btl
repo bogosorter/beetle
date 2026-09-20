@@ -1,5 +1,6 @@
-f(x: (a, Integer)): Integer =
+f(x: (a, Integer)) -> Integer {
     a, b = x;
     return b;
+}
 
 return f(('a', 1));

@@ -129,7 +129,7 @@ typeCheck env expression = case expression of
         return $ If typedCondition typedLeft typedRight (getType typedLeft)
 
     IfLet {} -> do
-        let IfLet scrutinee constructor introducedVariable left right position = expression
+        let IfLet scrutinee constructor introducedVariable _ left right position = expression
 
         typedScrutinee <- typeCheck env scrutinee
         constructors <- case getType typedScrutinee of
@@ -157,13 +157,16 @@ typeCheck env expression = case expression of
                 (Variable name _) -> insertImpossibleConstructor name constructor env
                 _ -> env
 
-        let env' = insertVariableType introducedVariable (constructors ! constructor) env
+        let variableType = constructors ! constructor
+        substitutions <- instantiateType variableType
+        let variableType' = performSubstitutionsInType substitutions variableType
+        let env' = insertVariableType introducedVariable variableType' env
 
         typedLeft <- typeCheck env' left
         typedRight <- typeCheck rightEnv right
 
-        putConstraint $ Constraint (getType typedLeft) (getType typedRight) position "the branches of an if expression must have the same return type"
-        return $ IfLet typedScrutinee constructor introducedVariable typedLeft typedRight (getType typedLeft)
+        putConstraint $ Constraint (getType typedLeft) (getType typedRight) position "the branches of an if-is expression must have the same return type"
+        return $ IfLet typedScrutinee constructor introducedVariable variableType' typedLeft typedRight (getType typedLeft)
 
     Match {} -> do
         typedScrutinee <- typeCheck env (scrutinee expression)
@@ -181,7 +184,7 @@ typeCheck env expression = case expression of
         --     - Every constructor in the branches must belong to the sum type
         --       of the scrutinee
 
-        let branchConstructors = [constructor | (constructor, _, _) <- branches expression]
+        let branchConstructors = [constructor | (constructor, _, _, _) <- branches expression]
         let missingConstructors = case typedScrutinee of
                 Variable name _ -> Map.withoutKeys constructors (getImpossibleConstructors name env)
                 _ -> constructors
@@ -191,20 +194,22 @@ typeCheck env expression = case expression of
         when (length branchConstructors /= Map.size missingConstructors) $
             lift $ Left $ TypeError position "cannot have less branches in a case expression than constructors in the sum type"
 
-        let typeCheckBranch :: (String, String, SourceExpression) -> Generator (String, String, TypedExpression)
-            typeCheckBranch (constructor, introducedVariable, body) = do
+        let typeCheckBranch :: (String, String, a, SourceExpression) -> Generator (String, String, Type, TypedExpression)
+            typeCheckBranch (constructor, introducedVariable, _, body) = do
                 unless (Map.member constructor missingConstructors) $
                     lift $ Left $ TypeError position ("constructor " ++ show constructor ++ " does not exist in type " ++ show (getType typedScrutinee))
 
-                let introducedType = constructors ! constructor
-                    env' = insertVariableType introducedVariable introducedType env
+                let variableType = constructors ! constructor
+                substitutions <- instantiateType variableType
+                let variableType' = performSubstitutionsInType substitutions variableType
+                let env' = insertVariableType introducedVariable variableType' env
 
                 typedBody <- typeCheck env' body
-                return (constructor, introducedVariable, typedBody)
+                return (constructor, introducedVariable, variableType', typedBody)
 
         typedBranches <- mapM typeCheckBranch (branches expression)
 
-        let branchValueTypes = [getType body | (_, _, body) <- typedBranches]
+        let branchValueTypes = [getType body | (_, _, _, body) <- typedBranches]
         let builder :: (Type, Type) -> Generator ()
             builder (a, b) = putConstraint $ Constraint a b position "all the branches of a match must have the same type"
         _ <- mapM builder (zip branchValueTypes (drop 1 branchValueTypes))
@@ -212,7 +217,7 @@ typeCheck env expression = case expression of
         return $ Match typedScrutinee typedBranches Nothing (branchValueTypes !! 0)
 
     Unwrap {} -> do
-        let Unwrap name scrutinee constructor body position = expression
+        let Unwrap name _ scrutinee constructor body position = expression
 
         typedScrutinee <- typeCheck env scrutinee
         constructors <- case getType typedScrutinee of
@@ -224,16 +229,24 @@ typeCheck env expression = case expression of
         unless (Map.member constructor constructors) $
             lift $ Left $ TypeError position ("constructor " ++ show constructor ++ " does not exist in type " ++ show (getType typedScrutinee))
 
+        let missingConstructors = case typedScrutinee of
+                Variable name _ -> Map.withoutKeys constructors (getImpossibleConstructors name env)
+                _ -> constructors
 
-        case scrutinee of
-            (Variable name _) -> when (Set.member constructor (getImpossibleConstructors name env)) $
-                lift $ Left $ TypeError position ("redundant check: it has already been established that \"" ++ name ++ "\" is not of type " ++ constructor)
-            _ -> return ()
+        when (not (Map.member constructor missingConstructors)) $
+                lift $ Left $ TypeError position ("it has already been established that \"" ++ name ++ "\" is not of type " ++ constructor)
 
-        let env' = insertVariableType name (constructors ! constructor) env
+        when (Map.size missingConstructors > 1) $
+                lift $ Left $ TypeError position ("there is more than one possible constructors (use match instead)")
+
+        let variableType = constructors ! constructor
+        substitutions <- instantiateType variableType
+        let variableType' = performSubstitutionsInType substitutions variableType
+
+        let env' = insertVariableType name variableType' env
 
         typedBody <- typeCheck env' body
-        return $ Unwrap name typedScrutinee constructor typedBody (getType typedBody)
+        return $ Unwrap name variableType' typedScrutinee constructor typedBody (getType typedBody)
 
     Application {} -> do
         typedFunction <- typeCheck env (function expression)
@@ -388,8 +401,8 @@ typeCheckSumRecordMember expression userType env = do
 
     -- To access the member, we match on all possible constructors and extract the member
     let access = Match record branches Nothing position
-        branches :: [(String, String, SourceExpression)]
-        branches = map (\(constructor, _) -> (constructor, "record", RecordMember (Variable "record" position) memberName position)) records
+        branches :: [(String, String, SourcePos, SourceExpression)]
+        branches = map (\(constructor, _) -> (constructor, "record", position, RecordMember (Variable "record" position) memberName position)) records
 
     typeCheck env access
 
@@ -466,9 +479,8 @@ solve (constraint:constraints)
     where Constraint left right position message = constraint
           createConstraint a b = Constraint a b position message
           reportError = case solve constraints of
-            Left errors -> Left $ errors ++ [TypeError position finalMessage]
-            Right _ -> Left [TypeError position finalMessage]
-          finalMessage = (message ++ "(" ++ show left ++ " != " ++ show right ++ ")")
+            Left errors -> Left $ errors ++ [TypeError position message]
+            Right _ -> Left [TypeError position message]
 
 performSubstitutions :: [Substitution] -> TypedExpression -> TypedExpression
 performSubstitutions substitutions expression = foldr (uncurry substituteInExpression) expression substitutions
@@ -493,11 +505,12 @@ substituteInExpression a b expression = case expression of
     Function argumentType returnType argument body t ->
         Function (substituteType argumentType) (substituteType returnType) argument (substitute body) (substituteType t)
     If condition left right t -> If (substitute condition) (substitute left) (substitute right) (substituteType t)
-    IfLet scrutinee constructor introducedVariable left right t ->
-        IfLet (substitute scrutinee) constructor introducedVariable (substitute left) (substitute right) (substituteType t)
+    IfLet scrutinee constructor introducedVariable introducedType left right t ->
+        IfLet (substitute scrutinee) constructor introducedVariable (substituteType introducedType) (substitute left) (substitute right) (substituteType t)
     Match scrutinee branches Nothing t -> Match (substitute scrutinee) (map substituteInBranch branches) Nothing (substituteType t)
     Match {} -> error "match expressions shouldn't have default braches at this point"
-    Unwrap name scrutinee constructor body t -> Unwrap name (substitute scrutinee) constructor (substitute body) (substituteType t)
+    Unwrap name introducedType scrutinee constructor body t ->
+        Unwrap name (substituteType introducedType) (substitute scrutinee) constructor (substitute body) (substituteType t)
     Application function argument t -> Application (substitute function) (substitute argument) (substituteType t)
     Variable name t -> Variable name (substituteType t)
     RecordMember record name t -> RecordMember (substitute record) name (substituteType t)
@@ -508,7 +521,7 @@ substituteInExpression a b expression = case expression of
 
     where substitute = substituteInExpression a b
           substituteType = substituteInType a b
-          substituteInBranch (constructor, introducedVariable, body) = (constructor, introducedVariable, substitute body)
+          substituteInBranch (constructor, introducedVariable, introducedType, body) = (constructor, introducedVariable, substituteType introducedType, substitute body)
 
 substituteInType :: Type -> Type -> Type -> Type
 substituteInType a b source

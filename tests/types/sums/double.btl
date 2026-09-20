@@ -1,14 +1,22 @@
-MyList = Cons (Integer, MyList) | Nil {};
+type MyList {
+    Cons((Integer, MyList)),
+    Nil({})
+}
 
-double(list: MyList): MyList =
-    if list is Nil: return Nil {};
-    head, tail = list;
-    return Cons (head * 2, double(tail));
+double(list: MyList) -> MyList {
+    match list {
+        Nil -> Nil({}),
+        Cons(constructor) -> {
+            head, tail = constructor;
+            return Cons((head * 2, double(tail)));
+        }
+    }
+}
 
-list = Cons (1, Cons (2, Cons (3, Nil {})));
+list = Cons((1, Cons((2, Cons((3, Nil({})))))));
 result = double(list);
 
-integerToString(n: Integer): String =
+integerToString(n: Integer) -> String {
     if n < 0: return "-" :: integerToString(-n);
 
     -- ord and char do not exist in beetle for now
@@ -24,16 +32,21 @@ integerToString(n: Integer): String =
     if n == 9: return '9';
 
     return integerToString(n / 10) >> integerToString(n rem 10);
+}
 
-intercalate(separator: String, list: MyList): String =
-    if list is Nil: return '';
+intercalate(separator: String, list: MyList) -> String {
+    match list {
+        Nil -> '',
+        Cons(constructor) -> {
+            head, tail = constructor;
+            if tail is Nil: return integerToString(head);
+            return integerToString(head) >> separator >> intercalate(separator, tail);
+        }
+    }
+}
 
-    head, tail = list;
-    if tail is Nil: return integerToString(head);
-
-    return integerToString(head) >> separator >> intercalate(separator, Cons tail);
-
-listToString(list: MyList): String =
+listToString(list: MyList) -> String {
     return '[' >> intercalate(', ', list) >> ']';
+}
 
 return listToString(result);

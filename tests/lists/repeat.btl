@@ -1,24 +1,30 @@
-repeat(n: Integer, x: a): List<a> =
+repeat(n: Integer, x: a) -> List<a> {
     if n == 0: return [];
     return x :: repeat(n - 1, x);
+}
 
 result = repeat(3, true);
 
 -- Utils to print the result
 
-booleanToString(b: Boolean): String =
+booleanToString(b: Boolean) -> String {
     if not b: return 'false';
     return 'true';
+}
 
-intercalate(separator: String, list: [Boolean]): String =
-    if list is []: return '';
+intercalate(separator: String, list: [Boolean]) -> String {
+    match list {
+        ListNil -> '',
+        ListConstructor(constructor) -> {
+            head, tail = constructor;
+            if tail is ListNil: return booleanToString(head);
+            return booleanToString(head) >> separator >> intercalate(separator, tail);
+        }
+    }
+}
 
-    head, tail = list;
-    if tail is []: return booleanToString(head);
-
-    return booleanToString(head) >> separator >> intercalate(separator, ListConstructor tail);
-
-listToString(list: [Boolean]): String =
+listToString(list: [Boolean]) -> String {
     return '[' >> intercalate(', ', list) >> ']';
+}
 
 return listToString(result);
