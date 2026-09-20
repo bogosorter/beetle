@@ -75,7 +75,7 @@ ifLet position scrutinee = do
 
 ifBody :: Parser (SourceExpression, SourceExpression)
 ifBody = do
-    left <- (symbol ":" *> returnValue) <|> (symbol "{" *> returnExpression <* symbol "}")
+    left <- (symbol ":" *> returnValue) <|> scope
     right <- returnExpression
     return (left, right)
 
@@ -183,9 +183,7 @@ functionDefinition position name = do
     symbol ")"
     symbol "->"
     returnType <- typeParser
-    symbol "{"
-    body <- returnExpression
-    symbol "}"
+    body <- scope
 
     let builder :: (String, Type) -> (SourceExpression, Type) -> (SourceExpression, Type)
         builder (argumentName, argumentType) (body, bodyType) =
@@ -211,8 +209,7 @@ match = do
             position <- M.getSourcePos
             constructor <- typeIdentifier
             introducedVariable <- symbol "(" *> identifier <* symbol ")" <|> return "_"
-            symbol "->"
-            body <- nonTupleExpression
+            body <- (symbol "->" *> nonTupleExpression) <|> scope
             return (constructor, introducedVariable, position, body)
 
 expression :: Parser SourceExpression

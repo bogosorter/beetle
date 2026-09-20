@@ -1,0 +1,23 @@
+type Sum {
+    Left(Integer),
+    Middle({x: Integer, y: Integer}),
+    Right((Integer, Integer))
+}
+
+a = Left(1);
+b = Middle({x: 1, y: 2});
+
+if a is Left(n) {
+    match b {
+        Left -> -2,
+        Middle(s) {
+            result = n + s.y;
+            return result;
+        },
+        Right(p) {
+            _, b = p;
+            return n + b;
+        }
+    }
+}
+return -1;
