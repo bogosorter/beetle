@@ -20,28 +20,6 @@ eval(expression: Expression) -> Integer {
     }
 }
 
-type Expression {
-    Literal(Integer),
-    Addition({left: Expression, right: Expression}),
-    Subtraction({left: Expression, right: Expression}),
-    Multiplication({left: Expression, right: Expression}),
-    Division({left: Expression, right: Expression})
-}
-
-eval(expression: Expression) -> Integer {
-    if expression is Literal(n): return n;
-
-    left = eval(expression.left);
-    right = eval(expression.right);
-
-    match expression {
-        Addition -> left + right,
-        Subtraction -> left - right,
-        Multiplication -> left * right,
-        Division -> left / right
-    }
-}
-
 return eval(
     Addition({
         left: Literal(1),

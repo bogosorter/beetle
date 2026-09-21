@@ -4,8 +4,10 @@ type Tree<a> {
 }
 
 size(tree: Tree<a>) -> Integer {
-    if tree is Leaf: return 1;
-    return size(tree.left) + size(tree.right);
+    match tree {
+        Leaf -> 1,
+        Node(node) -> 1 + size(node.left) + size(node.right)
+    }
 }
 
 tree = Node ({

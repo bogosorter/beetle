@@ -1,15 +1,13 @@
 # Roadmap
 
-# v4.3.0
+# v5.1.0
 
-- Type classes
-
-# v4.4.0
-
-- Module system
+- Pattern matching
 
 # v.X.X.X
 
+- Module system
+- Type classes
 - Floating point numbers
 - Arbitrary type position
 - Enums

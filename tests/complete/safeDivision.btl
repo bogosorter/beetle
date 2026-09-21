@@ -1,10 +1,10 @@
 type Result {
     Result(Integer),
-    Error({})
+    Error
 }
 
 safeDivision(a: Integer, b: Integer) -> Result {
-    if b == 0: return Error({});
+    if b == 0: return Error;
     return Result(a / b);
 }
 

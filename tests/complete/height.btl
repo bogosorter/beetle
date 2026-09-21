@@ -9,11 +9,10 @@ max(a: Integer, b: Integer) -> Integer {
 }
 
 height(tree: Tree<a>) -> Integer {
-    if tree is Leaf: return 0;
-
-    left = height(tree.left);
-    right = height(tree.right);
-    return 1 + max(left, right);
+    match tree {
+        Leaf -> 0,
+        Node(node) -> 1 + height(node.left) + height(node.right)
+    }
 }
 
 tree = Node ({
