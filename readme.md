@@ -8,7 +8,7 @@ The programming language that embraces bugs.
 
 ## About
 
-*beetle* is a simple functional programming language. I make no pretense of being a knowledgeable language designer (linguist?), but I hope that tinkering around will teach me a little about compilers. *beetle*'s compiler is written in Haskell and outputs code in the LLVM Intermediate Representation. Its features include first-order functions and closures, sum types (including recursively defined types), and parametric polymorphism.
+*beetle* is a simple functional programming language. I make no pretense of being a knowledgeable language designer (linguist?), but I hope that tinkering around will teach me a little about compilers. *beetle*'s compiler is written in Haskell and outputs code in the LLVM Intermediate Representation. It features first-order functions and closures, sum types (including recursively defined types), and parametric polymorphism.
 
 *beetle* programs consist of a number of assignments followed by a return expression (the program's output). As an example, consider this naive implementation of the *Red, Green, and Blue Tiles* problem from [Project Euler](https://projecteuler.net/problem=117):
 
