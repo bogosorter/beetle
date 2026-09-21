@@ -1,0 +1,10 @@
+type Sum {
+    Left(Integer),
+    Middle(Integer),
+    Right(Integer)
+}
+
+a = 3;
+
+if a is Left(n): return n;
+return 1;

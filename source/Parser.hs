@@ -77,7 +77,7 @@ ifBody :: Parser (SourceExpression, SourceExpression)
 ifBody = do
     left <- (symbol ":" *> returnValue) <|> scope
     right
-        <- (keyword "else" *> ((symbol ":" *> returnValue) <|> scope))
+        <- (keyword "else" *> ((symbol ":" *> returnValue) <|> ifExpression <|> scope))
         <|> returnExpression
     return (left, right)
 

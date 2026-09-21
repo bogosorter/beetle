@@ -1,0 +1,12 @@
+type Sum {
+    Left(Integer),
+    Middle(Integer),
+    Right(Integer)
+}
+
+a = Left(3);
+
+match a {
+    Left(n) -> n,
+    Middle(n) -> n + 1
+}

@@ -199,7 +199,7 @@ typeCheck env expression = case expression of
 
         let branchValueTypes = [getType body | (_, _, _, body) <- typedBranches]
         let builder :: (Type, Type) -> Generator ()
-            builder (a, b) = putConstraint $ Constraint a b position "all the branches of a match must have the same type"
+            builder (a, b) = putConstraint $ Constraint a b position "all the branches of a match must have the same return type"
         _ <- mapM builder (zip branchValueTypes (drop 1 branchValueTypes))
 
         return $ Match typedScrutinee typedBranches Nothing (branchValueTypes !! 0)
@@ -211,8 +211,8 @@ typeCheck env expression = case expression of
         constructors <- case getType typedScrutinee of
             UserType userType _ -> case Map.lookup userType (sumTypes env) of
                 Just (_, constructors) -> return constructors
-                _ -> lift $ Left $ TypeError position ("the scrutinee of an if-let must be a sum type, but got type " ++ userType)
-            t -> lift $ Left $ TypeError position ("the scrutinee of an if-let must be a sum type, but got type " ++ show t)
+                _ -> lift $ Left $ TypeError position ("the scrutinee of an unwrap must be a sum type, but got type " ++ userType)
+            t -> lift $ Left $ TypeError position ("the scrutinee of an unwrap must be a sum type, but got type " ++ show t)
 
         unless (Map.member constructor constructors) $
             lift $ Left $ TypeError position ("constructor " ++ show constructor ++ " does not exist in type " ++ show (getType typedScrutinee))
