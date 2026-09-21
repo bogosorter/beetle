@@ -95,18 +95,6 @@ typeCheck env expression = case expression of
 
             Nothing -> lift $ Left $ TypeError position ("couldn't find constructor " ++ name)
 
-    Lowering {} -> do
-        let Lowering value constructor _ = expression
-
-        typedValue <- typeCheck env value
-        let loweredType = case getType typedValue of
-                UserType userType arguments -> case Map.lookup userType (sumTypes env) of
-                    Just (parameters, constructors) -> performSubstitutionsInType (zip (map TypeVariable parameters) arguments) (constructors ! constructor)
-                    _ -> error ("the value of a lowering must be a sum type, but got type " ++ userType)
-                t -> error ("the value of a lowering must be a sum type, but got type " ++ show t)
-
-        return $ Lowering typedValue constructor loweredType
-
     Function {} -> do
         let Function argumentType returnType argumentName body _ = expression
         argumentType <- desugar position env argumentType
@@ -501,7 +489,6 @@ substituteInExpression a b expression = case expression of
     EmptyList t -> EmptyList (substituteType t)
     EmptyString {} -> expression
     Constructor name value t -> Constructor name (substitute value) (substituteType t)
-    Lowering value constructor t -> Lowering (substitute value) constructor (substituteType t)
     Function argumentType returnType argument body t ->
         Function (substituteType argumentType) (substituteType returnType) argument (substitute body) (substituteType t)
     If condition left right t -> If (substitute condition) (substitute left) (substitute right) (substituteType t)

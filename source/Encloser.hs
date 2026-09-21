@@ -54,11 +54,6 @@ enclose env expression = case expression of
         enclosedValue <- enclose env $ value expression
         return $ Closures.Constructor enclosedValue index enclosedType
 
-    Lowering {} -> do
-        let Lowering value _ t = expression
-        enclosedValue <- enclose env value
-        return $ Closures.Lowering enclosedValue (encloseType t)
-
     AST.Function {} -> encloseFunction env expression Nothing
 
     If {} -> do
@@ -227,8 +222,6 @@ freeVariables expression = case expression of
         unions $ map freeVariables (Map.elems members)
 
     Constructor {} -> freeVariables (value expression)
-
-    Lowering {} -> freeVariables (value expression)
 
     AST.Function { argumentName = argument, body = body } ->
         delete argument $ freeVariables body

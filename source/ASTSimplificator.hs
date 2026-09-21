@@ -14,7 +14,6 @@ simplify expression = case expression of
     EmptyList t -> Constructor "ListNil" (Record Data.Map.empty (RecordType Data.Map.empty)) t
     EmptyString t -> Constructor "ListNil" (Record Data.Map.empty (RecordType Data.Map.empty)) t
     Constructor constructor value t -> Constructor constructor (simplify value) t
-    Lowering value constructor t -> Lowering (simplify value) constructor t
     Function {} -> expression { body = simplify $ body expression }
     If condition left right t -> If (simplify condition) (simplify left) (simplify right) t
     IfLet scrutinee constructor introducedVariable introducedType left right t ->
