@@ -34,7 +34,7 @@ typeCheckProgram program = do
     -- Ensure that the ouptut of the program is IO({})
     let typedProgram = performSubstitutions substitutions intermediateProgram
     case getType typedProgram of
-        UserType "IO" [unitType] -> Right typedProgram
+        UserType "IO" [TupleType []] -> Right typedProgram
         t -> Left $ [TypeError (getPosition program) ("every program must return a value of type IO({}), but got type " ++ show t)]
 
 

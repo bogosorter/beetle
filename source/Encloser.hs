@@ -349,6 +349,7 @@ builtInFunctions =
     , makeBuiltInFunction ">=" Closures.IntegerType Closures.IntegerType Closures.BooleanType
     , makeBuiltInFunction "==" Closures.IntegerType Closures.IntegerType Closures.BooleanType
     , ("not", Closures.BuiltInFunction "not" (Closures.ClosureType Closures.BooleanType Closures.BooleanType))
+    , ("writeCharacter", Closures.BuiltInFunction "writeCharacter" (Closures.ClosureType Closures.CharacterType Closures.SumType))
     ]
 
 makeBuiltInFunction :: String -> Closures.Type -> Closures.Type -> Closures.Type -> (String, Closures.Expression)

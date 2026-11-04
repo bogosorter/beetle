@@ -100,6 +100,10 @@ data Statement
         { destination :: Operand
         , size :: Operand
         }
+    | WriteCharacter
+        { destination :: Operand
+        , argument :: Operand
+        }
     | Load
         { destination :: Operand
         , destinationType :: Type
@@ -162,10 +166,8 @@ null = Operand "null"
 instance Show Program where
     show (Program functions (statements, resultRegister, resultType)) = printf
             "target triple = \"x86_64-pc-linux-gnu\"\n\
-            \declare void @print_boolean(i8)\n\
-            \declare void @print_integer(i32)\n\
-            \declare void @print_character(i8)\n\
-            \declare void @print_string(ptr)\n\
+            \declare ptr @do_io(ptr)\n\
+            \declare ptr @print_character_monad(i64)\n\
             \declare ptr @malloc(i64)\n\
             \\n\
             \%s\
@@ -174,32 +176,13 @@ instance Show Program where
             \define i32 @main() {\n\
             \    %s\n\
             \\n\
-            \%s\n\
+            \    call ptr @do_io(ptr %s)\n\
             \    ret i32 0\n\
             \}\n\
             \"
             (intercalate "\n\n" $ map show functions)
             (intercalate "\n    " $ map show statements)
-            (showPrint resultType resultRegister)
-
-        where showPrint :: Type -> Operand -> String
-              showPrint resultType resultRegister
-                | resultType == BooleanType = printf
-                    "    ; the result is zero-extended to prevent print from reading garbage\n\
-                    \    ; values when printing booleans\n\
-                    \    %%_extended_result = zext i1 %s to i8\n\
-                    \    call void @print_boolean(i8 %%_extended_result)\n"
-                    (show resultRegister)
-                | resultType == IntegerType = printf
-                    "    call void @print_integer(i32 %s)\n"
-                    (show resultRegister)
-                | resultType == CharacterType = printf
-                    "    call void @print_character(i8 %s)\n"
-                    (show resultRegister)
-                | resultType == PointerType = printf
-                    "    call void @print_string(ptr %s)\n"
-                    (show resultRegister)
-                | otherwise = error "got a result type that is not of type string, boolean, character or pointer"
+            (show resultRegister)
 
 instance Show Function where
     show function = printf
@@ -299,6 +282,11 @@ instance Show Statement where
             printf "%s = call ptr @malloc(i64 %s)"
             (show $ destination statement)
             (show $ size statement)
+
+        WriteCharacter {} ->
+            printf "%s = call ptr @print_character_monad(i64 %s)"
+            (show $ destination statement)
+            (show $ argument statement)
 
         Load {} ->
             printf "%s = load %s, ptr %s"

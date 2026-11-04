@@ -245,6 +245,15 @@ compileExpression env expression = case expression of
         putStatement $ BinaryOperation register LLVM.BooleanType Xor argumentRegister (integerOperand (-1))
         return register
 
+    -- Built-in writeCharacter function call
+    Application (BuiltInFunction "writeCharacter" _) argument _ -> do
+        argumentRegister <- compileExpression env argument
+        boxedArgument <- box argumentRegister (LLVM.CharacterType)
+
+        register <- reserveRegister
+        putStatement $ WriteCharacter register boxedArgument
+        return register
+
     -- Built-in function calls
     Application (Application f@(BuiltInFunction name _) left _) right _ -> do
         leftRegister <- compileExpression env left

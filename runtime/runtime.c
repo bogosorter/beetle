@@ -41,10 +41,10 @@ struct io_closure {
     void *argument; // the argument to be passed to the function
 };
 
-void do_io(struct sum *io) {
+void *do_io(struct sum *io) {
     // We disregard tag, since IO is a newtype and the tag will always be zero
     struct io_closure *closure = io->value;
-    (closure->function)(closure->argument);
+    return (closure->function)(closure->argument);
 }
 
 void *io_character(void *argument) {
@@ -63,9 +63,4 @@ struct sum *print_character_monad(void *character) {
     io->value = closure;
 
     return io;
-}
-
-int main() {
-    struct sum* io = print_character_monad((void *) 'a');
-    do_io(io);
 }
