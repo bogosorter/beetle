@@ -31,14 +31,11 @@ typeCheckProgram program = do
     -- Second phase
     substitutions <- solve (constraints state)
 
-    -- Ensure that the ouptut of the program is one of the allowed types
+    -- Ensure that the ouptut of the program is IO({})
     let typedProgram = performSubstitutions substitutions intermediateProgram
     case getType typedProgram of
-        IntegerType -> Right typedProgram
-        BooleanType -> Right typedProgram
-        CharacterType -> Right typedProgram
-        UserType "List" [CharacterType] -> Right typedProgram
-        t -> Left $ [TypeError (getPosition program) ("every program must return an integer, a boolean, a character or a string, but got type " ++ show t)]
+        UserType "IO" [unitType] -> Right typedProgram
+        t -> Left $ [TypeError (getPosition program) ("every program must return a value of type IO({}), but got type " ++ show t)]
 
 
 -- This section deals with the generation of type constraints
@@ -582,6 +579,12 @@ data Environment = Environment
 emptyEnvironment :: Environment
 emptyEnvironment = Environment defaultFunctions Map.empty Map.empty Map.empty Map.empty
 
+unitType :: Type
+unitType = TupleType []
+
+ioType :: Type -> Type
+ioType a = UserType "IO" [a]
+
 defaultFunctions :: Map.Map String Type
 defaultFunctions = Map.fromList
     [ ("*", FunctionType IntegerType (FunctionType IntegerType IntegerType))
@@ -598,6 +601,7 @@ defaultFunctions = Map.fromList
     , ("not", FunctionType BooleanType BooleanType)
     , ("and", FunctionType BooleanType (FunctionType BooleanType BooleanType))
     , ("or", FunctionType BooleanType (FunctionType BooleanType BooleanType))
+    , ("writeCharacter", FunctionType CharacterType (ioType unitType))
     ]
 
 isAvailable :: Environment -> String -> Bool

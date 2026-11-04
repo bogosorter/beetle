@@ -25,4 +25,6 @@ fold(f: a -> b -> b, accumulator: b, list: [a]) -> b {
 
 alias String for [Character];
 
+type IO<a>(a);
+
 export;
