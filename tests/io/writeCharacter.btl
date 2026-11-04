@@ -1,0 +1,3 @@
+a = writeCharacter("a");
+b = writeCharacter("b");
+return a;

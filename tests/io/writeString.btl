@@ -1,0 +1,3 @@
+a = writeString('hello, world\n');
+b = writeString('bye, world\n');
+return a;
