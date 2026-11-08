@@ -1,3 +1,11 @@
-a = writeString('hello, world\n');
-b = writeString('bye, world\n');
-return a;
+writeString(string: String) -> IO<{}> {
+    match string {
+        ListNil -> writeCharacter("\n"),
+        ListConstructor(constructor) -> {
+            head, tail = constructor;
+            return bind(writeCharacter(head), (x: {}) -> IO<{}> = writeString(tail));
+        }
+    }
+}
+
+return writeString('hello, world');

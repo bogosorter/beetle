@@ -248,11 +248,25 @@ compileExpression env expression = case expression of
     -- Built-in writeCharacter function call
     Application (BuiltInFunction "writeCharacter" _) argument _ -> do
         argumentRegister <- compileExpression env argument
-        boxedArgument <- box argumentRegister (LLVM.CharacterType)
+        boxedArgument <- box argumentRegister LLVM.CharacterType
 
         register <- reserveRegister
         putStatement $ WriteCharacter register boxedArgument
         return register
+
+    -- Built-in bind call
+    Application (Application f@(BuiltInFunction "bind" _) left _) right _ -> do
+        leftRegister <- compileExpression env left
+        boxedLeft <- box leftRegister LLVM.PointerType
+
+        rightRegister <- compileExpression env right
+        boxedRight <- box rightRegister LLVM.PointerType
+
+        register <- reserveRegister
+        putStatement $ Bind register boxedLeft boxedRight
+        unboxedRegister <- unbox register LLVM.PointerType
+
+        return unboxedRegister
 
     -- Built-in function calls
     Application (Application f@(BuiltInFunction name _) left _) right _ -> do

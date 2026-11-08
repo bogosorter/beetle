@@ -100,6 +100,11 @@ data Statement
         { destination :: Operand
         , size :: Operand
         }
+    | Bind
+        { destination :: Operand
+        , left :: Operand
+        , right :: Operand
+        }
     | WriteCharacter
         { destination :: Operand
         , argument :: Operand
@@ -167,6 +172,7 @@ instance Show Program where
     show (Program functions (statements, resultRegister, resultType)) = printf
             "target triple = \"x86_64-pc-linux-gnu\"\n\
             \declare ptr @do_io(ptr)\n\
+            \declare i64 @bind(i64, i64)\n\
             \declare ptr @print_character_monad(i64)\n\
             \declare ptr @malloc(i64)\n\
             \\n\
@@ -282,6 +288,12 @@ instance Show Statement where
             printf "%s = call ptr @malloc(i64 %s)"
             (show $ destination statement)
             (show $ size statement)
+
+        Bind {} ->
+            printf "%s = call i64 @bind(i64 %s, i64 %s)"
+            (show $ destination statement)
+            (show $ left statement)
+            (show $ right statement)
 
         WriteCharacter {} ->
             printf "%s = call ptr @print_character_monad(i64 %s)"

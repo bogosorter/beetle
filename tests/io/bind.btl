@@ -1,0 +1,6 @@
+a = writeCharacter("a");
+b(x: {}) -> IO<{}> {
+    return writeCharacter("b");
+}
+
+return bind(a, b);
