@@ -402,7 +402,8 @@ desugar position env (UserType name arguments) = do
                 Just (parameters, _) -> do
                     when (length parameters /= length arguments) $
                         lift $ Left $ TypeError position ("wrong number of arguments for type " ++ name)
-                    return $ UserType name arguments
+                    desugaredArguments <- mapM (desugar position env) arguments
+                    return $ UserType name desugaredArguments
                 Nothing -> lift $ Left $ TypeError position ("couldn't find type " ++ name)
 desugar position env (TupleType memberTypes) = do
     desugaredMemberTypes <- mapM (desugar position env) memberTypes
@@ -593,7 +594,7 @@ defaultFunctions = Map.fromList
     , ("rem", FunctionType IntegerType (FunctionType IntegerType IntegerType))
     , ("+", FunctionType IntegerType (FunctionType IntegerType IntegerType))
     , ("-", FunctionType IntegerType (FunctionType IntegerType IntegerType))
-    , ("==", FunctionType IntegerType (FunctionType IntegerType BooleanType))
+    , ("==", FunctionType (TypeVariable "a") (FunctionType (TypeVariable "a") BooleanType))
     , (">=", FunctionType IntegerType (FunctionType IntegerType BooleanType))
     , ("<=", FunctionType IntegerType (FunctionType IntegerType BooleanType))
     , (">", FunctionType IntegerType (FunctionType IntegerType BooleanType))

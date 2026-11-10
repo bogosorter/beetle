@@ -302,11 +302,7 @@ compileExpression env expression = case expression of
                 "==" -> Eq
                 _ -> error ("unrecognized built-in operator " ++ name)
 
-        let argumentType = case getType f of
-                ClosureType argumentType _ -> argumentType
-                _ -> error "found a built-in function whose type is not a closured type"
-
-        putStatement $ BinaryOperation register (llvmType $ argumentType) opCode leftRegister rightRegister
+        putStatement $ BinaryOperation register (llvmType $ getType left) opCode leftRegister rightRegister
         return register
 
     Application closure argument t -> do
