@@ -1,0 +1,28 @@
+readLineBuilder(ignored: {}) -> IO<String> {
+    readLineAux(c: Character) -> IO<String> {
+        if c == "\n": return IO('');
+        aux(tail: String) -> IO<String> {
+            return IO(c :: tail);
+        }
+        return bind(readLineBuilder({}), aux);
+    }
+    return bind(readCharacter, readLineAux);
+}
+readLine = readLineBuilder({});
+
+writeString(string: String) -> IO<{}> {
+    match string {
+        ListNil -> IO({}),
+        ListConstructor(constructor) -> {
+            head, tail = constructor;
+            return bind(writeCharacter(head), (x: {}) -> IO<{}> = writeString(tail));
+        }
+    }
+}
+
+getName = bind(writeString('what\'s your name? '), (ignored: {}) -> IO<String> = readLine);
+greet(name: String) -> IO<{}> {
+    return writeString('hello, ' >> name >> '\n');
+}
+
+return bind(getName, greet);
