@@ -105,6 +105,9 @@ data Statement
         , left :: Operand
         , right :: Operand
         }
+    | ReadCharacter
+        { destination :: Operand
+        }
     | WriteCharacter
         { destination :: Operand
         , argument :: Operand
@@ -173,6 +176,7 @@ instance Show Program where
             "target triple = \"x86_64-pc-linux-gnu\"\n\
             \declare ptr @do_io(ptr)\n\
             \declare i64 @bind(i64, i64)\n\
+            \declare ptr @read_character_monad()\n\
             \declare ptr @print_character_monad(i64)\n\
             \declare ptr @malloc(i64)\n\
             \\n\
@@ -294,6 +298,10 @@ instance Show Statement where
             (show $ destination statement)
             (show $ left statement)
             (show $ right statement)
+
+        ReadCharacter {} ->
+            printf "%s = call ptr @read_character_monad()"
+            (show $ destination statement)
 
         WriteCharacter {} ->
             printf "%s = call ptr @print_character_monad(i64 %s)"

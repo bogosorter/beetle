@@ -83,10 +83,28 @@ struct sum *bind(struct sum *left, struct closure *right) {
     return s;
 }
 
+void *io_read_character(void *unused) {
+    char character;
+    scanf("%c", &character);
+    return (void *)character;
+}
+
 void *io_character(void *argument) {
     char character = (char) argument;
     printf("%c", character);
     return NULL;
+}
+
+struct sum *read_character_monad() {
+    struct io_closure *closure = malloc(sizeof(struct io_closure));
+    closure->function = io_read_character;
+    closure->argument = NULL;
+
+    struct sum *io = malloc(sizeof(struct sum));
+    io->tag = 0;
+    io->value = closure;
+
+    return io;
 }
 
 struct sum *print_character_monad(void *character) {

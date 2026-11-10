@@ -12,6 +12,7 @@ tests/**
 !tests/SimpleCompiler.hs
 !tests/**/
 !tests/**/*.btl
+!tests/**/*.in
 !tests/**/*.out
 
 test.sh

@@ -603,6 +603,7 @@ defaultFunctions = Map.fromList
     , ("or", FunctionType BooleanType (FunctionType BooleanType BooleanType))
     , ("bind", FunctionType (ioType (TypeVariable "a")) (FunctionType (FunctionType (TypeVariable "a") (ioType (TypeVariable "b"))) (ioType (TypeVariable "b"))))
     , ("writeCharacter", FunctionType CharacterType (ioType unitType))
+    , ("readCharacter", ioType CharacterType)
     ]
 
 isAvailable :: Environment -> String -> Bool

@@ -237,6 +237,12 @@ compileExpression env expression = case expression of
         putStatement $ Phi resultRegister (llvmType t) phiSources
         return resultRegister
 
+    -- Built-in writeCharacter function call
+    BuiltInFunction "readCharacter" _ -> do
+        register <- reserveRegister
+        putStatement $ ReadCharacter register
+        return register
+
     -- Built-in not function call
     Application (BuiltInFunction "not" _) argument _ -> do
         argumentRegister <- compileExpression env argument

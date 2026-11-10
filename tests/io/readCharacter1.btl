@@ -1,0 +1,17 @@
+writeString(string: String) -> IO<{}> {
+    match string {
+        ListNil -> writeCharacter("\n"),
+        ListConstructor(constructor) -> {
+            head, tail = constructor;
+            return bind(writeCharacter(head), (x: {}) -> IO<{}> = writeString(tail));
+        }
+    }
+}
+
+c = readCharacter;
+output(c: Character) -> IO<{}> {
+    result = c :: c :: c :: '\n';
+    return writeString(result);
+}
+
+return bind(c, output);
