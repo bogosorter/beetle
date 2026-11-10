@@ -95,6 +95,10 @@ void *io_character(void *argument) {
     return NULL;
 }
 
+void *io_identity(void *argument) {
+    return argument;
+}
+
 struct sum *read_character_monad() {
     struct io_closure *closure = malloc(sizeof(struct io_closure));
     closure->function = io_read_character;
@@ -111,6 +115,18 @@ struct sum *print_character_monad(void *character) {
     struct io_closure *closure = malloc(sizeof(struct io_closure));
     closure->function = io_character;
     closure->argument = character;
+
+    struct sum *io = malloc(sizeof(struct sum));
+    io->tag = 0;
+    io->value = closure;
+
+    return io;
+}
+
+struct sum *io_constructor(void *argument) {
+    struct io_closure *closure = malloc(sizeof(struct io_closure));
+    closure->function = io_identity;
+    closure->argument = argument;
 
     struct sum *io = malloc(sizeof(struct sum));
     io->tag = 0;

@@ -352,6 +352,7 @@ builtInFunctions =
     , ("bind", Closures.BuiltInFunction "bind" (Closures.ClosureType Closures.SumType (Closures.ClosureType Closures.SumType Closures.SumType)))
     , ("writeCharacter", Closures.BuiltInFunction "writeCharacter" (Closures.ClosureType Closures.CharacterType Closures.SumType))
     , ("readCharacter", Closures.BuiltInFunction "readCharacter" Closures.SumType)
+    , ("_ioConstructor", Closures.BuiltInFunction "_ioConstructor" (Closures.ClosureType Closures.GenericType Closures.SumType))
     ]
 
 makeBuiltInFunction :: String -> Closures.Type -> Closures.Type -> Closures.Type -> (String, Closures.Expression)

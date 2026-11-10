@@ -1,6 +1,6 @@
 writeString(string: String) -> IO<{}> {
     match string {
-        ListNil -> writeCharacter("\n"),
+        ListNil -> IO({}),
         ListConstructor(constructor) -> {
             head, tail = constructor;
             return bind(writeCharacter(head), (x: {}) -> IO<{}> = writeString(tail));
@@ -8,4 +8,4 @@ writeString(string: String) -> IO<{}> {
     }
 }
 
-return writeString('hello, world');
+return writeString('hello, world\n');

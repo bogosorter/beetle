@@ -112,6 +112,10 @@ data Statement
         { destination :: Operand
         , argument :: Operand
         }
+    | IOConstructor
+        { destination :: Operand
+        , argument :: Operand
+        }
     | Load
         { destination :: Operand
         , destinationType :: Type
@@ -178,6 +182,7 @@ instance Show Program where
             \declare i64 @bind(i64, i64)\n\
             \declare ptr @read_character_monad()\n\
             \declare ptr @print_character_monad(i64)\n\
+            \declare ptr @io_constructor(i64)\n\
             \declare ptr @malloc(i64)\n\
             \\n\
             \%s\
@@ -305,6 +310,11 @@ instance Show Statement where
 
         WriteCharacter {} ->
             printf "%s = call ptr @print_character_monad(i64 %s)"
+            (show $ destination statement)
+            (show $ argument statement)
+
+        IOConstructor {} ->
+            printf "%s = call ptr @io_constructor(i64 %s)"
             (show $ destination statement)
             (show $ argument statement)
 

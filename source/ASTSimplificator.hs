@@ -13,7 +13,9 @@ simplify expression = case expression of
     Record members t -> Record (Data.Map.map simplify members) t
     EmptyList t -> Constructor "ListNil" (Record Data.Map.empty (RecordType Data.Map.empty)) t
     EmptyString t -> Constructor "ListNil" (Record Data.Map.empty (RecordType Data.Map.empty)) t
-    Constructor constructor value t -> Constructor constructor (simplify value) t
+    Constructor constructor value t -> case constructor of
+        "IO" -> Application (Variable "_ioConstructor" IntegerType) (simplify value) t
+        _ -> Constructor constructor (simplify value) t
     Function {} -> expression { body = simplify $ body expression }
     If condition left right t -> If (simplify condition) (simplify left) (simplify right) t
     IfLet scrutinee constructor introducedVariable introducedType left right t ->

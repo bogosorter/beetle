@@ -260,6 +260,15 @@ compileExpression env expression = case expression of
         putStatement $ WriteCharacter register boxedArgument
         return register
 
+    -- Built-in writeCharacter function call
+    Application (BuiltInFunction "_ioConstructor" _) argument _ -> do
+        argumentRegister <- compileExpression env argument
+        boxedArgument <- box argumentRegister (llvmType $ getType argument)
+
+        register <- reserveRegister
+        putStatement $ IOConstructor register boxedArgument
+        return register
+
     -- Built-in bind call
     Application (Application f@(BuiltInFunction "bind" _) left _) right _ -> do
         leftRegister <- compileExpression env left
